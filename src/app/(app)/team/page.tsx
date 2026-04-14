@@ -3,102 +3,20 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { revalidatePath } from "next/cache";
-import crypto from "crypto";
-import { headers } from "next/headers";
-import { sendInviteEmail } from "@/lib/email/client";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { getDict } from "@/lib/i18n";
+import { CreateOrgForm, InviteForm, PrivacyToggle } from "@/components/team-forms";
 
-type Member = {
+type MemberRow = {
   user_id: string;
   role: string;
   manager_id: string | null;
   share_with_manager: boolean;
-  users: { name: string | null; email: string; image: string | null } | null;
 };
 
-async function createOrg(formData: FormData) {
-  "use server";
-  const session = await auth();
-  const uid = (session?.user as { id?: string } | undefined)?.id;
-  if (!uid) return;
-  const name = (formData.get("name") as string).trim();
-  if (!name) return;
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "") + "-" + crypto.randomBytes(3).toString("hex");
-
-  const sb = supabaseAdmin();
-  const { data: org } = await sb
-    .from("organizations")
-    .insert({ name, slug, owner_id: uid })
-    .select("id")
-    .single();
-
-  if (org) {
-    await sb
-      .from("org_members")
-      .insert({ org_id: org.id, user_id: uid, role: "owner", share_with_manager: true });
-  }
-  revalidatePath("/team");
-}
-
-async function inviteMember(formData: FormData) {
-  "use server";
-  const session = await auth();
-  const uid = (session?.user as { id?: string } | undefined)?.id;
-  if (!uid) return;
-  const email = (formData.get("email") as string).trim().toLowerCase();
-  const orgId = formData.get("org_id") as string;
-  const role = (formData.get("role") as string) || "member";
-  if (!email || !orgId) return;
-
-  const token = crypto.randomBytes(24).toString("hex");
-  const sb = supabaseAdmin();
-  await sb.from("org_invites").insert({
-    org_id: orgId,
-    email,
-    role,
-    manager_id: role === "member" ? uid : null,
-    token,
-  });
-
-  // Lookup inviter name + org name, then send email
-  const [{ data: inviter }, { data: org }] = await Promise.all([
-    sb.from("users").select("name, email").eq("id", uid).maybeSingle(),
-    sb.from("organizations").select("name").eq("id", orgId).maybeSingle(),
-  ]);
-  const h = await headers();
-  const host = h.get("host") ?? "cowork-gilt.vercel.app";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  const inviteUrl = `${proto}://${host}/invite/${token}`;
-  await sendInviteEmail({
-    to: email,
-    inviterName: inviter?.name || inviter?.email || "Someone",
-    orgName: org?.name || "a team",
-    inviteUrl,
-  });
-
-  revalidatePath("/team");
-}
-
-async function togglePrivacy(formData: FormData) {
-  "use server";
-  const session = await auth();
-  const uid = (session?.user as { id?: string } | undefined)?.id;
-  if (!uid) return;
-  const orgId = formData.get("org_id") as string;
-  const share = formData.get("share") === "on";
-  const sb = supabaseAdmin();
-  await sb
-    .from("org_members")
-    .update({ share_with_manager: share })
-    .eq("org_id", orgId)
-    .eq("user_id", uid);
-  revalidatePath("/team");
-}
+type MemberWithUser = MemberRow & {
+  user: { name: string | null; email: string; image: string | null } | null;
+};
 
 export default async function TeamPage() {
   const session = await auth();
@@ -115,28 +33,65 @@ export default async function TeamPage() {
     .maybeSingle();
   if (!settings?.onboarded_at) redirect("/onboarding");
 
-  const { data: myOrgs } = await sb
-    .from("org_members")
-    .select("org_id, role, share_with_manager, organizations(id, name, slug)")
-    .eq("user_id", userId);
-
   const dict = await getDict();
   const t = dict.team;
 
-  if (!myOrgs || myOrgs.length === 0) {
-    return <CreateFirstOrg createOrg={createOrg} t={t} />;
+  // Load user's memberships
+  const { data: myMemberships } = await sb
+    .from("org_members")
+    .select("org_id, role, share_with_manager")
+    .eq("user_id", userId);
+
+  if (!myMemberships || myMemberships.length === 0) {
+    return <CreateFirstOrg t={t} />;
   }
 
-  const primary = myOrgs[0];
+  const primary = myMemberships[0];
   const orgId = primary.org_id;
   const role = primary.role;
-  const orgName = (primary as unknown as { organizations: { name: string } }).organizations.name;
 
-  const { data: members } = await sb
+  // Load org name separately
+  const { data: org } = await sb
+    .from("organizations")
+    .select("name")
+    .eq("id", orgId)
+    .maybeSingle();
+  const orgName = org?.name ?? "Team";
+
+  // Load all members of this org
+  const { data: memberRows } = await sb
     .from("org_members")
-    .select("user_id, role, manager_id, share_with_manager, users(name, email, image)")
+    .select("user_id, role, manager_id, share_with_manager")
     .eq("org_id", orgId);
 
+  // Load user profiles separately to avoid embedded-join nulls
+  const memberIds = memberRows?.map((m) => m.user_id) ?? [];
+  const { data: profiles } = memberIds.length
+    ? await sb
+        .from("users")
+        .select("id, name, email, image")
+        .in("id", memberIds)
+    : { data: [] };
+
+  const profileMap = new Map(
+    (profiles ?? []).map((p) => [p.id as string, p]),
+  );
+
+  const members: MemberWithUser[] = (memberRows ?? []).map((m) => ({
+    user_id: m.user_id,
+    role: m.role,
+    manager_id: m.manager_id,
+    share_with_manager: m.share_with_manager,
+    user: profileMap.get(m.user_id)
+      ? {
+          name: profileMap.get(m.user_id)!.name as string | null,
+          email: profileMap.get(m.user_id)!.email as string,
+          image: profileMap.get(m.user_id)!.image as string | null,
+        }
+      : null,
+  }));
+
+  // Pending invites
   const { data: invites } = await sb
     .from("org_invites")
     .select("email, role, accepted, created_at")
@@ -144,10 +99,6 @@ export default async function TeamPage() {
     .eq("accepted", false);
 
   const isManager = role === "owner" || role === "manager";
-  const h = await headers();
-  const host = h.get("host") ?? "cowork.vercel.app";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  const baseUrl = `${proto}://${host}`;
 
   return (
     <div className="space-y-6">
@@ -169,7 +120,7 @@ export default async function TeamPage() {
               <CardTitle>{t.teamPulse}</CardTitle>
             </CardHeader>
             <CardContent>
-              <TeamPulse members={(members as unknown as Member[]) ?? []} statLabel={t.sharingStat} />
+              <TeamPulse members={members} statLabel={t.sharingStat} />
             </CardContent>
           </Card>
           <Card>
@@ -177,40 +128,23 @@ export default async function TeamPage() {
               <CardTitle>{t.inviteMember}</CardTitle>
             </CardHeader>
             <CardContent>
-              <form action={inviteMember} className="space-y-3">
-                <input type="hidden" name="org_id" value={orgId} />
-                <input
-                  name="email"
-                  type="email"
-                  placeholder={t.invitePlaceholder}
-                  required
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-                <select
-                  name="role"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="member">{t.inviteMember_role}</option>
-                  <option value="manager">{t.inviteManager_role}</option>
-                </select>
-                <button
-                  type="submit"
-                  className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-                >
-                  {t.inviteSend}
-                </button>
-              </form>
+              <InviteForm
+                orgId={orgId}
+                t={{
+                  invitePlaceholder: t.invitePlaceholder,
+                  inviteMember_role: t.inviteMember_role,
+                  inviteManager_role: t.inviteManager_role,
+                  inviteSend: t.inviteSend,
+                }}
+              />
               {invites && invites.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase text-slate-500">{t.pendingInvites}</p>
+                  <p className="text-xs font-semibold uppercase text-slate-500">
+                    {t.pendingInvites}
+                  </p>
                   <ul className="mt-2 space-y-1 text-xs text-slate-600">
                     {invites.map((i) => (
-                      <li key={i.email}>
-                        {i.email} — share link:{" "}
-                        <code className="rounded bg-slate-100 px-1">
-                          {baseUrl}/invite
-                        </code>
-                      </li>
+                      <li key={i.email}>{i.email}</li>
                     ))}
                   </ul>
                 </div>
@@ -223,20 +157,20 @@ export default async function TeamPage() {
       <Card>
         <CardHeader className="flex items-center justify-between">
           <CardTitle>{t.members}</CardTitle>
-          <span className="text-xs text-slate-500">{members?.length ?? 0}</span>
+          <span className="text-xs text-slate-500">{members.length}</span>
         </CardHeader>
         <CardContent>
           <ul className="divide-y divide-slate-100">
-            {(members as unknown as Member[])?.map((m) => (
+            {members.map((m) => (
               <li key={m.user_id} className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
-                  {m.users?.image && (
+                  {m.user?.image && (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={m.users.image} alt="" className="h-8 w-8 rounded-full" />
+                    <img src={m.user.image} alt="" className="h-8 w-8 rounded-full" />
                   )}
                   <div>
                     <p className="text-sm font-medium text-slate-900">
-                      {m.users?.name ?? m.users?.email}
+                      {m.user?.name ?? m.user?.email ?? m.user_id.slice(0, 8)}
                     </p>
                     <p className="text-xs text-slate-500">
                       {m.role} · {m.share_with_manager ? t.memberSharing : t.memberPrivate}
@@ -262,24 +196,12 @@ export default async function TeamPage() {
           <CardTitle>{t.myPrivacy}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={togglePrivacy} className="flex items-center gap-4">
-            <input type="hidden" name="org_id" value={orgId} />
-            <label className="flex items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                name="share"
-                defaultChecked={primary.share_with_manager}
-                className="h-4 w-4"
-              />
-              {t.privacyLabel}
-            </label>
-            <button
-              type="submit"
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50"
-            >
-              {t.save}
-            </button>
-          </form>
+          <PrivacyToggle
+            orgId={orgId}
+            initialShare={primary.share_with_manager}
+            label={t.privacyLabel}
+            saveLabel={t.save}
+          />
           <p className="mt-3 text-xs text-slate-500">{t.privacyNote}</p>
         </CardContent>
       </Card>
@@ -287,7 +209,13 @@ export default async function TeamPage() {
   );
 }
 
-function TeamPulse({ members, statLabel }: { members: Member[]; statLabel: string }) {
+function TeamPulse({
+  members,
+  statLabel,
+}: {
+  members: MemberWithUser[];
+  statLabel: string;
+}) {
   const sharing = members.filter((m) => m.share_with_manager);
   return (
     <div className="space-y-2 text-sm">
@@ -299,10 +227,8 @@ function TeamPulse({ members, statLabel }: { members: Member[]; statLabel: strin
 }
 
 function CreateFirstOrg({
-  createOrg,
   t,
 }: {
-  createOrg: (f: FormData) => Promise<void>;
   t: {
     createFirst: string;
     createFirstDesc: string;
@@ -318,20 +244,7 @@ function CreateFirstOrg({
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-sm text-slate-600">{t.createFirstDesc}</p>
-          <form action={createOrg} className="space-y-3">
-            <input
-              name="name"
-              placeholder={t.createPlaceholder}
-              required
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-            >
-              {t.createButton}
-            </button>
-          </form>
+          <CreateOrgForm placeholder={t.createPlaceholder} buttonLabel={t.createButton} />
         </CardContent>
       </Card>
     </div>
