@@ -165,33 +165,82 @@ export function buildTools(userId: string) {
 
     read_connected_file: tool({
       description:
-        "Read the content of a Google Drive file that the user has connected to Sigap. Only works with file IDs returned from list_connected_files — cannot read arbitrary files. Returns up to 8000 characters of text content.",
+        "Read the content of a Google Drive file that the user has connected to Sigap. Pass either the file_id (from list_connected_files) OR the file_name (or part of it — case-insensitive match). The tool resolves the name to the real file ID automatically.",
       inputSchema: z.object({
         file_id: z
           .string()
+          .optional()
           .describe("Drive file ID from list_connected_files output"),
+        file_name: z
+          .string()
+          .optional()
+          .describe("File name or substring — used if file_id not provided"),
       }),
-      execute: async ({ file_id }) => {
-        // Verify this file is in the user's connected files list
+      execute: async ({ file_id, file_name }) => {
         const sb = supabaseAdmin();
-        const { data: match } = await sb
-          .from("user_files")
-          .select("file_name")
-          .eq("user_id", userId)
-          .eq("file_id", file_id)
-          .maybeSingle();
-        if (!match) {
+
+        // Resolve to a concrete row: try ID first, then fuzzy name match
+        let row:
+          | { file_id: string; file_name: string; mime_type: string }
+          | null = null;
+
+        if (file_id) {
+          const { data } = await sb
+            .from("user_files")
+            .select("file_id, file_name, mime_type")
+            .eq("user_id", userId)
+            .eq("file_id", file_id)
+            .maybeSingle();
+          if (data) row = data;
+        }
+
+        if (!row && file_name) {
+          const { data: all } = await sb
+            .from("user_files")
+            .select("file_id, file_name, mime_type")
+            .eq("user_id", userId);
+          const needle = file_name.toLowerCase().trim();
+          row =
+            (all ?? []).find(
+              (f) => (f.file_name ?? "").toLowerCase() === needle,
+            ) ??
+            (all ?? []).find((f) =>
+              (f.file_name ?? "").toLowerCase().includes(needle),
+            ) ??
+            null;
+        }
+
+        // Last-resort: if the file_id arg actually looks like a name, try
+        // fuzzy matching that as a name too
+        if (!row && file_id && !/^[a-zA-Z0-9_-]{25,}$/.test(file_id)) {
+          const { data: all } = await sb
+            .from("user_files")
+            .select("file_id, file_name, mime_type")
+            .eq("user_id", userId);
+          const needle = file_id.toLowerCase().trim();
+          row =
+            (all ?? []).find((f) =>
+              (f.file_name ?? "").toLowerCase().includes(needle),
+            ) ?? null;
+        }
+
+        if (!row) {
           return {
-            error:
-              "This file is not in your connected files. Ask the user to add it in Settings → Connected Files first.",
+            error: `No connected file matches ${file_id || file_name}. Call list_connected_files first to see available files.`,
           };
         }
+
         try {
-          const content = await readDoc(userId, file_id);
-          return { file_name: match.file_name, content };
+          const content = await readDoc(userId, row.file_id);
+          return {
+            file_name: row.file_name,
+            mime_type: row.mime_type,
+            content,
+          };
         } catch (e) {
           return {
             error: e instanceof Error ? e.message : "Could not read file",
+            file_name: row.file_name,
           };
         }
       },
