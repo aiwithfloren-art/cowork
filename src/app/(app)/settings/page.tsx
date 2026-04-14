@@ -115,11 +115,11 @@ export default async function SettingsPage() {
                 <li>
                   Open{" "}
                   <a
-                    href={`https://t.me/CoworkAI_floren_bot?start=${codeValid.code}`}
+                    href={`https://t.me/coworkflo_bot?start=${codeValid.code}`}
                     target="_blank"
                     className="text-indigo-600 underline"
                   >
-                    @CoworkAI_floren_bot on Telegram
+                    @coworkflo_bot on Telegram
                   </a>{" "}
                   (or search the name)
                 </li>
