@@ -32,6 +32,14 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.local.example
+
+# progress artifacts
+progress.html
+SETUP_GUIDE.md
+Cowork_Design_Final.pdf
+CLAUDE.md
+AGENTS.md
 
 # vercel
 .vercel
