@@ -1,30 +1,14 @@
-import { google } from "googleapis";
-import { getGoogleClient } from "./client";
-
-export type BusyBlock = { start: string; end: string };
-
-export async function getBusyBlocks(
-  userId: string,
-  timeMin: Date,
-  timeMax: Date,
-): Promise<BusyBlock[]> {
-  const auth = await getGoogleClient(userId);
-  const cal = google.calendar({ version: "v3", auth });
-  const res = await cal.freebusy.query({
-    requestBody: {
-      timeMin: timeMin.toISOString(),
-      timeMax: timeMax.toISOString(),
-      items: [{ id: "primary" }],
-    },
-  });
-  const busy = res.data.calendars?.primary?.busy ?? [];
-  return busy.map((b) => ({ start: b.start ?? "", end: b.end ?? "" }));
-}
+import { getEvents } from "./calendar";
 
 export type Slot = { start: string; end: string };
 
+type Busy = { start: Date; end: Date };
+
 /**
  * Find N open slots of the requested duration across the given user IDs.
+ * Uses events.list (calendar.events scope) instead of freebusy.query
+ * because freebusy requires the broader calendar.readonly scope.
+ *
  * Only searches during 09:00-18:00 local time Mon-Fri.
  */
 export async function findCommonSlots(
@@ -49,12 +33,14 @@ export async function findCommonSlots(
   const searchEnd = new Date(now);
   searchEnd.setDate(searchEnd.getDate() + days);
 
-  const allBusy = await Promise.all(
-    userIds.map((uid) => getBusyBlocks(uid, now, searchEnd)),
+  // Fetch each user's events in the window and treat each event as a "busy" block
+  const allEvents = await Promise.all(
+    userIds.map((uid) => getEvents(uid, now, searchEnd)),
   );
-  const merged = allBusy
+  const busy: Busy[] = allEvents
     .flat()
-    .map((b) => ({ start: new Date(b.start), end: new Date(b.end) }))
+    .map((e) => ({ start: new Date(e.start), end: new Date(e.end) }))
+    .filter((b) => !isNaN(b.start.getTime()) && !isNaN(b.end.getTime()))
     .sort((a, b) => a.start.getTime() - b.start.getTime());
 
   const slots: Slot[] = [];
@@ -80,7 +66,7 @@ export async function findCommonSlots(
     ) {
       const slotStart = new Date(t);
       const slotEnd = new Date(t + slotMs);
-      const conflicts = merged.some(
+      const conflicts = busy.some(
         (b) => b.start < slotEnd && b.end > slotStart,
       );
       if (!conflicts) {
