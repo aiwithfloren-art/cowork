@@ -216,6 +216,30 @@ export const dictionaries = {
       error: "Something went wrong",
       retry: "Retry",
     },
+    onboarding: {
+      title: "Welcome to Cowork 👋",
+      sub: "How will you be using Cowork? You can change this later.",
+      personalTitle: "Just for me",
+      personalDesc:
+        "I want a personal AI Chief of Staff that manages my schedule, tasks, and documents.",
+      personalBullets: [
+        "Daily briefings from your Google Calendar",
+        "Chat to add tasks, find free slots, create events",
+        "Works on web and Telegram",
+      ],
+      personalCta: "Continue as individual",
+      teamTitle: "For my team",
+      teamDesc:
+        "I lead a team and want visibility into my colleagues' work without interrupting them.",
+      teamBullets: [
+        "Create a team workspace and invite members",
+        "Ask AI about teammates' workloads",
+        "Privacy-first with full audit log",
+      ],
+      teamCta: "Set up Team Mode",
+      bothHint:
+        "Not sure? Start as individual — you can always create or join a team later from the Team page.",
+    },
   },
   id: {
     nav: {
@@ -431,6 +455,30 @@ export const dictionaries = {
       loading: "Memuat…",
       error: "Terjadi kesalahan",
       retry: "Coba lagi",
+    },
+    onboarding: {
+      title: "Selamat datang di Cowork 👋",
+      sub: "Bagaimana Anda akan menggunakan Cowork? Anda bisa mengubah ini nanti.",
+      personalTitle: "Untuk saya sendiri",
+      personalDesc:
+        "Saya ingin AI Chief of Staff pribadi yang mengelola jadwal, tugas, dan dokumen saya.",
+      personalBullets: [
+        "Briefing harian dari Google Calendar Anda",
+        "Chat untuk menambah tugas, cari slot kosong, buat event",
+        "Berjalan di web dan Telegram",
+      ],
+      personalCta: "Lanjut sebagai individu",
+      teamTitle: "Untuk tim saya",
+      teamDesc:
+        "Saya memimpin tim dan ingin visibilitas ke pekerjaan anggota tanpa mengganggu mereka.",
+      teamBullets: [
+        "Buat workspace tim dan undang anggota",
+        "Tanya AI tentang beban kerja anggota tim",
+        "Privasi dulu dengan audit log lengkap",
+      ],
+      teamCta: "Set up Team Mode",
+      bothHint:
+        "Belum yakin? Mulai sebagai individu — Anda selalu bisa buat atau gabung tim nanti dari halaman Team.",
     },
   },
 } as const;

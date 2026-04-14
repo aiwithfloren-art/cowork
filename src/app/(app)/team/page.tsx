@@ -106,6 +106,15 @@ export default async function TeamPage() {
   if (!userId) redirect("/");
 
   const sb = supabaseAdmin();
+
+  // Gate via onboarding
+  const { data: settings } = await sb
+    .from("user_settings")
+    .select("onboarded_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!settings?.onboarded_at) redirect("/onboarding");
+
   const { data: myOrgs } = await sb
     .from("org_members")
     .select("org_id, role, share_with_manager, organizations(id, name, slug)")

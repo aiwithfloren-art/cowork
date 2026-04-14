@@ -21,9 +21,11 @@ export default async function DashboardPage() {
   const sb = supabaseAdmin();
   const { data: settings } = await sb
     .from("user_settings")
-    .select("tutorial_done")
+    .select("tutorial_done, onboarded_at")
     .eq("user_id", userId)
     .maybeSingle();
+
+  if (!settings?.onboarded_at) redirect("/onboarding");
   const showTutorial = !settings?.tutorial_done;
 
   let events: Awaited<ReturnType<typeof getTodayEvents>> = [];
