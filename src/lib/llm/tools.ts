@@ -118,7 +118,7 @@ export function buildTools(userId: string) {
 
     list_connected_files: tool({
       description:
-        "List the Google Drive files the user has explicitly connected to Sigap via Settings → Connected Files. These are the only files Sigap can read. Returns file names and IDs.",
+        "MUST call this for ANY user question about their files, documents, Google Drive, docs, sheets, spreadsheets, PDFs, or 'what files do I have'. Returns the list of Google Drive files the user connected to Sigap (name + type + file_id). Do NOT assume the list is empty — always call this tool to check.",
       inputSchema: z.object({}),
       execute: async () => {
         const sb = supabaseAdmin();
