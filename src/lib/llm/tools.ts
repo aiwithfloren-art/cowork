@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { getTodayEvents, getWeekEvents } from "@/lib/google/calendar";
+import { getTodayEvents, getWeekEvents, addCalendarEvent } from "@/lib/google/calendar";
 import { listTasks, addTask, completeTask } from "@/lib/google/tasks";
 import { searchDocs, readDoc } from "@/lib/google/docs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -28,6 +28,23 @@ export function buildTools(userId: string) {
       execute: async () => {
         const events = await getWeekEvents(userId);
         return events.map((e) => ({ title: e.title, start: e.start, end: e.end }));
+      },
+    }),
+
+    add_calendar_event: tool({
+      description:
+        "Create a new event on the user's Google Calendar. Use ISO datetime strings with timezone offset (e.g. '2026-04-15T08:00:00+07:00'). If the user doesn't specify an end time, default to 1 hour after start. The user's timezone is Asia/Jakarta (+07:00) unless stated otherwise.",
+      inputSchema: z.object({
+        title: z.string().describe("Event title / summary"),
+        start: z.string().describe("ISO datetime with timezone, e.g. 2026-04-15T08:00:00+07:00"),
+        end: z.string().describe("ISO datetime with timezone"),
+        description: z.string().optional(),
+        location: z.string().optional(),
+        attendees: z.array(z.string()).optional().describe("List of attendee emails"),
+      }),
+      execute: async (args) => {
+        const res = await addCalendarEvent(userId, args);
+        return { ok: true, event_id: res.id, link: res.htmlLink };
       },
     }),
 

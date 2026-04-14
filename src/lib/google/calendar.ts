@@ -56,3 +56,35 @@ export async function getWeekEvents(userId: string) {
   end.setDate(end.getDate() + 7);
   return getEvents(userId, now, end);
 }
+
+export async function addCalendarEvent(
+  userId: string,
+  args: {
+    title: string;
+    start: string; // ISO datetime
+    end: string; // ISO datetime
+    description?: string;
+    location?: string;
+    attendees?: string[];
+  },
+): Promise<{ id: string; htmlLink: string }> {
+  const auth = await getGoogleClient(userId);
+  const cal = google.calendar({ version: "v3", auth });
+
+  const res = await cal.events.insert({
+    calendarId: "primary",
+    requestBody: {
+      summary: args.title,
+      description: args.description,
+      location: args.location,
+      start: { dateTime: args.start },
+      end: { dateTime: args.end },
+      attendees: args.attendees?.map((email) => ({ email })),
+    },
+  });
+
+  return {
+    id: res.data.id ?? "",
+    htmlLink: res.data.htmlLink ?? "",
+  };
+}
