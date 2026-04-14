@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { generateText, stepCountIs } from "ai";
+import { streamText, stepCountIs } from "ai";
 import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
 import { buildTools } from "@/lib/llm/tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
@@ -17,7 +17,9 @@ Never make up events, tasks, or deadlines — always fetch them via tools first.
 
 Keep responses concise, warm, and actionable. Default to bullet points when listing things.
 When the user asks "what should I focus on?", read today's schedule AND open tasks, then prioritize.
-If the user asks you to summarize a document, search for it by name first, then read it.`;
+If the user asks you to summarize a document, search for it by name first, then read it.
+
+When creating calendar events, default timezone is Asia/Jakarta (+07:00) unless the user says otherwise.`;
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -40,35 +42,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "messages array required" }, { status: 400 });
   }
 
+  const lastUser = body.messages[body.messages.length - 1];
   const groq = getGroq(settings?.groq_key ?? undefined);
   const model = settings?.model ?? DEFAULT_MODEL;
   const tools = buildTools(userId);
 
   try {
-    const result = await generateText({
+    const result = streamText({
       model: groq(model),
       system: SYSTEM_PROMPT,
       messages: body.messages,
       tools,
       stopWhen: stepCountIs(6),
+      onFinish: async ({ text, usage }) => {
+        const tokensIn = usage?.inputTokens ?? 0;
+        const tokensOut = usage?.outputTokens ?? 0;
+        const cost = estimateCost(tokensIn, tokensOut);
+
+        if (!userHasOwnKey) {
+          await logUsage(userId, tokensIn, tokensOut, cost, model);
+        }
+
+        await sb.from("chat_messages").insert([
+          { user_id: userId, role: "user", content: lastUser.content },
+          { user_id: userId, role: "assistant", content: text },
+        ]);
+      },
     });
 
-    const usage = result.usage;
-    const tokensIn = usage?.inputTokens ?? 0;
-    const tokensOut = usage?.outputTokens ?? 0;
-    const cost = estimateCost(tokensIn, tokensOut);
-
-    if (!userHasOwnKey) {
-      await logUsage(userId, tokensIn, tokensOut, cost, model);
-    }
-
-    // Persist conversation
-    await sb.from("chat_messages").insert([
-      { user_id: userId, role: "user", content: body.messages[body.messages.length - 1].content },
-      { user_id: userId, role: "assistant", content: result.text },
-    ]);
-
-    return NextResponse.json({ text: result.text });
+    return result.toTextStreamResponse();
   } catch (e) {
     console.error("chat error:", e);
     const message = e instanceof Error ? e.message : "LLM request failed";

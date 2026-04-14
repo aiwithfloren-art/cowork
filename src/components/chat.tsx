@@ -25,7 +25,7 @@ export function Chat() {
     if (!text.trim() || loading) return;
     setError(null);
     const newMessages: Msg[] = [...messages, { role: "user", content: text }];
-    setMessages(newMessages);
+    setMessages([...newMessages, { role: "assistant", content: "" }]);
     setInput("");
     setLoading(true);
 
@@ -39,14 +39,46 @@ export function Chat() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Request failed" }));
         setError(err.error || "Something went wrong");
+        setMessages(newMessages); // Remove empty assistant placeholder
         setLoading(false);
         return;
       }
 
-      const data = await res.json();
-      setMessages((m) => [...m, { role: "assistant", content: data.text || "(empty)" }]);
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setError("Streaming not supported");
+        setLoading(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        accumulated += chunk;
+        setMessages((msgs) => {
+          const copy = [...msgs];
+          copy[copy.length - 1] = { role: "assistant", content: accumulated };
+          return copy;
+        });
+      }
+
+      if (!accumulated.trim()) {
+        setMessages((msgs) => {
+          const copy = [...msgs];
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: "(No response — try rephrasing your question)",
+          };
+          return copy;
+        });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
+      setMessages(newMessages);
     } finally {
       setLoading(false);
     }
@@ -74,23 +106,25 @@ export function Chat() {
           </div>
         )}
         <div className="space-y-3">
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              className={
-                m.role === "user"
-                  ? "ml-6 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white"
-                  : "mr-6 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-900"
-              }
-            >
-              {m.content}
-            </div>
-          ))}
-          {loading && (
-            <div className="mr-6 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-500">
-              Thinking…
-            </div>
-          )}
+          {messages.map((m, i) => {
+            const isLast = i === messages.length - 1;
+            const isStreaming = loading && isLast && m.role === "assistant";
+            return (
+              <div
+                key={i}
+                className={
+                  m.role === "user"
+                    ? "ml-6 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white"
+                    : "mr-6 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-900 whitespace-pre-wrap"
+                }
+              >
+                {m.content || (isStreaming ? "…" : "")}
+                {isStreaming && m.content && (
+                  <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-slate-400 align-middle" />
+                )}
+              </div>
+            );
+          })}
           {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
               {error}
