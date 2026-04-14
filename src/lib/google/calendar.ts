@@ -42,11 +42,16 @@ export async function getEvents(
 }
 
 export async function getTodayEvents(userId: string) {
+  // Compute "today" in Asia/Jakarta so the server (UTC) doesn't cut off events.
   const now = new Date();
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
+  const wibOffset = 7 * 60 * 60 * 1000;
+  const wibNow = new Date(now.getTime() + wibOffset);
+  const yyyy = wibNow.getUTCFullYear();
+  const mm = wibNow.getUTCMonth();
+  const dd = wibNow.getUTCDate();
+  // Start of day WIB = 00:00 WIB = previous day 17:00 UTC
+  const start = new Date(Date.UTC(yyyy, mm, dd, 0, 0, 0) - wibOffset);
+  const end = new Date(Date.UTC(yyyy, mm, dd, 23, 59, 59) - wibOffset);
   return getEvents(userId, start, end);
 }
 
