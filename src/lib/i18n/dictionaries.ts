@@ -13,14 +13,14 @@ export const dictionaries = {
     },
     landing: {
       badge: "Open source · Privacy-first · Model-agnostic",
-      heroTitle1: "Your AI Chief of Staff.",
+      heroTitle1: "Sigap — your AI Chief of Staff.",
       heroTitle2: "Built for outcomes, not interruptions.",
       heroSub:
-        "Cowork reads your Google Calendar, Tasks and Docs so you can make better decisions — and gives managers visibility into their team without sending another status-update message.",
+        "Sigap reads your Google Calendar and Tasks so you can make better decisions faster — and gives managers visibility into their team without sending another status-update message. Sigap is Indonesian for 'swift, ready, responsive'.",
       signIn: "Sign in with Google",
       freeNote: "Free during beta · 30 messages/day · BYOK for unlimited",
 
-      featuresTitle: "What Cowork does",
+      featuresTitle: "What Sigap does",
       featuresSub: "Everything you need to run your day and your team.",
 
       f1Title: "Daily schedule intelligence",
@@ -29,7 +29,7 @@ export const dictionaries = {
 
       f2Title: "Task management via chat",
       f2Desc:
-        "Add, list, and complete Google Tasks with natural language. Your single source of truth stays in Google; Cowork is the interface.",
+        "Add, list, and complete Google Tasks with natural language. Your single source of truth stays in Google; Sigap is the interface.",
 
       f3Title: "Document search & read",
       f3Desc:
@@ -77,9 +77,9 @@ export const dictionaries = {
         "Employee monitoring software is distrusted and hurts morale",
         "New managers wait weeks to build context on their team",
       ],
-      solutionTitle: "How Cowork Manager Mode solves this",
+      solutionTitle: "How Sigap Manager Mode solves this",
       solutionDesc:
-        "Cowork gives managers a single dashboard with real-time visibility into their team, powered by AI that members explicitly opt-in to. No keystroke tracking. No screen recording. Just structured answers sourced from Google Calendar and Tasks, with every query visible to the team member.",
+        "Sigap gives managers a single dashboard with real-time visibility into their team, powered by AI that members explicitly opt-in to. No keystroke tracking. No screen recording. Just structured answers sourced from Google Calendar and Tasks, with every query visible to the team member.",
 
       step1Title: "Step 1 · Create a workspace",
       step1Desc:
@@ -102,7 +102,7 @@ export const dictionaries = {
         "Members control their own visibility. Default is private.",
         "Every manager query is logged and visible to the team member.",
         "We never track keystrokes, screens, or application usage.",
-        "Cowork is open source — verify the code yourself on GitHub.",
+        "Sigap is open source — verify the code yourself on GitHub.",
         "You can revoke access and delete your data anytime.",
       ],
 
@@ -179,26 +179,26 @@ export const dictionaries = {
       connectTelegram: "Connect Telegram",
       telegramLinked: "✅ Linked to",
       telegramDesc:
-        "Chat with your Cowork AI directly from Telegram. Ask about your schedule, add tasks, or get briefings — all from your phone.",
+        "Chat with your Sigap AI directly from Telegram. Ask about your schedule, add tasks, or get briefings — all from your phone.",
       telegramGetCode: "Get linking code",
       telegramUnlink: "Unlink Telegram",
       telegramCodeExpires: "expires in 10 min",
       telegramCodeNew: "Generate a new code",
       byokTitle: "Bring Your Own Groq Key",
       byokDesc:
-        "Cowork's free tier is rate-limited (30 messages/day). For unlimited usage, paste your own Groq API key below. Get one free at",
+        "Sigap's free tier is rate-limited (30 messages/day). For unlimited usage, paste your own Groq API key below. Get one free at",
       byokSave: "Save",
       byokRemove: "Remove key",
       account: "Account",
       accountSignedIn: "Signed in as",
-      accountRevoke: "To revoke Cowork's access to your Google account, visit",
+      accountRevoke: "To revoke Sigap's access to your Google account, visit",
     },
     tutorial: {
       skip: "Skip",
       next: "Next",
       back: "Back",
       done: "Get started",
-      slide1Title: "Welcome to Cowork 👋",
+      slide1Title: "Welcome to Sigap 👋",
       slide1Body:
         "I'm your AI Chief of Staff. I can read your Google Calendar, Tasks and Docs to help you stay focused. Everything runs via natural chat.",
       slide2Title: "Try these prompts",
@@ -207,7 +207,7 @@ export const dictionaries = {
       slide3Title: "Chat from Telegram too",
       slide3Body:
         "Open Settings to link your Telegram account. Then chat with me from anywhere — no app install, no extra login.",
-      slide4Title: "Using Cowork with a team?",
+      slide4Title: "Using Sigap with a team?",
       slide4Body:
         "Manager Mode lets leaders stay in sync with their team without interrupting deep work. Privacy-first by design. Explore the Team page to start.",
     },
@@ -217,8 +217,8 @@ export const dictionaries = {
       retry: "Retry",
     },
     onboarding: {
-      title: "Welcome to Cowork 👋",
-      sub: "How will you be using Cowork? You can change this later.",
+      title: "Welcome to Sigap 👋",
+      sub: "How will you be using Sigap? You can change this later.",
       personalTitle: "Just for me",
       personalDesc:
         "I want a personal AI Chief of Staff that manages my schedule, tasks, and documents.",
@@ -253,14 +253,14 @@ export const dictionaries = {
     },
     landing: {
       badge: "Open source · Privasi dulu · Bebas pilih model",
-      heroTitle1: "AI Chief of Staff Anda.",
+      heroTitle1: "Sigap — AI Chief of Staff Anda.",
       heroTitle2: "Dibangun untuk hasil, bukan interupsi.",
       heroSub:
-        "Cowork membaca Google Calendar, Tasks, dan Docs Anda sehingga Anda bisa mengambil keputusan lebih baik — dan memberi manager visibilitas ke tim tanpa harus mengirim pesan status-update lagi.",
+        "Sigap membaca Google Calendar dan Tasks Anda sehingga Anda bisa mengambil keputusan lebih cepat — dan memberi manager visibilitas ke tim tanpa harus mengirim pesan status-update lagi.",
       signIn: "Masuk dengan Google",
       freeNote: "Gratis selama beta · 30 pesan/hari · BYOK untuk unlimited",
 
-      featuresTitle: "Apa yang Cowork bisa lakukan",
+      featuresTitle: "Apa yang Sigap bisa lakukan",
       featuresSub: "Semua yang Anda butuhkan untuk mengatur hari dan tim Anda.",
 
       f1Title: "Intelligence jadwal harian",
@@ -269,7 +269,7 @@ export const dictionaries = {
 
       f2Title: "Kelola tugas lewat chat",
       f2Desc:
-        "Tambah, lihat, dan selesaikan Google Tasks dengan bahasa natural. Data tetap di Google; Cowork adalah antarmuka-nya.",
+        "Tambah, lihat, dan selesaikan Google Tasks dengan bahasa natural. Data tetap di Google; Sigap adalah antarmuka-nya.",
 
       f3Title: "Cari & baca dokumen",
       f3Desc:
@@ -317,9 +317,9 @@ export const dictionaries = {
         "Software monitoring karyawan tidak dipercaya dan menurunkan moral",
         "Manager baru menunggu berminggu-minggu untuk membangun konteks",
       ],
-      solutionTitle: "Bagaimana Cowork Manager Mode memecahkan ini",
+      solutionTitle: "Bagaimana Sigap Manager Mode memecahkan ini",
       solutionDesc:
-        "Cowork memberi manager satu dashboard dengan visibilitas real-time ke tim mereka, didukung AI yang anggota secara eksplisit opt-in. Tanpa keystroke tracking. Tanpa screen recording. Hanya jawaban terstruktur dari Google Calendar dan Tasks, dengan setiap query yang bisa dilihat oleh anggota tim.",
+        "Sigap memberi manager satu dashboard dengan visibilitas real-time ke tim mereka, didukung AI yang anggota secara eksplisit opt-in. Tanpa keystroke tracking. Tanpa screen recording. Hanya jawaban terstruktur dari Google Calendar dan Tasks, dengan setiap query yang bisa dilihat oleh anggota tim.",
 
       step1Title: "Langkah 1 · Buat workspace",
       step1Desc:
@@ -342,7 +342,7 @@ export const dictionaries = {
         "Anggota mengontrol visibilitas mereka sendiri. Default privat.",
         "Setiap query manager tercatat dan bisa dilihat anggota tim.",
         "Kami tidak pernah track keystroke, layar, atau penggunaan aplikasi.",
-        "Cowork open source — verifikasi kode-nya sendiri di GitHub.",
+        "Sigap open source — verifikasi kode-nya sendiri di GitHub.",
         "Anda bisa revoke akses dan hapus data kapan saja.",
       ],
 
@@ -419,26 +419,26 @@ export const dictionaries = {
       connectTelegram: "Hubungkan Telegram",
       telegramLinked: "✅ Terhubung ke",
       telegramDesc:
-        "Chat dengan Cowork AI langsung dari Telegram. Tanya jadwal, tambah tugas, atau dapat briefing — semua dari ponsel Anda.",
+        "Chat dengan Sigap AI langsung dari Telegram. Tanya jadwal, tambah tugas, atau dapat briefing — semua dari ponsel Anda.",
       telegramGetCode: "Dapatkan kode linking",
       telegramUnlink: "Putus Telegram",
       telegramCodeExpires: "expires dalam 10 menit",
       telegramCodeNew: "Buat kode baru",
       byokTitle: "Pakai Groq Key Sendiri",
       byokDesc:
-        "Tier gratis Cowork rate-limited (30 pesan/hari). Untuk unlimited, paste Groq API key Anda sendiri. Dapat gratis di",
+        "Tier gratis Sigap rate-limited (30 pesan/hari). Untuk unlimited, paste Groq API key Anda sendiri. Dapat gratis di",
       byokSave: "Simpan",
       byokRemove: "Hapus key",
       account: "Akun",
       accountSignedIn: "Masuk sebagai",
-      accountRevoke: "Untuk mencabut akses Cowork ke akun Google Anda, kunjungi",
+      accountRevoke: "Untuk mencabut akses Sigap ke akun Google Anda, kunjungi",
     },
     tutorial: {
       skip: "Lewati",
       next: "Lanjut",
       back: "Kembali",
       done: "Mulai",
-      slide1Title: "Selamat datang di Cowork 👋",
+      slide1Title: "Selamat datang di Sigap 👋",
       slide1Body:
         "Saya AI Chief of Staff Anda. Saya bisa baca Google Calendar, Tasks, dan Docs Anda untuk bantu tetap fokus. Semua berjalan lewat chat natural.",
       slide2Title: "Coba prompt ini",
@@ -447,7 +447,7 @@ export const dictionaries = {
       slide3Title: "Chat dari Telegram juga",
       slide3Body:
         "Buka Settings untuk menghubungkan akun Telegram Anda. Lalu chat dengan saya dari mana saja — tanpa install app, tanpa login tambahan.",
-      slide4Title: "Pakai Cowork dengan tim?",
+      slide4Title: "Pakai Sigap dengan tim?",
       slide4Body:
         "Manager Mode membantu pemimpin tetap sinkron dengan tim tanpa mengganggu deep work. Privasi dulu, by design. Jelajahi halaman Team untuk mulai.",
     },
@@ -457,8 +457,8 @@ export const dictionaries = {
       retry: "Coba lagi",
     },
     onboarding: {
-      title: "Selamat datang di Cowork 👋",
-      sub: "Bagaimana Anda akan menggunakan Cowork? Anda bisa mengubah ini nanti.",
+      title: "Selamat datang di Sigap 👋",
+      sub: "Bagaimana Anda akan menggunakan Sigap? Anda bisa mengubah ini nanti.",
       personalTitle: "Untuk saya sendiri",
       personalDesc:
         "Saya ingin AI Chief of Staff pribadi yang mengelola jadwal, tugas, dan dokumen saya.",

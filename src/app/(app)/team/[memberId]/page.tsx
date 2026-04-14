@@ -53,7 +53,7 @@ export default async function MemberPage({
     return (
       <EmptyState
         title="User not found"
-        message="This user doesn't exist in Cowork."
+        message="This user doesn't exist in Sigap."
         back
       />
     );

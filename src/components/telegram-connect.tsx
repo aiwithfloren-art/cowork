@@ -48,7 +48,7 @@ export function TelegramConnect({ initialLinked, initialCode }: Props) {
       <div>
         <p className="text-sm text-slate-700">
           ✅ Linked to{" "}
-          <strong>{linked.username ? `@${linked.username}` : "Telegram"}</strong>. You can chat with Cowork directly on Telegram.
+          <strong>{linked.username ? `@${linked.username}` : "Telegram"}</strong>. You can chat with Sigap directly on Telegram.
         </p>
         <button
           onClick={unlink}
@@ -110,7 +110,7 @@ export function TelegramConnect({ initialLinked, initialCode }: Props) {
   return (
     <div>
       <p className="mb-4 text-sm text-slate-600">
-        Chat with your Cowork AI directly from Telegram. Ask about your schedule, add tasks, or get briefings — all from your phone.
+        Chat with your Sigap AI directly from Telegram. Ask about your schedule, add tasks, or get briefings — all from your phone.
       </p>
       <button
         onClick={generateCode}

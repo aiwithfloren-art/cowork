@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
             <span className="inline-block h-6 w-6 rounded-md bg-gradient-to-br from-indigo-600 to-cyan-400" />
-            Cowork
+            Sigap
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link href="/dashboard" className="text-slate-700 hover:text-slate-900">

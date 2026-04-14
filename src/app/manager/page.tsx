@@ -12,7 +12,7 @@ export default async function ManagerPage() {
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <span className="inline-block h-7 w-7 rounded-lg bg-gradient-to-br from-indigo-600 to-cyan-400" />
-          Cowork
+          Sigap
         </Link>
         <div className="flex items-center gap-5 text-sm text-slate-600">
           <Link href="/" className="hover:text-slate-900">
@@ -24,7 +24,7 @@ export default async function ManagerPage() {
 
       <section className="mx-auto max-w-4xl px-6 pt-12 pb-16">
         <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-          Cowork for Teams
+          Sigap for Teams
         </p>
         <h1 className="mt-3 text-5xl font-bold tracking-tight text-slate-900">{t.hero}</h1>
         <p className="mt-4 text-lg text-slate-600 leading-relaxed">{t.heroSub}</p>
@@ -154,7 +154,7 @@ export default async function ManagerPage() {
 
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 text-xs text-slate-500">
-          <span>© {new Date().getFullYear()} Cowork. Open source · MIT licensed.</span>
+          <span>© {new Date().getFullYear()} Sigap. Open source · MIT licensed.</span>
           <div className="flex gap-4">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>

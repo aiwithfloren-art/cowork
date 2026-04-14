@@ -56,7 +56,7 @@ export async function checkRateLimit(userId: string, userHasOwnKey: boolean): Pr
     return {
       ok: false,
       reason: "budget",
-      message: `Cowork's monthly free-tier budget is exhausted. Add your own Groq API key in Settings to continue (30 seconds at console.groq.com).`,
+      message: `Sigap's monthly free-tier budget is exhausted. Add your own Groq API key in Settings to continue (30 seconds at console.groq.com).`,
     };
   }
 

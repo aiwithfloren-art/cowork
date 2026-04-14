@@ -17,7 +17,7 @@ export default async function LandingPage() {
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <span className="inline-block h-7 w-7 rounded-lg bg-gradient-to-br from-indigo-600 to-cyan-400" />
-          Cowork
+          Sigap
         </Link>
         <div className="flex items-center gap-5 text-sm text-slate-600">
           <Link href="/manager" className="hover:text-slate-900">
@@ -121,7 +121,7 @@ export default async function LandingPage() {
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 text-xs text-slate-500">
           <span>
-            © {new Date().getFullYear()} Cowork. {t.footerOss}.
+            © {new Date().getFullYear()} Sigap. {t.footerOss}.
           </span>
           <div className="flex gap-4">
             <Link href="/privacy">Privacy</Link>

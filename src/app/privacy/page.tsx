@@ -6,8 +6,8 @@ export default function PrivacyPage() {
 
       <h2>TL;DR</h2>
       <ul>
-        <li>Cowork is open source. Inspect the code on GitHub.</li>
-        <li>We store your Google OAuth tokens encrypted in Supabase to read your Calendar, Tasks, and Docs on your behalf.</li>
+        <li>Sigap is open source. Inspect the code on GitHub.</li>
+        <li>We store your Google OAuth tokens encrypted in Supabase to read your Calendar and Tasks on your behalf.</li>
         <li>We do NOT sell your data. We do NOT train models on your data.</li>
         <li>Your chat history is stored so you can see it; you can delete your account to remove everything.</li>
         <li>In Team Mode, your manager only sees data you explicitly opt in to share. Every query is logged.</li>

@@ -50,12 +50,12 @@ export async function POST(req: Request) {
     if (link) {
       await sendTelegramMessage(
         chatId,
-        "You're already linked to Cowork ✅\nAsk me anything about your schedule, tasks, or docs.",
+        "You're already linked to Sigap ✅\nAsk me anything about your schedule, tasks, or docs.",
       );
     } else {
       await sendTelegramMessage(
         chatId,
-        "👋 Welcome to Cowork Bot!\n\nTo link your account, open https://cowork-gilt.vercel.app/settings and copy the 6-digit linking code, then reply here with `/start CODE`.",
+        "👋 Welcome to Sigap Bot!\n\nTo link your account, open https://cowork-gilt.vercel.app/settings and copy the 6-digit linking code, then reply here with `/start CODE`.",
       );
     }
     return NextResponse.json({ ok: true });
@@ -110,7 +110,7 @@ async function handleLinkCode(
 
   await sendTelegramMessage(
     chatId,
-    "✅ *Linked!* You can now chat with your Cowork AI right here.\n\nTry asking:\n• What's my schedule today?\n• Add a task: ...\n• What should I focus on?",
+    "✅ *Linked!* You can now chat with your Sigap AI right here.\n\nTry asking:\n• What's my schedule today?\n• Add a task: ...\n• What should I focus on?",
   );
   return NextResponse.json({ ok: true });
 }
@@ -145,7 +145,7 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
     const result = await generateText({
       model: groq(model),
       system:
-        "You are Cowork, replying via Telegram. Keep responses concise (under 400 chars when possible). Use real tool calls to get Google data — never invent. Default timezone: Asia/Jakarta.",
+        "You are Sigap, replying via Telegram. Keep responses concise (under 400 chars when possible). Use real tool calls to get Google data — never invent. Default timezone: Asia/Jakarta.",
       messages: [{ role: "user", content: text }],
       tools,
       stopWhen: stepCountIs(6),

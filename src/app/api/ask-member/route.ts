@@ -91,7 +91,7 @@ export async function POST(req: Request) {
   try {
     const result = await generateText({
       model: groq(model),
-      system: `You are Cowork Manager Mode. A manager is asking about a team member. Answer using ONLY the structured data below. Be concise and factual. If data is insufficient, say so. Never invent meetings or tasks.`,
+      system: `You are Sigap Manager Mode. A manager is asking about a team member. Answer using ONLY the structured data below. Be concise and factual. If data is insufficient, say so. Never invent meetings or tasks.`,
       prompt: `Manager question: "${question}"\n\nMember data (JSON):\n${JSON.stringify(context, null, 2)}`,
     });
 

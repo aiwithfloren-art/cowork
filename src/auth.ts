@@ -2,14 +2,16 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+// NOTE: drive.readonly and documents.readonly are RESTRICTED scopes that
+// require Google verification. Until we're verified, non-test users get
+// blocked with "Server error". Keep only Sensitive scopes (Calendar, Tasks)
+// which public users can consent to with just the "unverified app" warning.
 const GOOGLE_SCOPES = [
   "openid",
   "email",
   "profile",
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/tasks",
-  "https://www.googleapis.com/auth/drive.readonly",
-  "https://www.googleapis.com/auth/documents.readonly",
 ].join(" ");
 
 export const { handlers, auth, signIn, signOut } = NextAuth({

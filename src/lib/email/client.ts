@@ -2,7 +2,7 @@ import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.RESEND_FROM_EMAIL || "Cowork <onboarding@resend.dev>";
+const FROM = process.env.RESEND_FROM_EMAIL || "Sigap <onboarding@resend.dev>";
 
 async function logEmail(
   to: string,
@@ -27,13 +27,13 @@ export async function sendInviteEmail(args: {
   orgName: string;
   inviteUrl: string;
 }) {
-  const subject = `${args.inviterName} invited you to join ${args.orgName} on Cowork`;
+  const subject = `${args.inviterName} invited you to join ${args.orgName} on Sigap`;
   const html = `
     <div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
       <div style="background: linear-gradient(135deg, #6366f1, #22d3ee); height: 4px; border-radius: 2px; margin-bottom: 24px;"></div>
       <h1 style="color: #0f172a; font-size: 24px; margin-bottom: 8px;">You're invited to ${escapeHtml(args.orgName)}</h1>
       <p style="color: #475569; font-size: 15px; line-height: 1.6;">
-        <strong>${escapeHtml(args.inviterName)}</strong> invited you to join their team on <strong>Cowork</strong> — an open-source AI Chief of Staff that helps teams stay in sync without interruptions.
+        <strong>${escapeHtml(args.inviterName)}</strong> invited you to join their team on <strong>Sigap</strong> — an open-source AI Chief of Staff that helps teams stay in sync without interruptions.
       </p>
       <div style="margin: 32px 0;">
         <a href="${args.inviteUrl}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
@@ -41,7 +41,7 @@ export async function sendInviteEmail(args: {
         </a>
       </div>
       <p style="color: #64748b; font-size: 13px; line-height: 1.5;">
-        Cowork is privacy-first. You control what you share with your manager, and every query is logged. <br>
+        Sigap is privacy-first. You control what you share with your manager, and every query is logged. <br>
         Or paste this link in your browser: <br>
         <span style="color: #6366f1; word-break: break-all;">${args.inviteUrl}</span>
       </p>
@@ -77,12 +77,12 @@ export async function sendWeeklyReportEmail(args: {
   reportHtml: string;
   weekLabel: string;
 }) {
-  const subject = `Your Cowork weekly report — ${args.weekLabel}`;
+  const subject = `Your Sigap weekly report — ${args.weekLabel}`;
   const html = `
     <div style="font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
       <div style="background: linear-gradient(135deg, #6366f1, #22d3ee); height: 4px; border-radius: 2px; margin-bottom: 24px;"></div>
       <h1 style="color: #0f172a; font-size: 22px;">Hi ${escapeHtml(args.name)} 👋</h1>
-      <p style="color: #475569;">Here's your week in review from Cowork:</p>
+      <p style="color: #475569;">Here's your week in review from Sigap:</p>
       <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin: 16px 0; color: #0f172a; line-height: 1.6;">
         ${args.reportHtml}
       </div>

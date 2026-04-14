@@ -5,9 +5,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Cowork — AI Chief of Staff",
+  title: "Sigap — AI Chief of Staff",
   description:
-    "Open-source AI Chief of Staff. Sign in with Google and get an assistant that knows your calendar, tasks, and documents.",
+    "Open-source AI Chief of Staff. Sign in with Google and get an assistant that knows your calendar and tasks. Sigap is Indonesian for 'swift, ready, responsive'.",
 };
 
 export default function RootLayout({

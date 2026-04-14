@@ -6,15 +6,15 @@ export default function TermsPage() {
 
       <h2>Beta disclaimer</h2>
       <p>
-        Cowork is in beta. Features may change or break. Data may be lost. Do not store anything you
+        Sigap is in beta. Features may change or break. Data may be lost. Do not store anything you
         can&apos;t afford to lose. AI responses may be wrong — always verify important information.
       </p>
 
       <h2>Acceptable use</h2>
       <ul>
         <li>Don&apos;t abuse the free tier. 30 messages/day is the shared limit.</li>
-        <li>Don&apos;t use Cowork to monitor people without their consent.</li>
-        <li>Don&apos;t use Cowork for illegal activity.</li>
+        <li>Don&apos;t use Sigap to monitor people without their consent.</li>
+        <li>Don&apos;t use Sigap for illegal activity.</li>
       </ul>
 
       <h2>Free tier</h2>
@@ -25,7 +25,7 @@ export default function TermsPage() {
 
       <h2>No warranty</h2>
       <p>
-        Cowork is provided &quot;as is&quot; under the MIT License. No warranty of any kind. We are not liable
+        Sigap is provided &quot;as is&quot; under the MIT License. No warranty of any kind. We are not liable
         for any damages arising from use of the service.
       </p>
 

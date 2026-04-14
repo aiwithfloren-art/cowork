@@ -85,7 +85,7 @@ export default async function InvitePage({
     return (
       <main className="mx-auto max-w-md px-6 py-24 text-center">
         <h1 className="text-3xl font-bold text-slate-900">
-          Join {orgName} on Cowork
+          Join {orgName} on Sigap
         </h1>
         <p className="mt-3 text-sm text-slate-600">
           Invited to <strong>{invite.email}</strong>. Sign in with Google to accept.
