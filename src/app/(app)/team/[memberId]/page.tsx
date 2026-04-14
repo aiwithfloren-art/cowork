@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
+import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { getTodayEvents, getWeekEvents } from "@/lib/google/calendar";
@@ -19,28 +20,75 @@ export default async function MemberPage({
 
   const sb = supabaseAdmin();
 
-  // Verify viewer is manager/owner in same org AND target shares data
-  const { data: link } = await sb
+  // 1. Find all org memberships of the target user
+  const { data: targetMemberships } = await sb
     .from("org_members")
-    .select("org_id, role, share_with_manager, users(name, email, image)")
+    .select("org_id, role, share_with_manager")
     .eq("user_id", memberId);
-  if (!link || link.length === 0) notFound();
 
-  const targetRow = link[0] as unknown as {
-    org_id: string;
-    share_with_manager: boolean;
-    users: { name: string | null; email: string; image: string | null } | null;
-  };
-  if (!targetRow.share_with_manager) {
+  // 2. Find viewer's org memberships
+  const { data: viewerMemberships } = await sb
+    .from("org_members")
+    .select("org_id, role")
+    .eq("user_id", viewerId);
+
+  // 3. Intersect: find a shared org where viewer is owner/manager
+  const viewerOrgs = new Map(
+    (viewerMemberships ?? []).map((m) => [m.org_id, m.role] as const),
+  );
+  const sharedOrgWithAccess = (targetMemberships ?? []).find((t) => {
+    const viewerRole = viewerOrgs.get(t.org_id);
+    return viewerRole === "owner" || viewerRole === "manager";
+  });
+
+  // 4. Load target user profile
+  const { data: targetUser } = await sb
+    .from("users")
+    .select("name, email, image")
+    .eq("id", memberId)
+    .maybeSingle();
+
+  // Guard: target user doesn't exist
+  if (!targetUser) {
     return (
-      <div className="mx-auto max-w-xl">
+      <EmptyState
+        title="User not found"
+        message="This user doesn't exist in Cowork."
+        back
+      />
+    );
+  }
+
+  // Guard: viewer has no shared org where they're manager/owner
+  if (!sharedOrgWithAccess) {
+    return (
+      <EmptyState
+        title="Not authorized"
+        message="You don't have manager access to this user's workspace. Ask the workspace owner to grant you the Manager role, or make sure you're in the same team."
+        back
+      />
+    );
+  }
+
+  // Guard: member has not opted in to sharing
+  if (!sharedOrgWithAccess.share_with_manager) {
+    return (
+      <div className="space-y-4">
+        <Link
+          href="/team"
+          className="inline-block text-sm text-slate-500 hover:text-slate-900"
+        >
+          ← Back to team
+        </Link>
         <Card>
           <CardHeader>
             <CardTitle>Private</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-slate-600">
-              This member has not opted in to share data with their manager.
+              <strong>{targetUser.name || targetUser.email}</strong> has not opted in
+              to share their work data with managers. Ask them to toggle &quot;Share
+              my Google work data with my manager&quot; in their Team page.
             </p>
           </CardContent>
         </Card>
@@ -48,16 +96,7 @@ export default async function MemberPage({
     );
   }
 
-  const { data: viewerMember } = await sb
-    .from("org_members")
-    .select("role")
-    .eq("user_id", viewerId)
-    .eq("org_id", targetRow.org_id)
-    .maybeSingle();
-  if (!viewerMember || (viewerMember.role !== "owner" && viewerMember.role !== "manager")) {
-    notFound();
-  }
-
+  // All good — fetch their data
   let events: Awaited<ReturnType<typeof getTodayEvents>> = [];
   let week: Awaited<ReturnType<typeof getWeekEvents>> = [];
   let tasks: Awaited<ReturnType<typeof listTasks>> = [];
@@ -76,16 +115,23 @@ export default async function MemberPage({
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/team"
+        className="inline-block text-sm text-slate-500 hover:text-slate-900"
+      >
+        ← Back to team
+      </Link>
+
       <div className="flex items-center gap-4">
-        {targetRow.users?.image && (
+        {targetUser.image && (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={targetRow.users.image} alt="" className="h-12 w-12 rounded-full" />
+          <img src={targetUser.image} alt="" className="h-12 w-12 rounded-full" />
         )}
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            {targetRow.users?.name ?? targetRow.users?.email}
+            {targetUser.name ?? targetUser.email}
           </h1>
-          <p className="text-sm text-slate-600">{targetRow.users?.email}</p>
+          <p className="text-sm text-slate-600">{targetUser.email}</p>
         </div>
       </div>
 
@@ -153,7 +199,7 @@ export default async function MemberPage({
           <p className="mb-3 text-xs text-slate-500">
             Every question you ask is logged and visible to the member in their audit log.
           </p>
-          <AskMember memberId={memberId} orgId={targetRow.org_id} />
+          <AskMember memberId={memberId} orgId={sharedOrgWithAccess.org_id} />
         </CardContent>
       </Card>
     </div>
@@ -182,5 +228,36 @@ function StatCard({
         <p className={`mt-1 text-3xl font-bold ${color}`}>{value}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function EmptyState({
+  title,
+  message,
+  back,
+}: {
+  title: string;
+  message: string;
+  back?: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      {back && (
+        <Link
+          href="/team"
+          className="inline-block text-sm text-slate-500 hover:text-slate-900"
+        >
+          ← Back to team
+        </Link>
+      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-slate-600">{message}</p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
