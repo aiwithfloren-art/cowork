@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { revalidatePath } from "next/cache";
 import { TelegramConnect } from "@/components/telegram-connect";
+import { ConnectedFiles } from "@/components/connected-files";
 import { getDict } from "@/lib/i18n";
 
 async function saveKey(formData: FormData) {
@@ -61,6 +62,15 @@ export default async function SettingsPage() {
             initialLinked={tgLink ? { username: tgLink.telegram_username } : null}
             initialCode={pendingCode ?? null}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Connected Files</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ConnectedFiles />
         </CardContent>
       </Card>
 

@@ -2,16 +2,19 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// NOTE: drive.readonly and documents.readonly are RESTRICTED scopes that
-// require Google verification. Until we're verified, non-test users get
-// blocked with "Server error". Keep only Sensitive scopes (Calendar, Tasks)
-// which public users can consent to with just the "unverified app" warning.
+// Scopes we request on sign-in. All are NON-RESTRICTED so public users
+// can sign in without Google's full verification + security assessment.
+//
+// - calendar.events + tasks = Sensitive tier (warning screen, works public)
+// - drive.file = Non-sensitive Drive scope: Sigap can only access files the
+//   user EXPLICITLY picks via Google Picker. No scan of full Drive.
 const GOOGLE_SCOPES = [
   "openid",
   "email",
   "profile",
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/tasks",
+  "https://www.googleapis.com/auth/drive.file",
 ].join(" ");
 
 export const { handlers, auth, signIn, signOut } = NextAuth({

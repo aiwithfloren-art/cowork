@@ -3,52 +3,42 @@ import { getGoogleClient } from "./client";
 
 export type DocFile = { id: string; name: string; mimeType: string };
 
-export async function searchDocs(userId: string, query: string): Promise<DocFile[]> {
-  const auth = await getGoogleClient(userId);
-  const drive = google.drive({ version: "v3", auth });
-  const res = await drive.files.list({
-    q: `name contains '${query.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.document' and trashed=false`,
-    pageSize: 10,
-    fields: "files(id,name,mimeType)",
-  });
-  return (res.data.files ?? []).map((f) => ({
-    id: f.id!,
-    name: f.name ?? "",
-    mimeType: f.mimeType ?? "",
-  }));
-}
-
-export async function listRecentDriveFiles(
-  userId: string,
-  limit = 20,
-): Promise<DocFile[]> {
-  const auth = await getGoogleClient(userId);
-  const drive = google.drive({ version: "v3", auth });
-  const res = await drive.files.list({
-    q: "trashed=false and 'me' in owners",
-    pageSize: limit,
-    fields: "files(id,name,mimeType,modifiedTime)",
-    orderBy: "modifiedTime desc",
-  });
-  return (res.data.files ?? []).map((f) => ({
-    id: f.id!,
-    name: f.name ?? "",
-    mimeType: f.mimeType ?? "",
-  }));
-}
-
 export async function readDoc(userId: string, docId: string): Promise<string> {
   const auth = await getGoogleClient(userId);
-  const docs = google.docs({ version: "v1", auth });
-  const res = await docs.documents.get({ documentId: docId });
-  const doc = res.data;
-  let out = "";
-  for (const el of doc.body?.content ?? []) {
-    if (el.paragraph) {
-      for (const t of el.paragraph.elements ?? []) {
-        out += t.textRun?.content ?? "";
+
+  // Google Docs API only works for native Google Docs
+  try {
+    const docs = google.docs({ version: "v1", auth });
+    const res = await docs.documents.get({ documentId: docId });
+    const doc = res.data;
+    let out = "";
+    for (const el of doc.body?.content ?? []) {
+      if (el.paragraph) {
+        for (const t of el.paragraph.elements ?? []) {
+          out += t.textRun?.content ?? "";
+        }
       }
     }
+    const trimmed = out.trim();
+    if (trimmed) return trimmed.slice(0, 8000);
+  } catch {
+    // Fall through to Drive export
   }
-  return out.trim().slice(0, 8000);
+
+  // Fallback: use Drive files.export for other Google Workspace formats
+  // (Sheets, Slides) or .get + .alt=media for binary files.
+  const drive = google.drive({ version: "v3", auth });
+  try {
+    // Try export as plain text (works for Docs, Slides)
+    const res = await drive.files.export(
+      { fileId: docId, mimeType: "text/plain" },
+      { responseType: "text" },
+    );
+    const text = typeof res.data === "string" ? res.data : String(res.data ?? "");
+    return text.trim().slice(0, 8000);
+  } catch (e) {
+    throw new Error(
+      `Could not read file: ${e instanceof Error ? e.message : "unknown error"}`,
+    );
+  }
 }

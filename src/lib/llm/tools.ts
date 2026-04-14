@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getTodayEvents, getWeekEvents, addCalendarEvent } from "@/lib/google/calendar";
 import { listTasks, addTask, completeTask } from "@/lib/google/tasks";
 import { findCommonSlots } from "@/lib/google/freebusy";
+import { readDoc } from "@/lib/google/docs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export function buildTools(userId: string) {
@@ -112,6 +113,67 @@ export function buildTools(userId: string) {
       execute: async ({ id }) => {
         await completeTask(userId, id);
         return { ok: true };
+      },
+    }),
+
+    list_connected_files: tool({
+      description:
+        "List the Google Drive files the user has explicitly connected to Sigap via Settings → Connected Files. These are the only files Sigap can read. Returns file names and IDs.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const sb = supabaseAdmin();
+        const { data } = await sb
+          .from("user_files")
+          .select("file_id, file_name, mime_type")
+          .eq("user_id", userId)
+          .order("added_at", { ascending: false });
+        return {
+          count: data?.length ?? 0,
+          files:
+            (data ?? []).map((f) => ({
+              id: f.file_id,
+              name: f.file_name,
+              type: f.mime_type,
+            })) ?? [],
+          note:
+            (data?.length ?? 0) === 0
+              ? "User has no connected files yet. Tell them to go to Settings → Connected Files → Add file from Drive to pick documents for Sigap to read."
+              : "Use these file IDs with read_connected_file to read content.",
+        };
+      },
+    }),
+
+    read_connected_file: tool({
+      description:
+        "Read the content of a Google Drive file that the user has connected to Sigap. Only works with file IDs returned from list_connected_files — cannot read arbitrary files. Returns up to 8000 characters of text content.",
+      inputSchema: z.object({
+        file_id: z
+          .string()
+          .describe("Drive file ID from list_connected_files output"),
+      }),
+      execute: async ({ file_id }) => {
+        // Verify this file is in the user's connected files list
+        const sb = supabaseAdmin();
+        const { data: match } = await sb
+          .from("user_files")
+          .select("file_name")
+          .eq("user_id", userId)
+          .eq("file_id", file_id)
+          .maybeSingle();
+        if (!match) {
+          return {
+            error:
+              "This file is not in your connected files. Ask the user to add it in Settings → Connected Files first.",
+          };
+        }
+        try {
+          const content = await readDoc(userId, file_id);
+          return { file_name: match.file_name, content };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Could not read file",
+          };
+        }
       },
     }),
 
