@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getTodayEvents, getWeekEvents, addCalendarEvent } from "@/lib/google/calendar";
 import { listTasks, addTask, completeTask } from "@/lib/google/tasks";
 import { searchDocs, readDoc } from "@/lib/google/docs";
+import { findCommonSlots } from "@/lib/google/freebusy";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export function buildTools(userId: string) {
@@ -28,6 +29,43 @@ export function buildTools(userId: string) {
       execute: async () => {
         const events = await getWeekEvents(userId);
         return events.map((e) => ({ title: e.title, start: e.start, end: e.end }));
+      },
+    }),
+
+    find_meeting_slots: tool({
+      description:
+        "Find open time slots for a meeting in the user's calendar during workday hours (09:00-18:00 Mon-Fri). Optionally include teammate emails from the same org to find SHARED free slots. Returns up to 5 slots. Use this when the user asks to schedule a meeting or find a time.",
+      inputSchema: z.object({
+        duration_minutes: z.number().describe("Duration of the meeting in minutes (e.g. 30, 60)"),
+        days_ahead: z.number().optional().describe("How many days to search ahead (default 7)"),
+        with_emails: z
+          .array(z.string())
+          .optional()
+          .describe("Optional teammate emails to cross-reference calendars"),
+      }),
+      execute: async ({ duration_minutes, days_ahead, with_emails }) => {
+        const sb = supabaseAdmin();
+        const userIds: string[] = [userId];
+        if (with_emails && with_emails.length > 0) {
+          const { data: others } = await sb
+            .from("users")
+            .select("id, email")
+            .in("email", with_emails.map((e) => e.toLowerCase()));
+          if (others) userIds.push(...others.map((u) => u.id));
+        }
+        const slots = await findCommonSlots(userIds, {
+          durationMinutes: duration_minutes,
+          daysAhead: days_ahead ?? 7,
+          maxSlots: 5,
+        });
+        return {
+          count: slots.length,
+          slots: slots.map((s) => ({ start: s.start, end: s.end })),
+          note:
+            slots.length === 0
+              ? "No free slots found in workday hours."
+              : "Present these times to the user in their local timezone (Asia/Jakarta +07:00).",
+        };
       },
     }),
 

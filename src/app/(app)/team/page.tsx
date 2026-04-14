@@ -6,6 +6,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { headers } from "next/headers";
+import { sendInviteEmail } from "@/lib/email/client";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 
 type Member = {
   user_id: string;
@@ -61,6 +63,23 @@ async function inviteMember(formData: FormData) {
     manager_id: role === "member" ? uid : null,
     token,
   });
+
+  // Lookup inviter name + org name, then send email
+  const [{ data: inviter }, { data: org }] = await Promise.all([
+    sb.from("users").select("name, email").eq("id", uid).maybeSingle(),
+    sb.from("organizations").select("name").eq("id", orgId).maybeSingle(),
+  ]);
+  const h = await headers();
+  const host = h.get("host") ?? "cowork-gilt.vercel.app";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  const inviteUrl = `${proto}://${host}/invite/${token}`;
+  await sendInviteEmail({
+    to: email,
+    inviterName: inviter?.name || inviter?.email || "Someone",
+    orgName: org?.name || "a team",
+    inviteUrl,
+  });
+
   revalidatePath("/team");
 }
 
@@ -119,6 +138,7 @@ export default async function TeamPage() {
 
   return (
     <div className="space-y-6">
+      <RealtimeRefresh userId={userId} orgId={orgId} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{orgName}</h1>
