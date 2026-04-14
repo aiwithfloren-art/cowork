@@ -71,10 +71,19 @@ export async function POST(req: Request) {
       system: SYSTEM_PROMPT,
       messages: body.messages,
       tools,
-      stopWhen: stepCountIs(6),
+      stopWhen: stepCountIs(8),
     });
 
-    const text = result.text || extractTextFromSteps(result);
+    let text = result.text || extractTextFromSteps(result);
+
+    // Fallback: if no text but tools were called, synthesize a response
+    // from the last tool result so the user at least sees something useful.
+    if (!text) {
+      const lastToolResult = findLastToolResult(result);
+      if (lastToolResult) {
+        text = summarizeToolResult(lastToolResult);
+      }
+    }
 
     if (!text) {
       console.error("chat: empty text", {
@@ -132,7 +141,17 @@ export async function POST(req: Request) {
   }
 }
 
-type StepLike = { text?: string; content?: Array<{ type?: string; text?: string }> };
+type StepLike = {
+  text?: string;
+  content?: Array<{
+    type?: string;
+    text?: string;
+    toolName?: string;
+    output?: unknown;
+    result?: unknown;
+  }>;
+  toolResults?: Array<{ toolName?: string; output?: unknown; result?: unknown }>;
+};
 
 function extractTextFromSteps(result: { steps?: StepLike[] }): string {
   const steps = result.steps ?? [];
@@ -147,4 +166,82 @@ function extractTextFromSteps(result: { steps?: StepLike[] }): string {
     }
   }
   return parts.join("").trim();
+}
+
+type LastTool = { toolName: string; output: unknown };
+
+function findLastToolResult(result: { steps?: StepLike[] }): LastTool | null {
+  const steps = result.steps ?? [];
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const s = steps[i];
+    if (Array.isArray(s.toolResults)) {
+      for (let j = s.toolResults.length - 1; j >= 0; j--) {
+        const tr = s.toolResults[j];
+        if (tr?.toolName && (tr.output || tr.result)) {
+          return { toolName: tr.toolName, output: tr.output ?? tr.result };
+        }
+      }
+    }
+    if (Array.isArray(s.content)) {
+      for (let j = s.content.length - 1; j >= 0; j--) {
+        const c = s.content[j];
+        if (
+          (c?.type === "tool-result" || c?.type === "tool-output") &&
+          c.toolName &&
+          (c.output || c.result)
+        ) {
+          return { toolName: c.toolName, output: c.output ?? c.result };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function summarizeToolResult(t: LastTool): string {
+  const o = t.output as Record<string, unknown> | null;
+  if (!o) return "";
+
+  if (t.toolName === "list_connected_files") {
+    const files = (o.files ?? []) as Array<{
+      id: string;
+      name: string;
+      type: string;
+    }>;
+    const total = typeof o.total === "number" ? o.total : files.length;
+    if (files.length === 0) {
+      return "You don't have any connected files yet. Go to Settings → Connected Files → Add file from Drive to pick documents.";
+    }
+    const lines = files.map((f, i) => `${i + 1}. ${f.name} (${f.type})`);
+    const header =
+      total > files.length
+        ? `Here are your ${files.length} most recent connected files (of ${total} total):`
+        : `You have ${files.length} connected file${files.length === 1 ? "" : "s"}:`;
+    return header + "\n\n" + lines.join("\n");
+  }
+
+  if (t.toolName === "list_tasks") {
+    const tasks = o as unknown as Array<{ title: string; due?: string }>;
+    if (!Array.isArray(tasks) || tasks.length === 0) return "No open tasks — you're clear.";
+    return (
+      "Open tasks:\n" +
+      tasks.map((x) => `• ${x.title}${x.due ? ` (due ${x.due})` : ""}`).join("\n")
+    );
+  }
+
+  if (t.toolName === "get_today_schedule" || t.toolName === "get_week_schedule") {
+    const events = o as unknown as Array<{ title: string; start: string; end: string }>;
+    if (!Array.isArray(events) || events.length === 0) return "No events scheduled.";
+    return (
+      "Events:\n" +
+      events.map((e) => `• ${e.title} (${e.start} – ${e.end})`).join("\n")
+    );
+  }
+
+  // Generic fallback: stringify compactly
+  try {
+    return "Result:\n```\n" + JSON.stringify(o, null, 2).slice(0, 2000) + "\n```";
+  } catch {
+    return "";
+  }
 }

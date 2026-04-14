@@ -6,6 +6,16 @@ import { findCommonSlots } from "@/lib/google/freebusy";
 import { readDoc } from "@/lib/google/docs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+function shortType(mime: string): string {
+  if (mime.includes("document")) return "Doc";
+  if (mime.includes("spreadsheet")) return "Sheet";
+  if (mime.includes("presentation")) return "Slides";
+  if (mime.includes("pdf")) return "PDF";
+  if (mime.includes("folder")) return "Folder";
+  if (mime.startsWith("image/")) return "Image";
+  return "File";
+}
+
 export function buildTools(userId: string) {
   return {
     get_today_schedule: tool({
@@ -118,27 +128,37 @@ export function buildTools(userId: string) {
 
     list_connected_files: tool({
       description:
-        "MUST call this for ANY user question about their files, documents, Google Drive, docs, sheets, spreadsheets, PDFs, or 'what files do I have'. Returns the list of Google Drive files the user connected to Sigap (name + type + file_id). Do NOT assume the list is empty — always call this tool to check.",
-      inputSchema: z.object({}),
-      execute: async () => {
+        "MUST call this for ANY user question about their files, documents, Google Drive, docs, sheets, spreadsheets, PDFs, or 'what files do I have'. Returns up to 30 most recent files (name + short type + id). After calling this, IMMEDIATELY give a text response listing the files to the user — do not call additional tools.",
+      inputSchema: z.object({
+        search: z
+          .string()
+          .optional()
+          .describe("Optional substring to filter file names by (case-insensitive)"),
+      }),
+      execute: async ({ search }) => {
         const sb = supabaseAdmin();
         const { data } = await sb
           .from("user_files")
           .select("file_id, file_name, mime_type")
           .eq("user_id", userId)
           .order("added_at", { ascending: false });
+
+        const all = data ?? [];
+        const filtered = search
+          ? all.filter((f) =>
+              (f.file_name ?? "").toLowerCase().includes(search.toLowerCase()),
+            )
+          : all;
+        const top = filtered.slice(0, 30);
+
         return {
-          count: data?.length ?? 0,
-          files:
-            (data ?? []).map((f) => ({
-              id: f.file_id,
-              name: f.file_name,
-              type: f.mime_type,
-            })) ?? [],
-          note:
-            (data?.length ?? 0) === 0
-              ? "User has no connected files yet. Tell them to go to Settings → Connected Files → Add file from Drive to pick documents for Sigap to read."
-              : "Use these file IDs with read_connected_file to read content.",
+          total: all.length,
+          shown: top.length,
+          files: top.map((f) => ({
+            id: f.file_id,
+            name: f.file_name,
+            type: shortType(f.mime_type ?? ""),
+          })),
         };
       },
     }),
