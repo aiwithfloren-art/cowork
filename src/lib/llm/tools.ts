@@ -2,9 +2,20 @@ import { tool } from "ai";
 import { z } from "zod";
 import { getTodayEvents, getWeekEvents, addCalendarEvent } from "@/lib/google/calendar";
 import { listTasks, addTask, completeTask } from "@/lib/google/tasks";
-import { searchDocs, readDoc } from "@/lib/google/docs";
+import { searchDocs, readDoc, listRecentDriveFiles } from "@/lib/google/docs";
 import { findCommonSlots } from "@/lib/google/freebusy";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+
+function simplifyMimeType(mime: string): string {
+  if (mime.includes("document")) return "Google Doc";
+  if (mime.includes("spreadsheet")) return "Google Sheet";
+  if (mime.includes("presentation")) return "Google Slides";
+  if (mime.includes("folder")) return "Folder";
+  if (mime.includes("pdf")) return "PDF";
+  if (mime.startsWith("image/")) return "Image";
+  if (mime.startsWith("video/")) return "Video";
+  return mime.split("/").pop() || mime;
+}
 
 export function buildTools(userId: string) {
   return {
@@ -117,9 +128,29 @@ export function buildTools(userId: string) {
     }),
 
     search_docs: tool({
-      description: "Search the user's Google Drive for Docs by name.",
+      description:
+        "Search the user's Google Drive for Google Docs by name (exact or partial). Returns matching docs with IDs.",
       inputSchema: z.object({ query: z.string() }),
       execute: async ({ query }) => searchDocs(userId, query),
+    }),
+
+    list_drive_files: tool({
+      description:
+        "List the user's most recently modified files in Google Drive (all file types — Docs, Sheets, Slides, PDFs, images, etc). Use this when the user asks 'what files do I have' or 'list my recent files'. Returns up to 20 items.",
+      inputSchema: z.object({
+        limit: z.number().optional().describe("Max items to return (default 20)"),
+      }),
+      execute: async ({ limit }) => {
+        const files = await listRecentDriveFiles(userId, limit ?? 20);
+        return {
+          count: files.length,
+          files: files.map((f) => ({
+            name: f.name,
+            type: simplifyMimeType(f.mimeType),
+            id: f.id,
+          })),
+        };
+      },
     }),
 
     read_doc: tool({

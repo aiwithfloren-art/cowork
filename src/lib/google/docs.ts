@@ -18,6 +18,25 @@ export async function searchDocs(userId: string, query: string): Promise<DocFile
   }));
 }
 
+export async function listRecentDriveFiles(
+  userId: string,
+  limit = 20,
+): Promise<DocFile[]> {
+  const auth = await getGoogleClient(userId);
+  const drive = google.drive({ version: "v3", auth });
+  const res = await drive.files.list({
+    q: "trashed=false and 'me' in owners",
+    pageSize: limit,
+    fields: "files(id,name,mimeType,modifiedTime)",
+    orderBy: "modifiedTime desc",
+  });
+  return (res.data.files ?? []).map((f) => ({
+    id: f.id!,
+    name: f.name ?? "",
+    mimeType: f.mimeType ?? "",
+  }));
+}
+
 export async function readDoc(userId: string, docId: string): Promise<string> {
   const auth = await getGoogleClient(userId);
   const docs = google.docs({ version: "v1", auth });
