@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { revalidatePath } from "next/cache";
-import { generateLinkCode } from "@/lib/telegram/client";
+import { TelegramConnect } from "@/components/telegram-connect";
 
 async function saveKey(formData: FormData) {
   "use server";
@@ -17,30 +17,6 @@ async function saveKey(formData: FormData) {
   } else {
     await sb.from("user_settings").upsert({ user_id: uid, groq_key: null });
   }
-  revalidatePath("/settings");
-}
-
-async function generateTelegramCode() {
-  "use server";
-  const session = await auth();
-  const uid = (session?.user as { id?: string } | undefined)?.id;
-  if (!uid) return;
-  const sb = supabaseAdmin();
-  const code = generateLinkCode();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-  // Clean up any existing codes for this user
-  await sb.from("telegram_link_codes").delete().eq("user_id", uid);
-  await sb.from("telegram_link_codes").insert({ code, user_id: uid, expires_at: expiresAt });
-  revalidatePath("/settings");
-}
-
-async function unlinkTelegram() {
-  "use server";
-  const session = await auth();
-  const uid = (session?.user as { id?: string } | undefined)?.id;
-  if (!uid) return;
-  const sb = supabaseAdmin();
-  await sb.from("telegram_links").delete().eq("user_id", uid);
   revalidatePath("/settings");
 }
 
@@ -68,9 +44,6 @@ export default async function SettingsPage() {
     ? `${settings.groq_key.slice(0, 8)}…${settings.groq_key.slice(-4)}`
     : "";
 
-  const codeValid =
-    pendingCode && new Date(pendingCode.expires_at) > new Date() ? pendingCode : null;
-
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
@@ -80,71 +53,10 @@ export default async function SettingsPage() {
           <CardTitle>Connect Telegram</CardTitle>
         </CardHeader>
         <CardContent>
-          {tgLink ? (
-            <div>
-              <p className="text-sm text-slate-700">
-                ✅ Linked to{" "}
-                <strong>
-                  {tgLink.telegram_username ? `@${tgLink.telegram_username}` : "Telegram"}
-                </strong>
-                . You can chat with Cowork directly on Telegram.
-              </p>
-              <form action={unlinkTelegram} className="mt-3">
-                <button
-                  type="submit"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                >
-                  Unlink Telegram
-                </button>
-              </form>
-            </div>
-          ) : codeValid ? (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-700">
-                Your linking code:
-              </p>
-              <div className="flex items-center gap-4">
-                <code className="rounded-lg bg-slate-900 px-4 py-2 text-2xl font-bold tracking-wider text-white">
-                  {codeValid.code}
-                </code>
-                <span className="text-xs text-slate-500">
-                  expires in 10 min
-                </span>
-              </div>
-              <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
-                <li>
-                  Open{" "}
-                  <a
-                    href={`https://t.me/coworkflo_bot?start=${codeValid.code}`}
-                    target="_blank"
-                    className="text-indigo-600 underline"
-                  >
-                    @coworkflo_bot on Telegram
-                  </a>{" "}
-                  (or search the name)
-                </li>
-                <li>
-                  Tap <strong>Start</strong>, or reply with{" "}
-                  <code className="rounded bg-slate-100 px-1">/start {codeValid.code}</code>
-                </li>
-                <li>Done! Chat away.</li>
-              </ol>
-            </div>
-          ) : (
-            <div>
-              <p className="mb-4 text-sm text-slate-600">
-                Chat with your Cowork AI from Telegram. Daily briefings and all tools work there too.
-              </p>
-              <form action={generateTelegramCode}>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-                >
-                  Get linking code
-                </button>
-              </form>
-            </div>
-          )}
+          <TelegramConnect
+            initialLinked={tgLink ? { username: tgLink.telegram_username } : null}
+            initialCode={pendingCode ?? null}
+          />
         </CardContent>
       </Card>
 
