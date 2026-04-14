@@ -1,16 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import type { Dict } from "@/lib/i18n/dictionaries";
 
 type Msg = { role: "user" | "assistant"; content: string };
+type T = Dict["chat"];
 
-const SUGGESTIONS = [
-  "What's my top priority today?",
-  "What meetings do I have this week?",
-  "Add a task: review proposal",
-];
-
-export function Chat() {
+export function Chat({ t }: { t: T }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,7 +35,7 @@ export function Chat() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Request failed" }));
         setError(err.error || "Something went wrong");
-        setMessages(newMessages); // Remove empty assistant placeholder
+        setMessages(newMessages);
         setLoading(false);
         return;
       }
@@ -71,7 +67,7 @@ export function Chat() {
           const copy = [...msgs];
           copy[copy.length - 1] = {
             role: "assistant",
-            content: "(No response — try rephrasing your question)",
+            content: "(No response — try rephrasing)",
           };
           return copy;
         });
@@ -88,21 +84,35 @@ export function Chat() {
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto px-5 py-3">
         {messages.length === 0 && !error && (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <p className="mb-4 text-sm text-slate-500">
-              Ask your Chief of Staff anything.
-            </p>
-            <div className="space-y-2">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => send(s)}
-                  className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+          <div className="space-y-4 py-2">
+            <p className="text-center text-sm text-slate-500">{t.askPrompt}</p>
+
+            <SuggestionGroup title={t.suggestions.briefingTitle}>
+              <SuggestionChip onClick={() => send(t.suggestions.briefing1)}>
+                {t.suggestions.briefing1}
+              </SuggestionChip>
+              <SuggestionChip onClick={() => send(t.suggestions.briefing2)}>
+                {t.suggestions.briefing2}
+              </SuggestionChip>
+            </SuggestionGroup>
+
+            <SuggestionGroup title={t.suggestions.actionTitle}>
+              <SuggestionChip onClick={() => send(t.suggestions.action1)}>
+                {t.suggestions.action1}
+              </SuggestionChip>
+              <SuggestionChip onClick={() => send(t.suggestions.action2)}>
+                {t.suggestions.action2}
+              </SuggestionChip>
+            </SuggestionGroup>
+
+            <SuggestionGroup title={t.suggestions.insightTitle}>
+              <SuggestionChip onClick={() => send(t.suggestions.insight1)}>
+                {t.suggestions.insight1}
+              </SuggestionChip>
+              <SuggestionChip onClick={() => send(t.suggestions.insight2)}>
+                {t.suggestions.insight2}
+              </SuggestionChip>
+            </SuggestionGroup>
           </div>
         )}
         <div className="space-y-3">
@@ -145,7 +155,7 @@ export function Chat() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask anything…"
+            placeholder={t.askAnything}
             disabled={loading}
             className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           />
@@ -154,10 +164,44 @@ export function Chat() {
             disabled={loading || !input.trim()}
             className="rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
-            Send
+            {t.send}
           </button>
         </div>
       </form>
     </div>
+  );
+}
+
+function SuggestionGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        {title}
+      </p>
+      <div className="space-y-1.5">{children}</div>
+    </div>
+  );
+}
+
+function SuggestionChip({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-700 hover:border-indigo-300 hover:bg-indigo-50"
+    >
+      {children}
+    </button>
   );
 }

@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { getDict } from "@/lib/i18n";
 
 export default async function AuditPage() {
   const session = await auth();
@@ -9,6 +10,8 @@ export default async function AuditPage() {
   if (!userId) redirect("/");
 
   const sb = supabaseAdmin();
+  const dict = await getDict();
+  const t = dict.audit;
   const { data: log } = await sb
     .from("audit_log")
     .select("id, actor_id, action, question, answer, created_at, users:actor_id(name, email)")
@@ -19,19 +22,17 @@ export default async function AuditPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Your audit log</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Everything managers have asked the AI about you. You have full transparency.
-        </p>
+        <h1 className="text-2xl font-bold text-slate-900">{t.title}</h1>
+        <p className="mt-1 text-sm text-slate-600">{t.sub}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Manager queries</CardTitle>
+          <CardTitle>{t.managerQueries}</CardTitle>
         </CardHeader>
         <CardContent>
           {!log || log.length === 0 ? (
-            <p className="text-sm text-slate-500">No queries yet.</p>
+            <p className="text-sm text-slate-500">{t.noQueries}</p>
           ) : (
             <ul className="space-y-4">
               {log.map((l) => {

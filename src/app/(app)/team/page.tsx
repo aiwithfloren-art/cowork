@@ -8,6 +8,7 @@ import crypto from "crypto";
 import { headers } from "next/headers";
 import { sendInviteEmail } from "@/lib/email/client";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
+import { getDict } from "@/lib/i18n";
 
 type Member = {
   user_id: string;
@@ -110,8 +111,11 @@ export default async function TeamPage() {
     .select("org_id, role, share_with_manager, organizations(id, name, slug)")
     .eq("user_id", userId);
 
+  const dict = await getDict();
+  const t = dict.team;
+
   if (!myOrgs || myOrgs.length === 0) {
-    return <CreateFirstOrg createOrg={createOrg} />;
+    return <CreateFirstOrg createOrg={createOrg} t={t} />;
   }
 
   const primary = myOrgs[0];
@@ -142,7 +146,7 @@ export default async function TeamPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{orgName}</h1>
-          <p className="mt-1 text-sm text-slate-600">Team workspace</p>
+          <p className="mt-1 text-sm text-slate-600">{t.title}</p>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 uppercase">
           {role}
@@ -153,15 +157,15 @@ export default async function TeamPage() {
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Team Pulse</CardTitle>
+              <CardTitle>{t.teamPulse}</CardTitle>
             </CardHeader>
             <CardContent>
-              <TeamPulse members={(members as unknown as Member[]) ?? []} />
+              <TeamPulse members={(members as unknown as Member[]) ?? []} statLabel={t.sharingStat} />
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Invite Member</CardTitle>
+              <CardTitle>{t.inviteMember}</CardTitle>
             </CardHeader>
             <CardContent>
               <form action={inviteMember} className="space-y-3">
@@ -169,7 +173,7 @@ export default async function TeamPage() {
                 <input
                   name="email"
                   type="email"
-                  placeholder="teammate@company.com"
+                  placeholder={t.invitePlaceholder}
                   required
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 />
@@ -177,19 +181,19 @@ export default async function TeamPage() {
                   name="role"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 >
-                  <option value="member">Member</option>
-                  <option value="manager">Manager</option>
+                  <option value="member">{t.inviteMember_role}</option>
+                  <option value="manager">{t.inviteManager_role}</option>
                 </select>
                 <button
                   type="submit"
                   className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
                 >
-                  Send invite
+                  {t.inviteSend}
                 </button>
               </form>
               {invites && invites.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase text-slate-500">Pending invites</p>
+                  <p className="text-xs font-semibold uppercase text-slate-500">{t.pendingInvites}</p>
                   <ul className="mt-2 space-y-1 text-xs text-slate-600">
                     {invites.map((i) => (
                       <li key={i.email}>
@@ -209,8 +213,8 @@ export default async function TeamPage() {
 
       <Card>
         <CardHeader className="flex items-center justify-between">
-          <CardTitle>Members</CardTitle>
-          <span className="text-xs text-slate-500">{members?.length ?? 0} total</span>
+          <CardTitle>{t.members}</CardTitle>
+          <span className="text-xs text-slate-500">{members?.length ?? 0}</span>
         </CardHeader>
         <CardContent>
           <ul className="divide-y divide-slate-100">
@@ -226,7 +230,7 @@ export default async function TeamPage() {
                       {m.users?.name ?? m.users?.email}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {m.role} · {m.share_with_manager ? "sharing data" : "private"}
+                      {m.role} · {m.share_with_manager ? t.memberSharing : t.memberPrivate}
                     </p>
                   </div>
                 </div>
@@ -235,7 +239,7 @@ export default async function TeamPage() {
                     href={`/team/${m.user_id}`}
                     className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
                   >
-                    View details →
+                    {t.viewDetails}
                   </Link>
                 )}
               </li>
@@ -246,7 +250,7 @@ export default async function TeamPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>My Privacy</CardTitle>
+          <CardTitle>{t.myPrivacy}</CardTitle>
         </CardHeader>
         <CardContent>
           <form action={togglePrivacy} className="flex items-center gap-4">
@@ -258,56 +262,57 @@ export default async function TeamPage() {
                 defaultChecked={primary.share_with_manager}
                 className="h-4 w-4"
               />
-              Share my Google work data (calendar, tasks, doc titles) with my manager
+              {t.privacyLabel}
             </label>
             <button
               type="submit"
               className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50"
             >
-              Save
+              {t.save}
             </button>
           </form>
-          <p className="mt-3 text-xs text-slate-500">
-            When off, your manager sees only your name. When on, they see meeting titles, task
-            titles, and can ask the AI about your week. Every query is logged in the audit log.
-          </p>
+          <p className="mt-3 text-xs text-slate-500">{t.privacyNote}</p>
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function TeamPulse({ members }: { members: Member[] }) {
+function TeamPulse({ members, statLabel }: { members: Member[]; statLabel: string }) {
   const sharing = members.filter((m) => m.share_with_manager);
   return (
     <div className="space-y-2 text-sm">
       <p className="text-slate-700">
-        <strong>{sharing.length}</strong> of {members.length} members sharing data
-      </p>
-      <p className="text-xs text-slate-500">
-        Once members opt in to share, their meetings & tasks show up here. Click a member to see
-        details or ask the AI about their week.
+        <strong>{sharing.length}</strong> / {members.length} {statLabel}
       </p>
     </div>
   );
 }
 
-function CreateFirstOrg({ createOrg }: { createOrg: (f: FormData) => Promise<void> }) {
+function CreateFirstOrg({
+  createOrg,
+  t,
+}: {
+  createOrg: (f: FormData) => Promise<void>;
+  t: {
+    createFirst: string;
+    createFirstDesc: string;
+    createPlaceholder: string;
+    createButton: string;
+  };
+}) {
   return (
     <div className="mx-auto max-w-md">
       <Card>
         <CardHeader>
-          <CardTitle>Create a Team</CardTitle>
+          <CardTitle>{t.createFirst}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-4 text-sm text-slate-600">
-            Create a workspace to invite teammates and enable Manager Mode. Every member controls
-            their own privacy.
-          </p>
+          <p className="mb-4 text-sm text-slate-600">{t.createFirstDesc}</p>
           <form action={createOrg} className="space-y-3">
             <input
               name="name"
-              placeholder="Acme Corp"
+              placeholder={t.createPlaceholder}
               required
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
@@ -315,7 +320,7 @@ function CreateFirstOrg({ createOrg }: { createOrg: (f: FormData) => Promise<voi
               type="submit"
               className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
-              Create team
+              {t.createButton}
             </button>
           </form>
         </CardContent>

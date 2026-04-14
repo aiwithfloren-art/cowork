@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { revalidatePath } from "next/cache";
 import { TelegramConnect } from "@/components/telegram-connect";
+import { getDict } from "@/lib/i18n";
 
 async function saveKey(formData: FormData) {
   "use server";
@@ -44,13 +45,16 @@ export default async function SettingsPage() {
     ? `${settings.groq_key.slice(0, 8)}…${settings.groq_key.slice(-4)}`
     : "";
 
+  const dict = await getDict();
+  const t = dict.settings;
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+      <h1 className="text-2xl font-bold text-slate-900">{t.title}</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>Connect Telegram</CardTitle>
+          <CardTitle>{t.connectTelegram}</CardTitle>
         </CardHeader>
         <CardContent>
           <TelegramConnect
@@ -62,12 +66,11 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Bring Your Own Groq Key</CardTitle>
+          <CardTitle>{t.byokTitle}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-sm text-slate-600">
-            Cowork&apos;s free tier is rate-limited (30 messages/day). For unlimited usage, paste your
-            own Groq API key below. Get one free at{" "}
+            {t.byokDesc}{" "}
             <a
               href="https://console.groq.com/keys"
               target="_blank"
@@ -90,7 +93,7 @@ export default async function SettingsPage() {
                 type="submit"
                 className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
               >
-                Save
+                {t.byokSave}
               </button>
               {settings?.groq_key && (
                 <button
@@ -99,7 +102,7 @@ export default async function SettingsPage() {
                   value=""
                   className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Remove key
+                  {t.byokRemove}
                 </button>
               )}
             </div>
@@ -109,14 +112,14 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Account</CardTitle>
+          <CardTitle>{t.account}</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-slate-700">
           <p>
-            Signed in as <strong>{session?.user?.email}</strong>
+            {t.accountSignedIn} <strong>{session?.user?.email}</strong>
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            To revoke Cowork&apos;s access to your Google account, visit{" "}
+            {t.accountRevoke}{" "}
             <a
               href="https://myaccount.google.com/permissions"
               target="_blank"
