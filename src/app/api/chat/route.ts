@@ -85,7 +85,10 @@ export async function POST(req: Request) {
 
   const lastUser = body.messages[body.messages.length - 1];
   const groq = getGroq(settings?.groq_key ?? undefined);
-  const model = settings?.model ?? DEFAULT_MODEL;
+  // Always use the current DEFAULT_MODEL; the per-user `model` column
+  // is reserved for a future model-picker UI but should not silently
+  // pin users to an outdated default value.
+  const model = DEFAULT_MODEL;
   const tools = buildTools(userId);
 
   try {

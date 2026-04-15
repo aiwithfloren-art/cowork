@@ -86,7 +86,7 @@ export async function POST(req: Request) {
   };
 
   const groq = getGroq(viewerSettings?.groq_key ?? undefined);
-  const model = viewerSettings?.model ?? DEFAULT_MODEL;
+  const model = DEFAULT_MODEL;
 
   try {
     const result = await generateText({

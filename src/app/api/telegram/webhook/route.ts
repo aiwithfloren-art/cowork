@@ -132,7 +132,7 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
 
   try {
     const groq = getGroq(settings?.groq_key ?? undefined);
-    const model = settings?.model ?? DEFAULT_MODEL;
+    const model = DEFAULT_MODEL;
     const tools = buildTools(userId);
 
     // Indicate typing
