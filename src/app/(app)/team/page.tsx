@@ -6,6 +6,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { getDict } from "@/lib/i18n";
 import { CreateOrgForm, InviteForm, PrivacyToggle } from "@/components/team-forms";
+import {
+  RenameOrgButton,
+  DeleteOrgButton,
+  RemoveMemberButton,
+} from "@/components/team-manage";
 
 type MemberRow = {
   user_id: string;
@@ -99,6 +104,7 @@ export default async function TeamPage() {
     .eq("accepted", false);
 
   const isManager = role === "owner" || role === "manager";
+  const isOwner = role === "owner";
 
   return (
     <div className="space-y-6">
@@ -107,6 +113,12 @@ export default async function TeamPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{orgName}</h1>
           <p className="mt-1 text-sm text-slate-600">{t.title}</p>
+          {isOwner && (
+            <div className="mt-2 flex items-center gap-4">
+              <RenameOrgButton orgId={orgId} currentName={orgName} />
+              <DeleteOrgButton orgId={orgId} />
+            </div>
+          )}
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 uppercase">
           {role}
@@ -177,14 +189,23 @@ export default async function TeamPage() {
                     </p>
                   </div>
                 </div>
-                {isManager && m.user_id !== userId && m.share_with_manager && (
-                  <Link
-                    href={`/team/${m.user_id}`}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
-                  >
-                    {t.viewDetails}
-                  </Link>
-                )}
+                <div className="flex items-center gap-3">
+                  {isManager && m.user_id !== userId && m.share_with_manager && (
+                    <Link
+                      href={`/team/${m.user_id}`}
+                      className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
+                    >
+                      {t.viewDetails}
+                    </Link>
+                  )}
+                  {isOwner && m.user_id !== userId && (
+                    <RemoveMemberButton
+                      orgId={orgId}
+                      userId={m.user_id}
+                      memberName={m.user?.name ?? m.user?.email ?? "member"}
+                    />
+                  )}
+                </div>
               </li>
             ))}
           </ul>
