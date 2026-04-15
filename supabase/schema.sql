@@ -57,8 +57,10 @@ create table if not exists public.notes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.users(id) on delete cascade,
   content text not null,
+  type text default 'general' check (type in ('general', 'user', 'feedback', 'project', 'reference')),
   created_at timestamptz default now()
 );
+-- For existing DBs: alter table public.notes add column if not exists type text default 'general' check (type in ('general', 'user', 'feedback', 'project', 'reference'));
 
 create table if not exists public.daily_reports (
   id uuid primary key default gen_random_uuid(),

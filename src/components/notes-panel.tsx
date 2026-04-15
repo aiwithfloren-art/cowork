@@ -2,15 +2,27 @@
 
 import { useEffect, useState } from "react";
 
+type NoteType = "general" | "user" | "feedback" | "project" | "reference";
 type Note = {
   id: string;
   content: string;
+  type?: NoteType;
   created_at: string;
+};
+
+const TYPE_STYLES: Record<NoteType, { label: string; cls: string }> = {
+  user: { label: "user", cls: "bg-indigo-100 text-indigo-700" },
+  feedback: { label: "feedback", cls: "bg-amber-100 text-amber-700" },
+  project: { label: "project", cls: "bg-emerald-100 text-emerald-700" },
+  reference: { label: "reference", cls: "bg-sky-100 text-sky-700" },
+  general: { label: "general", cls: "bg-slate-100 text-slate-600" },
 };
 
 export function NotesPanel({ locale }: { locale: "en" | "id" }) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [draft, setDraft] = useState("");
+  const [draftType, setDraftType] = useState<NoteType>("general");
+  const [filter, setFilter] = useState<NoteType | "all">("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -47,7 +59,7 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
       const res = await fetch("/api/notes/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: draft }),
+        body: JSON.stringify({ content: draft, type: draftType }),
       });
       const data = await res.json();
       if (res.ok && data.note) {
@@ -79,14 +91,47 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
           disabled={saving}
           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
         />
-        <button
-          type="submit"
-          disabled={!draft.trim() || saving}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-        >
-          {saving ? "…" : copy.save}
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={draftType}
+            onChange={(e) => setDraftType(e.target.value as NoteType)}
+            disabled={saving}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs"
+          >
+            <option value="general">general</option>
+            <option value="user">user (tentang kamu)</option>
+            <option value="feedback">feedback (cara kerja)</option>
+            <option value="project">project (proyek/metrik)</option>
+            <option value="reference">reference (link/sistem)</option>
+          </select>
+          <button
+            type="submit"
+            disabled={!draft.trim() || saving}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          >
+            {saving ? "…" : copy.save}
+          </button>
+        </div>
       </form>
+
+      <div className="flex flex-wrap gap-1 border-b border-slate-100 pb-2">
+        {(["all", "user", "feedback", "project", "reference", "general"] as const).map(
+          (t) => (
+            <button
+              key={t}
+              onClick={() => setFilter(t)}
+              className={
+                "rounded-full px-3 py-1 text-xs transition " +
+                (filter === t
+                  ? "bg-slate-900 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200")
+              }
+            >
+              {t}
+            </button>
+          ),
+        )}
+      </div>
 
       {loading ? (
         <p className="text-xs text-slate-400">{copy.loading}</p>
@@ -94,31 +139,43 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
         <p className="text-xs text-slate-400">{copy.empty}</p>
       ) : (
         <ul className="space-y-2">
-          {notes.map((n) => (
-            <li
-              key={n.id}
-              className="group rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <p className="flex-1 whitespace-pre-wrap text-slate-900">
-                  {n.content}
-                </p>
-                <button
-                  onClick={() => remove(n.id)}
-                  className="text-xs text-slate-400 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100"
-                  aria-label="Delete note"
+          {notes
+            .filter((n) => filter === "all" || (n.type ?? "general") === filter)
+            .map((n) => {
+              const style = TYPE_STYLES[n.type ?? "general"];
+              return (
+                <li
+                  key={n.id}
+                  className="group rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm"
                 >
-                  ×
-                </button>
-              </div>
-              <p className="mt-1 text-[10px] text-slate-400">
-                {new Date(n.created_at).toLocaleString(
-                  locale === "id" ? "id-ID" : "en-GB",
-                  { timeZone: "Asia/Jakarta" },
-                )}
-              </p>
-            </li>
-          ))}
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="flex-1 whitespace-pre-wrap text-slate-900">
+                      {n.content}
+                    </p>
+                    <button
+                      onClick={() => remove(n.id)}
+                      className="text-xs text-slate-400 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100"
+                      aria-label="Delete note"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${style.cls}`}
+                    >
+                      {style.label}
+                    </span>
+                    <p className="text-[10px] text-slate-400">
+                      {new Date(n.created_at).toLocaleString(
+                        locale === "id" ? "id-ID" : "en-GB",
+                        { timeZone: "Asia/Jakarta" },
+                      )}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
         </ul>
       )}
     </div>

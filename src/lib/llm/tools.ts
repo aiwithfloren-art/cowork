@@ -487,12 +487,20 @@ export function buildTools(userId: string) {
     }),
 
     save_note: tool({
-      description: "Save a private note for the user.",
-      inputSchema: z.object({ content: z.string() }),
-      execute: async ({ content }) => {
+      description:
+        "Save a typed memory for future recall. Pick the correct type: 'user' = who the user is (role, skills, goals, preferences); 'feedback' = how the user wants you to work (corrections, approvals, style); 'project' = current work, deadlines, decisions, metrics, people, deals; 'reference' = pointers to external systems (Slack channels, dashboards, repos); 'general' = fallback. Write the content as a short declarative sentence that will still make sense in a month.",
+      inputSchema: z.object({
+        content: z.string(),
+        type: z
+          .enum(["general", "user", "feedback", "project", "reference"])
+          .describe("Memory type — pick the most specific one that fits"),
+      }),
+      execute: async ({ content, type }) => {
         const sb = supabaseAdmin();
-        await sb.from("notes").insert({ user_id: userId, content });
-        return { ok: true };
+        await sb
+          .from("notes")
+          .insert({ user_id: userId, content, type: type ?? "general" });
+        return { ok: true, type };
       },
     }),
 
@@ -540,18 +548,25 @@ export function buildTools(userId: string) {
     }),
 
     get_notes: tool({
-      description: "Retrieve the user's recent private notes.",
+      description:
+        "Retrieve the user's saved memories. Optionally filter by type: 'user' (who they are), 'feedback' (how to work with them), 'project' (current work/deals/metrics), 'reference' (external pointers). Omit the type to get everything. Call with type='user' when the user asks 'what do you know about me', 'siapa gue', 'ingetan lo tentang gue apa'.",
       inputSchema: z.object({
         limit: z.number().nullable().optional(),
+        type: z
+          .enum(["general", "user", "feedback", "project", "reference"])
+          .nullable()
+          .optional(),
       }),
-      execute: async ({ limit }) => {
+      execute: async ({ limit, type }) => {
         const sb = supabaseAdmin();
-        const { data } = await sb
+        let q = sb
           .from("notes")
-          .select("content, created_at")
+          .select("content, type, created_at")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(limit ?? 20);
+        if (type) q = q.eq("type", type);
+        const { data } = await q;
         return data ?? [];
       },
     }),

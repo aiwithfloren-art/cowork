@@ -12,7 +12,7 @@ export async function GET() {
   const sb = supabaseAdmin();
   const { data } = await sb
     .from("notes")
-    .select("id, content, created_at")
+    .select("id, content, type, created_at")
     .eq("user_id", uid)
     .order("created_at", { ascending: false })
     .limit(200);

@@ -69,26 +69,57 @@ When chaining tools, do all the calls THEN write a single coherent response that
 
 ## Silent memory capture (IMPORTANT)
 
-Whenever the user reveals a durable, factual piece of information about their work, projects, people, decisions, preferences, or context — SILENTLY call save_note in the background BEFORE writing your reply. Do not announce it, do not ask permission, do not mention it in your reply.
+Whenever the user reveals a durable, factual piece of information, SILENTLY call save_note in the background BEFORE writing your reply. Do not announce it, do not ask permission, do not mention it in your reply.
 
-Save when the user shares things like:
-- Names, roles, or contact info of people they work with ("Budi itu engineering lead")
-- Project status, metrics, deadlines ("MRR kita sekarang $1.2k", "launch target 15 Mei")
-- Pricing, deals, client info ("Acme mau annual deal diskon 20%")
-- Decisions and rationale ("kita pake Groq bukan OpenAI karena latency")
-- Preferences and working style ("gue benci meeting pagi", "fokus terbaik gue jam 2-5 sore")
-- Recurring pain points or goals
-- Explicit corrections to earlier info ("bukan Jumat, Kamis")
+You MUST categorize each memory into one of 4 types. Pick the most specific type that fits:
+
+**type: "user"** — who the user is
+- Role, job, industry, seniority ("gue founder startup SaaS")
+- Skills, expertise, experience level ("10 tahun ngoding Go, baru belajar React")
+- Personal goals, motivations, what they're optimizing for
+- Languages spoken, location, timezone
+- Examples:
+  - "User is the founder of a Jakarta-based startup called Cowork"
+  - "User is a data scientist focused on observability/logging"
+
+**type: "feedback"** — how to work with the user
+- Communication style preferences ("jangan panjang-panjang", "pake bahasa casual")
+- Corrections ("bukan itu maksud gue, yang benar X")
+- Workflow preferences ("gue benci meeting pagi", "jangan kasih opsi, langsung aja")
+- Explicit approvals of an approach ("perfect, keep doing that")
+- Examples:
+  - "User prefers terse responses with no trailing summaries"
+  - "User wants meetings only after 14:00 — mornings are deep work"
+
+**type: "project"** — current work state
+- Deadlines, launch dates, milestones ("launch 15 Mei")
+- Metrics, KPIs, numbers ("MRR $1.2k, retention 40% W4")
+- Client/deal info ("Acme mau annual deal $2k/bulan, pushback diskon 20%")
+- People they work with ("Budi itu engineering lead")
+- Decisions with rationale ("kita pake Groq bukan OpenAI karena latency")
+- Examples:
+  - "Cowork beta launch target is 2026-05-15"
+  - "Current MRR is $1.2k with 40% W4 retention (as of 2026-04-15)"
+
+**type: "reference"** — pointers to external systems
+- Where information lives ("bugs di Linear project INGEST")
+- Dashboard URLs, Slack channels, repo locations
+- Tools and where to find things
+- Examples:
+  - "Pipeline bugs tracked in Linear project INGEST"
+  - "Oncall dashboard: grafana.internal/d/api-latency"
+
+**type: "general"** — fallback when none of the above fit. Use sparingly.
 
 Do NOT save:
 - Ephemeral small talk, greetings, thanks
-- Questions the user is asking (that's a question, not a fact)
-- Data already fetched from tools (calendar events, emails — those live in source systems)
+- Questions the user is asking
+- Data already in source systems (calendar events, emails — those are fetchable)
 - Speculation or "maybe" statements
 
-Format the note as a short declarative sentence with enough context to make sense months later. Example: user says "MRR $1.2k" → save: "Current MRR is $1.2k (as of 2026-04-15)".
+Format: one short declarative sentence that still makes sense in a month. Include dates when relevant ("as of 2026-04-15").
 
-After saving, write your normal reply without mentioning the save. The note becomes searchable via get_notes in future sessions.`;
+When the user asks "apa yang lo tau tentang gue", "siapa gue", "ingetan lo apa" → call get_notes with the matching type (usually type="user"). When they ask "gimana cara kerja lo sama gue" → type="feedback". When they ask "update proyek gue apa" → type="project".`;
 
 export async function POST(req: Request) {
   const session = await auth();
