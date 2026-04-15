@@ -9,6 +9,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
+
 const SYSTEM_PROMPT = `You are Sigap, a personal AI Chief of Staff.
 
 ## CRITICAL RULES — READ FIRST
@@ -206,18 +208,20 @@ Right now it is ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
 
 When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomorrow 3pm"), resolve it relative to THIS moment. If no date is mentioned, assume today in Asia/Jakarta. Always pass ISO datetimes with the +07:00 offset to calendar tools. Never guess a year — use the current year shown above.`;
 
-  // Deterministic routing: some models (Kimi K2) are unreliable at picking
-  // the right tool for delegation even with few-shot examples. When the
-  // user's message clearly matches "delegate this to teammate X", force
-  // the assign_task_to_member tool via toolChoice so the model must call
-  // it instead of fabricating a response.
-  const msgText = lastUser.content.toLowerCase();
-  const looksLikeDelegation =
-    /\b(kasih|assign|delegasi|tolong\s+minta|suruh)\b.*\b(task|tugas|review|follow\s*up|prep|siapin|buat|bikin)/i.test(
-      lastUser.content,
-    ) ||
-    (/\b(kasih|assign|delegasi|tolong)\b/i.test(msgText) &&
-      /@[a-z0-9._-]+\.[a-z]{2,}/i.test(msgText));
+  // Hard bypass: Kimi K2 fabricates responses for delegation prompts.
+  // Intercept the pattern and execute the tool logic directly.
+  const delegationReply = await tryInterceptDelegation(userId, lastUser.content);
+  if (delegationReply) {
+    const sb2 = supabaseAdmin();
+    await sb2.from("chat_messages").insert([
+      { user_id: userId, role: "user", content: lastUser.content },
+      { user_id: userId, role: "assistant", content: delegationReply },
+    ]);
+    return new Response(delegationReply, {
+      status: 200,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
 
   try {
     const result = await generateText({
@@ -226,9 +230,6 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
       messages: body.messages,
       tools,
       stopWhen: stepCountIs(12),
-      ...(looksLikeDelegation && {
-        toolChoice: { type: "tool" as const, toolName: "assign_task_to_member" },
-      }),
     });
 
     const toolsCalled = (result.steps ?? [])
