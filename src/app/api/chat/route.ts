@@ -79,7 +79,17 @@ export async function POST(req: Request) {
 
   const userHasOwnKey = Boolean(settings?.groq_key);
   const rl = await checkRateLimit(userId, userHasOwnKey);
-  if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      {
+        error: rl.message,
+        reason: rl.reason,
+        resetsAt: rl.resetsAt ?? null,
+        settingsLink: "/settings",
+      },
+      { status: 429 },
+    );
+  }
 
   const body = (await req.json()) as {
     messages: { role: "user" | "assistant"; content: string }[];

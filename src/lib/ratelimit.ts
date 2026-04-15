@@ -6,7 +6,12 @@ const MONTHLY_BUDGET = parseFloat(process.env.MONTHLY_BUDGET_USD || "10");
 
 export type RateLimitResult =
   | { ok: true }
-  | { ok: false; reason: "daily" | "hourly" | "budget"; message: string };
+  | {
+      ok: false;
+      reason: "daily" | "hourly" | "budget";
+      message: string;
+      resetsAt?: string;
+    };
 
 export async function checkRateLimit(userId: string, userHasOwnKey: boolean): Promise<RateLimitResult> {
   // Users with their own API key bypass our rate limits & budget
@@ -36,18 +41,24 @@ export async function checkRateLimit(userId: string, userHasOwnKey: boolean): Pr
   ]);
 
   if ((dayCount ?? 0) >= DAILY_LIMIT) {
+    const reset = new Date(now);
+    reset.setDate(reset.getDate() + 1);
+    reset.setHours(0, 0, 0, 0);
     return {
       ok: false,
       reason: "daily",
       message: `Daily limit reached (${DAILY_LIMIT} messages/day on free tier). Add your own Groq API key in Settings for unlimited usage, or try again tomorrow.`,
+      resetsAt: reset.toISOString(),
     };
   }
 
   if ((hourCount ?? 0) >= HOURLY_LIMIT) {
+    const reset = new Date(now.getTime() + 60 * 60 * 1000);
     return {
       ok: false,
       reason: "hourly",
-      message: `Hourly limit reached (${HOURLY_LIMIT} messages/hour). Take a break and try again in a bit, or add your own key in Settings.`,
+      message: `Hourly limit reached (${HOURLY_LIMIT} messages/hour). Take a break and try again soon, or add your own key in Settings.`,
+      resetsAt: reset.toISOString(),
     };
   }
 

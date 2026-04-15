@@ -48,6 +48,7 @@ export function Chat({
   const [input, setInput] = useState(initialPrompt);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimitResetAt, setRateLimitResetAt] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -140,10 +141,13 @@ export function Chat({
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Request failed" }));
         setError(err.error || "Something went wrong");
+        if (err.resetsAt) setRateLimitResetAt(err.resetsAt);
         setMessages(newMessages);
         setLoading(false);
         return;
       }
+
+      setRateLimitResetAt(null);
 
       const reader = res.body?.getReader();
       if (!reader) {
@@ -252,7 +256,15 @@ export function Chat({
           })}
           {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              {error}
+              <p>{error}</p>
+              {rateLimitResetAt && (
+                <p className="mt-1 text-[11px] text-red-600">
+                  Resets {timeFromNow(rateLimitResetAt)} ·{" "}
+                  <a href="/settings" className="underline">
+                    Add your own key →
+                  </a>
+                </p>
+              )}
             </div>
           )}
           <div ref={endRef} />
@@ -301,6 +313,15 @@ export function Chat({
       </form>
     </div>
   );
+}
+
+function timeFromNow(iso: string): string {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return "now";
+  const hours = Math.floor(ms / (60 * 60 * 1000));
+  const mins = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+  if (hours > 0) return `in ${hours}h ${mins}m`;
+  return `in ${mins}m`;
 }
 
 function SuggestionGroup({
