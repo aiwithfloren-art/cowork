@@ -5,6 +5,7 @@ export const dictionaries = {
     nav: {
       dashboard: "Dashboard",
       team: "Team",
+      history: "History",
       audit: "Audit",
       settings: "Settings",
       manager: "For Managers",
@@ -245,6 +246,7 @@ export const dictionaries = {
     nav: {
       dashboard: "Dasbor",
       team: "Tim",
+      history: "Riwayat",
       audit: "Audit",
       settings: "Pengaturan",
       manager: "Untuk Manager",
