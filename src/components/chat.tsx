@@ -50,7 +50,7 @@ export function Chat({
   const [error, setError] = useState<string | null>(null);
   const [rateLimitResetAt, setRateLimitResetAt] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Focus input when a prompt is preloaded (from /history resume)
   useEffect(() => {
@@ -278,14 +278,26 @@ export function Chat({
         }}
         className="border-t border-slate-200 p-3"
       >
-        <div className="flex gap-2">
-          <input
+        <div className="flex items-end gap-2">
+          <textarea
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              const el = e.currentTarget;
+              el.style.height = "auto";
+              el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send(input);
+              }
+            }}
+            rows={1}
             placeholder={listening ? "Listening…" : t.askAnything}
             disabled={loading}
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className="flex-1 resize-none overflow-y-auto rounded-lg border border-slate-200 px-3 py-2 text-sm leading-5 focus:border-indigo-500 focus:outline-none"
           />
           {speechSupported && (
             <button
