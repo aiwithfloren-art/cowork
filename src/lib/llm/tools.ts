@@ -165,68 +165,60 @@ export function buildTools(userId: string) {
 
     read_connected_file: tool({
       description:
-        "Read the content of a Google Drive file that the user has connected to Sigap. Pass either the file_id (from list_connected_files) OR the file_name (or part of it — case-insensitive match). The tool resolves the name to the real file ID automatically.",
+        "Read the content of a connected Google Drive file. Pass the file name (or part of it) OR the file_id from list_connected_files. The tool will fuzzy-match the file. Returns up to 8000 chars of text.",
       inputSchema: z.object({
-        file_id: z
+        query: z
           .string()
-          .optional()
-          .describe("Drive file ID from list_connected_files output"),
-        file_name: z
-          .string()
-          .optional()
-          .describe("File name or substring — used if file_id not provided"),
+          .describe(
+            "File name, partial name, or file_id. Examples: 'Brand Style Guide', 'master content', or '1AbCdEf...'",
+          ),
       }),
-      execute: async ({ file_id, file_name }) => {
+      execute: async ({ query }) => {
         const sb = supabaseAdmin();
+        const trimmed = query.trim();
 
-        // Resolve to a concrete row: try ID first, then fuzzy name match
-        let row:
-          | { file_id: string; file_name: string; mime_type: string }
-          | null = null;
+        // Fetch all user files once
+        const { data: all } = await sb
+          .from("user_files")
+          .select("file_id, file_name, mime_type")
+          .eq("user_id", userId);
+        const files = all ?? [];
 
-        if (file_id) {
-          const { data } = await sb
-            .from("user_files")
-            .select("file_id, file_name, mime_type")
-            .eq("user_id", userId)
-            .eq("file_id", file_id)
-            .maybeSingle();
-          if (data) row = data;
+        // Try exact file_id match first
+        let row = files.find((f) => f.file_id === trimmed) ?? null;
+
+        // Then exact name (case-insensitive)
+        if (!row) {
+          const needle = trimmed.toLowerCase();
+          row =
+            files.find((f) => (f.file_name ?? "").toLowerCase() === needle) ?? null;
         }
 
-        if (!row && file_name) {
-          const { data: all } = await sb
-            .from("user_files")
-            .select("file_id, file_name, mime_type")
-            .eq("user_id", userId);
-          const needle = file_name.toLowerCase().trim();
+        // Then substring match on name
+        if (!row) {
+          const needle = trimmed.toLowerCase();
           row =
-            (all ?? []).find(
-              (f) => (f.file_name ?? "").toLowerCase() === needle,
-            ) ??
-            (all ?? []).find((f) =>
-              (f.file_name ?? "").toLowerCase().includes(needle),
-            ) ??
-            null;
-        }
-
-        // Last-resort: if the file_id arg actually looks like a name, try
-        // fuzzy matching that as a name too
-        if (!row && file_id && !/^[a-zA-Z0-9_-]{25,}$/.test(file_id)) {
-          const { data: all } = await sb
-            .from("user_files")
-            .select("file_id, file_name, mime_type")
-            .eq("user_id", userId);
-          const needle = file_id.toLowerCase().trim();
-          row =
-            (all ?? []).find((f) =>
+            files.find((f) =>
               (f.file_name ?? "").toLowerCase().includes(needle),
             ) ?? null;
         }
 
+        // Then word-by-word match (each word in query must appear in name)
+        if (!row) {
+          const words = trimmed
+            .toLowerCase()
+            .split(/\s+/)
+            .filter((w) => w.length > 2);
+          row =
+            files.find((f) => {
+              const name = (f.file_name ?? "").toLowerCase();
+              return words.every((w) => name.includes(w));
+            }) ?? null;
+        }
+
         if (!row) {
           return {
-            error: `No connected file matches ${file_id || file_name}. Call list_connected_files first to see available files.`,
+            error: `No connected file matches "${trimmed}". Call list_connected_files first to see available files.`,
           };
         }
 
@@ -234,8 +226,7 @@ export function buildTools(userId: string) {
           const content = await readDoc(userId, row.file_id);
           return {
             file_name: row.file_name,
-            mime_type: row.mime_type,
-            content,
+            content: content || "(empty document)",
           };
         } catch (e) {
           return {
