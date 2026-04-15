@@ -12,7 +12,7 @@ export async function GET() {
   const sb = supabaseAdmin();
   const { data } = await sb
     .from("user_files")
-    .select("id, file_id, file_name, mime_type, added_at")
+    .select("id, file_id, file_name, mime_type, added_at, visibility")
     .eq("user_id", uid)
     .order("added_at", { ascending: false });
 
