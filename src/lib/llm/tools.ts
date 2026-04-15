@@ -488,19 +488,172 @@ export function buildTools(userId: string) {
 
     save_note: tool({
       description:
-        "Save a typed memory for future recall. Pick the correct type: 'user' = who the user is (role, skills, goals, preferences); 'feedback' = how the user wants you to work (corrections, approvals, style); 'project' = current work, deadlines, decisions, metrics, people, deals; 'reference' = pointers to external systems (Slack channels, dashboards, repos); 'general' = fallback. Write the content as a short declarative sentence that will still make sense in a month.",
+        "Save a typed memory. Types: 'user' (who the user is), 'feedback' (how to work with them), 'project' (current work/deals/metrics/people), 'reference' (external pointers), 'general' (fallback). Visibility: 'private' (default, only the user), 'team' (whole organization can read — use for shared knowledge like pricing, OKRs, client info that the whole team needs). Only use 'team' when the user is in an org AND the info is clearly team-relevant.",
       inputSchema: z.object({
         content: z.string(),
-        type: z
-          .enum(["general", "user", "feedback", "project", "reference"])
-          .describe("Memory type — pick the most specific one that fits"),
+        type: z.enum(["general", "user", "feedback", "project", "reference"]),
+        visibility: z
+          .enum(["private", "team"])
+          .nullable()
+          .optional()
+          .describe("Default 'private'. Use 'team' for shared team knowledge."),
       }),
-      execute: async ({ content, type }) => {
+      execute: async ({ content, type, visibility }) => {
         const sb = supabaseAdmin();
-        await sb
-          .from("notes")
-          .insert({ user_id: userId, content, type: type ?? "general" });
-        return { ok: true, type };
+        const vis = visibility ?? "private";
+        let orgId: string | null = null;
+        if (vis === "team") {
+          const { data: m } = await sb
+            .from("org_members")
+            .select("org_id")
+            .eq("user_id", userId)
+            .maybeSingle();
+          orgId = m?.org_id ?? null;
+          if (!orgId) {
+            return {
+              error:
+                "Cannot save as team note: user is not in any organization. Ask them to create/join one at /team first, or save as private.",
+            };
+          }
+        }
+        await sb.from("notes").insert({
+          user_id: userId,
+          content,
+          type: type ?? "general",
+          visibility: vis,
+          org_id: orgId,
+        });
+        return { ok: true, type, visibility: vis };
+      },
+    }),
+
+    assign_task_to_member: tool({
+      description:
+        "Assign a task to a team member. Creates the task in THEIR Google Tasks (uses their OAuth token), AND creates an in-app notification so they see 'Florentini assigned you: ...' when they open Sigap, AND sends them an email via the current user's Gmail. Use for 'kasih task ke Budi X', 'assign proposal review ke Sarah deadline Jumat'. Call list_team_members first if you need to look up the member's email/userId.",
+      inputSchema: z.object({
+        member_email: z
+          .string()
+          .describe("The email address of the team member to assign to"),
+        title: z.string().describe("Short task title"),
+        due: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("ISO date (YYYY-MM-DD) for deadline, optional"),
+        notes: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Extra context to attach to the task"),
+      }),
+      execute: async ({ member_email, title, due, notes }) => {
+        const sb = supabaseAdmin();
+        const { data: target } = await sb
+          .from("users")
+          .select("id, name, email")
+          .eq("email", member_email)
+          .maybeSingle();
+        if (!target) return { error: `No user found with email ${member_email}` };
+
+        const { data: myMembership } = await sb
+          .from("org_members")
+          .select("org_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+        const { data: theirMembership } = await sb
+          .from("org_members")
+          .select("org_id")
+          .eq("user_id", target.id)
+          .maybeSingle();
+        if (
+          !myMembership?.org_id ||
+          myMembership.org_id !== theirMembership?.org_id
+        ) {
+          return {
+            error: `${target.email} is not in your organization. You can only assign tasks to teammates in the same org.`,
+          };
+        }
+
+        const { data: actor } = await sb
+          .from("users")
+          .select("name, email")
+          .eq("id", userId)
+          .maybeSingle();
+        const actorName = actor?.name || actor?.email || "A teammate";
+
+        const taskBody = notes
+          ? `Assigned by ${actorName} via Sigap.\n\n${notes}`
+          : `Assigned by ${actorName} via Sigap.`;
+
+        let taskCreated = false;
+        try {
+          await addTask(target.id, title, due ?? undefined);
+          taskCreated = true;
+        } catch (e) {
+          return {
+            error: `Could not create task in ${target.email}'s Google Tasks: ${e instanceof Error ? e.message : "unknown"}. They may need to reconnect Google.`,
+          };
+        }
+
+        await sb.from("notifications").insert({
+          user_id: target.id,
+          actor_id: userId,
+          kind: "task_assigned",
+          title: `${actorName} assigned you a task`,
+          body: `${title}${due ? ` — deadline ${due}` : ""}${notes ? `\n\n${notes}` : ""}`,
+          link: "/dashboard",
+        });
+
+        let emailSent = false;
+        try {
+          await sendEmail(userId, {
+            to: target.email!,
+            subject: `New task from ${actorName}: ${title}`,
+            body: `Hi ${target.name || "there"},\n\n${actorName} assigned you a task via Sigap:\n\n${title}${due ? `\nDeadline: ${due}` : ""}${notes ? `\n\nNotes:\n${notes}` : ""}\n\nIt's already in your Google Tasks. Open Sigap to see it on your dashboard.\n\n— Sigap`,
+          });
+          emailSent = true;
+        } catch {
+          // email is best-effort; task + notification already succeeded
+        }
+
+        return {
+          ok: true,
+          assigned_to: target.email,
+          task_created: taskCreated,
+          notification_created: true,
+          email_sent: emailSent,
+        };
+      },
+    }),
+
+    list_notifications: tool({
+      description:
+        "Get the current user's in-app notifications (task assignments, mentions, etc). Use when user asks 'ada notif baru ga', 'siapa yang assign task ke gue', 'check notifications'. Unread first.",
+      inputSchema: z.object({
+        unread_only: z.boolean().nullable().optional(),
+      }),
+      execute: async ({ unread_only }) => {
+        const sb = supabaseAdmin();
+        let q = sb
+          .from("notifications")
+          .select("id, kind, title, body, link, read_at, created_at, actor_id, users:actor_id(name, email)")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (unread_only) q = q.is("read_at", null);
+        const { data } = await q;
+        return (data ?? []).map((n) => {
+          const u = n.users as { name?: string; email?: string } | null;
+          return {
+            id: n.id,
+            kind: n.kind,
+            title: n.title,
+            body: n.body,
+            from: u?.name || u?.email || "system",
+            read: Boolean(n.read_at),
+            created_at: n.created_at,
+          };
+        });
       },
     }),
 
@@ -549,25 +702,78 @@ export function buildTools(userId: string) {
 
     get_notes: tool({
       description:
-        "Retrieve the user's saved memories. Optionally filter by type: 'user' (who they are), 'feedback' (how to work with them), 'project' (current work/deals/metrics), 'reference' (external pointers). Omit the type to get everything. Call with type='user' when the user asks 'what do you know about me', 'siapa gue', 'ingetan lo tentang gue apa'.",
+        "Retrieve saved memories — the user's private notes PLUS any 'team' notes from their organization (if they're in one). Filter by type: 'user', 'feedback', 'project', 'reference'. Use type='user' when asked 'siapa gue'. Returns each note with an 'author' field (the user's own name for private notes, or the teammate who wrote it for team notes) so you can attribute facts correctly.",
       inputSchema: z.object({
         limit: z.number().nullable().optional(),
         type: z
           .enum(["general", "user", "feedback", "project", "reference"])
           .nullable()
           .optional(),
+        scope: z
+          .enum(["all", "private", "team"])
+          .nullable()
+          .optional()
+          .describe("Default 'all'. Filter to 'private' or 'team' only."),
       }),
-      execute: async ({ limit, type }) => {
+      execute: async ({ limit, type, scope }) => {
         const sb = supabaseAdmin();
-        let q = sb
-          .from("notes")
-          .select("content, type, created_at")
+        const { data: membership } = await sb
+          .from("org_members")
+          .select("org_id")
           .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(limit ?? 20);
-        if (type) q = q.eq("type", type);
-        const { data } = await q;
-        return data ?? [];
+          .maybeSingle();
+        const orgId = membership?.org_id ?? null;
+
+        const wantPrivate = !scope || scope === "all" || scope === "private";
+        const wantTeam = (!scope || scope === "all" || scope === "team") && orgId;
+
+        const results: Array<{
+          content: string;
+          type: string;
+          visibility: string;
+          author: string;
+          created_at: string;
+        }> = [];
+
+        if (wantPrivate) {
+          let q = sb
+            .from("notes")
+            .select("content, type, visibility, created_at")
+            .eq("user_id", userId)
+            .eq("visibility", "private")
+            .order("created_at", { ascending: false })
+            .limit(limit ?? 20);
+          if (type) q = q.eq("type", type);
+          const { data } = await q;
+          (data ?? []).forEach((n) =>
+            results.push({ ...n, author: "you" }),
+          );
+        }
+
+        if (wantTeam) {
+          let q = sb
+            .from("notes")
+            .select("content, type, visibility, created_at, user_id, users:user_id(name, email)")
+            .eq("org_id", orgId)
+            .eq("visibility", "team")
+            .order("created_at", { ascending: false })
+            .limit(limit ?? 20);
+          if (type) q = q.eq("type", type);
+          const { data } = await q;
+          (data ?? []).forEach((n) => {
+            const u = n.users as { name?: string; email?: string } | null;
+            results.push({
+              content: n.content,
+              type: n.type,
+              visibility: n.visibility,
+              author: u?.name || u?.email || "teammate",
+              created_at: n.created_at,
+            });
+          });
+        }
+
+        results.sort((a, b) => b.created_at.localeCompare(a.created_at));
+        return results.slice(0, limit ?? 20);
       },
     }),
   };

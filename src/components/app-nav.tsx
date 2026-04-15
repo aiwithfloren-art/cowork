@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { LanguageToggle } from "./language-toggle";
+import { NotificationBell } from "./notification-bell";
 
 type NavItem = { href: string; label: string };
 
@@ -48,6 +49,7 @@ export function AppNav({ items, locale, user, signOutLabel, onSignOut }: Props) 
         </div>
 
         <div className="hidden items-center gap-4 md:flex">
+          <NotificationBell />
           <LanguageToggle locale={locale} />
           <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
             {user.image && (

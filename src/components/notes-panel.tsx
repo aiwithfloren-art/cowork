@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 
 type NoteType = "general" | "user" | "feedback" | "project" | "reference";
+type Visibility = "private" | "team";
 type Note = {
   id: string;
   content: string;
   type?: NoteType;
+  visibility?: Visibility;
+  author?: string;
   created_at: string;
 };
 
@@ -22,6 +25,7 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [draft, setDraft] = useState("");
   const [draftType, setDraftType] = useState<NoteType>("general");
+  const [draftVisibility, setDraftVisibility] = useState<Visibility>("private");
   const [filter, setFilter] = useState<NoteType | "all">("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -59,7 +63,11 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
       const res = await fetch("/api/notes/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: draft, type: draftType }),
+        body: JSON.stringify({
+          content: draft,
+          type: draftType,
+          visibility: draftVisibility,
+        }),
       });
       const data = await res.json();
       if (res.ok && data.note) {
@@ -103,6 +111,15 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
             <option value="feedback">feedback (cara kerja)</option>
             <option value="project">project (proyek/metrik)</option>
             <option value="reference">reference (link/sistem)</option>
+          </select>
+          <select
+            value={draftVisibility}
+            onChange={(e) => setDraftVisibility(e.target.value as Visibility)}
+            disabled={saving}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs"
+          >
+            <option value="private">🔒 private</option>
+            <option value="team">👥 team (shared)</option>
           </select>
           <button
             type="submit"
@@ -160,12 +177,17 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
                       ×
                     </button>
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${style.cls}`}
                     >
                       {style.label}
                     </span>
+                    {n.visibility === "team" && (
+                      <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">
+                        👥 team · {n.author ?? ""}
+                      </span>
+                    )}
                     <p className="text-[10px] text-slate-400">
                       {new Date(n.created_at).toLocaleString(
                         locale === "id" ? "id-ID" : "en-GB",
