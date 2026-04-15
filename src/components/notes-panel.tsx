@@ -1,0 +1,126 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Note = {
+  id: string;
+  content: string;
+  created_at: string;
+};
+
+export function NotesPanel({ locale }: { locale: "en" | "id" }) {
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const copy = {
+    placeholder:
+      locale === "id"
+        ? "Tulis catatan… (Sigap AI bisa baca ini nanti)"
+        : "Write a note… (Sigap AI can recall these later)",
+    save: locale === "id" ? "Simpan" : "Save",
+    empty: locale === "id" ? "Belum ada catatan." : "No notes yet.",
+    loading: locale === "id" ? "Memuat…" : "Loading…",
+  };
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/notes/list");
+      const data = await res.json();
+      setNotes(data.notes ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draft.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/notes/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: draft }),
+      });
+      const data = await res.json();
+      if (res.ok && data.note) {
+        setNotes((prev) => [data.note, ...prev]);
+        setDraft("");
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(id: string) {
+    await fetch("/api/notes/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+  }
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={create} className="space-y-2">
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={copy.placeholder}
+          rows={3}
+          disabled={saving}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={!draft.trim() || saving}
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+        >
+          {saving ? "…" : copy.save}
+        </button>
+      </form>
+
+      {loading ? (
+        <p className="text-xs text-slate-400">{copy.loading}</p>
+      ) : notes.length === 0 ? (
+        <p className="text-xs text-slate-400">{copy.empty}</p>
+      ) : (
+        <ul className="space-y-2">
+          {notes.map((n) => (
+            <li
+              key={n.id}
+              className="group rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="flex-1 whitespace-pre-wrap text-slate-900">
+                  {n.content}
+                </p>
+                <button
+                  onClick={() => remove(n.id)}
+                  className="text-xs text-slate-400 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100"
+                  aria-label="Delete note"
+                >
+                  ×
+                </button>
+              </div>
+              <p className="mt-1 text-[10px] text-slate-400">
+                {new Date(n.created_at).toLocaleString(
+                  locale === "id" ? "id-ID" : "en-GB",
+                  { timeZone: "Asia/Jakarta" },
+                )}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

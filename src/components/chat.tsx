@@ -58,6 +58,66 @@ export function Chat({
     }
   }, [initialPrompt]);
 
+  // Keyboard shortcut: Cmd/Ctrl+K or / focuses the chat input
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
+      const target = e.target as HTMLElement | null;
+      const inInput =
+        target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
+      const isSlash = e.key === "/" && !inInput;
+      if (isCmdK || isSlash) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Voice input via Web Speech API
+  const [listening, setListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (SR) {
+      setSpeechSupported(true);
+      const rec = new SR();
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.lang = navigator.language || "en-US";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      rec.onresult = (ev: any) => {
+        const text = Array.from(ev.results as ArrayLike<{ 0: { transcript: string } }>)
+          .map((r) => r[0].transcript)
+          .join(" ");
+        setInput(text);
+      };
+      rec.onend = () => setListening(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      rec.onerror = (_e: any) => setListening(false);
+      recognitionRef.current = rec;
+    }
+  }, []);
+
+  function toggleListening() {
+    if (!recognitionRef.current) return;
+    if (listening) {
+      recognitionRef.current.stop();
+      setListening(false);
+    } else {
+      setInput("");
+      recognitionRef.current.start();
+      setListening(true);
+    }
+  }
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
@@ -211,10 +271,25 @@ export function Chat({
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={t.askAnything}
+            placeholder={listening ? "Listening…" : t.askAnything}
             disabled={loading}
             className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           />
+          {speechSupported && (
+            <button
+              type="button"
+              onClick={toggleListening}
+              disabled={loading}
+              title="Voice input"
+              className={
+                listening
+                  ? "rounded-lg bg-red-500 px-3 text-white hover:bg-red-400"
+                  : "rounded-lg border border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-50"
+              }
+            >
+              {listening ? "⏹" : "🎤"}
+            </button>
+          )}
           <button
             type="submit"
             disabled={loading || !input.trim()}
