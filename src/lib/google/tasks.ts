@@ -9,7 +9,10 @@ export type Task = {
   status: "needsAction" | "completed";
 };
 
-export async function listTasks(userId: string): Promise<Task[]> {
+export async function listTasks(
+  userId: string,
+  opts: { showCompleted?: boolean } = {},
+): Promise<Task[]> {
   const auth = await getGoogleClient(userId);
   const tasks = google.tasks({ version: "v1", auth });
 
@@ -17,9 +20,11 @@ export async function listTasks(userId: string): Promise<Task[]> {
   const defaultList = lists.data.items?.[0];
   if (!defaultList?.id) return [];
 
+  const showCompleted = opts.showCompleted ?? false;
   const res = await tasks.tasks.list({
     tasklist: defaultList.id,
-    showCompleted: false,
+    showCompleted,
+    showHidden: showCompleted,
     maxResults: 100,
   });
 

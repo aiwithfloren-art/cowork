@@ -133,11 +133,25 @@ export function buildTools(userId: string) {
     }),
 
     list_tasks: tool({
-      description: "List the user's open Google Tasks.",
-      inputSchema: z.object({}),
-      execute: async () => {
-        const tasks = await listTasks(userId);
-        return tasks.map((t) => ({ id: t.id, title: t.title, due: t.due }));
+      description:
+        "List the user's Google Tasks. By default returns only OPEN tasks. Set include_completed=true when the user asks to see what they've finished, progress review, done tasks, 'task yang udah selesai', 'apa aja yang udah gue kerjain'.",
+      inputSchema: z.object({
+        include_completed: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe("Default false. Set true to include completed tasks."),
+      }),
+      execute: async ({ include_completed }) => {
+        const tasks = await listTasks(userId, {
+          showCompleted: include_completed ?? false,
+        });
+        return tasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          due: t.due,
+          status: t.status,
+        }));
       },
     }),
 
