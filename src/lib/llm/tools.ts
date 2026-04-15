@@ -165,7 +165,7 @@ export function buildTools(userId: string) {
 
     read_connected_file: tool({
       description:
-        "Read the content of a connected Google Drive file. Pass the file name (or part of it) OR the file_id from list_connected_files. The tool will fuzzy-match the file. Returns up to 8000 chars of text.",
+        "READ the actual TEXT CONTENT of a connected Google Drive file. Use this whenever the user wants to summarize, read, explain, or see the content of a specific file. Pass the file name (or part of it) as 'query' — the tool fuzzy-matches. Do NOT call list_connected_files first; this tool already searches your connected files. Returns up to 8000 chars of text from the file body.",
       inputSchema: z.object({
         query: z
           .string()
