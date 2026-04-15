@@ -1,7 +1,21 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { getTodayEvents, getWeekEvents, addCalendarEvent } from "@/lib/google/calendar";
-import { listTasks, addTask, completeTask } from "@/lib/google/tasks";
+import {
+  getTodayEvents,
+  getWeekEvents,
+  addCalendarEvent,
+  findEventByTitle,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+} from "@/lib/google/calendar";
+import {
+  listTasks,
+  addTask,
+  completeTask,
+  findTaskByTitle,
+  updateTask,
+  deleteTask,
+} from "@/lib/google/tasks";
 import { findCommonSlots } from "@/lib/google/freebusy";
 import { readDoc } from "@/lib/google/docs";
 import { webSearch } from "@/lib/web/search";
@@ -143,11 +157,106 @@ export function buildTools(userId: string) {
     }),
 
     complete_task: tool({
-      description: "Mark a Google Task as completed.",
-      inputSchema: z.object({ id: z.string() }),
-      execute: async ({ id }) => {
-        await completeTask(userId, id);
-        return { ok: true };
+      description:
+        "Mark a Google Task as completed. Pass the task title (fuzzy-matched) as the 'query'.",
+      inputSchema: z.object({
+        query: z.string().describe("Task title or part of it"),
+      }),
+      execute: async ({ query }) => {
+        const task = await findTaskByTitle(userId, query);
+        if (!task)
+          return { error: `No task matches "${query}"` };
+        await completeTask(userId, task.id);
+        return { ok: true, completed: task.title };
+      },
+    }),
+
+    update_task: tool({
+      description:
+        "Update a Google Task's title, notes, or due date. Pass the task title (fuzzy-matched) as 'query'.",
+      inputSchema: z.object({
+        query: z.string().describe("Existing task title or part of it"),
+        new_title: z.string().nullable().optional(),
+        new_due: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("ISO date string or null"),
+        new_notes: z.string().nullable().optional(),
+      }),
+      execute: async ({ query, new_title, new_due, new_notes }) => {
+        const task = await findTaskByTitle(userId, query);
+        if (!task) return { error: `No task matches "${query}"` };
+        await updateTask(userId, task.id, {
+          title: new_title ?? undefined,
+          due: new_due ?? undefined,
+          notes: new_notes ?? undefined,
+        });
+        return { ok: true, updated: task.title };
+      },
+    }),
+
+    delete_task: tool({
+      description:
+        "Permanently delete a Google Task (different from complete). Pass the task title as 'query'.",
+      inputSchema: z.object({
+        query: z.string().describe("Task title to delete"),
+      }),
+      execute: async ({ query }) => {
+        const task = await findTaskByTitle(userId, query);
+        if (!task) return { error: `No task matches "${query}"` };
+        await deleteTask(userId, task.id);
+        return { ok: true, deleted: task.title };
+      },
+    }),
+
+    update_calendar_event: tool({
+      description:
+        "Update an existing calendar event (title, time, location, description). Pass the current event title (fuzzy match) as 'query'. Use ISO datetime with timezone for start/end.",
+      inputSchema: z.object({
+        query: z.string().describe("Current event title to find"),
+        new_title: z.string().nullable().optional(),
+        new_start: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("ISO datetime, e.g. 2026-04-16T10:00:00+07:00"),
+        new_end: z.string().nullable().optional(),
+        new_location: z.string().nullable().optional(),
+        new_description: z.string().nullable().optional(),
+      }),
+      execute: async ({
+        query,
+        new_title,
+        new_start,
+        new_end,
+        new_location,
+        new_description,
+      }) => {
+        const event = await findEventByTitle(userId, query);
+        if (!event) return { error: `No event matches "${query}"` };
+        await updateCalendarEvent(userId, event.id, {
+          title: new_title ?? undefined,
+          start: new_start ?? undefined,
+          end: new_end ?? undefined,
+          location: new_location ?? undefined,
+          description: new_description ?? undefined,
+        });
+        return { ok: true, updated: event.title };
+      },
+    }),
+
+    delete_calendar_event: tool({
+      description:
+        "Delete / cancel an event from Google Calendar. Pass the event title as 'query'.",
+      inputSchema: z.object({
+        query: z.string().describe("Event title to delete"),
+      }),
+      execute: async ({ query }) => {
+        const event = await findEventByTitle(userId, query);
+        if (!event) return { error: `No event matches "${query}"` };
+        await deleteCalendarEvent(userId, event.id);
+        return { ok: true, deleted: event.title };
       },
     }),
 

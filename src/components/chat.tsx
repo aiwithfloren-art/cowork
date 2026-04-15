@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Markdown } from "./markdown";
 import type { Dict } from "@/lib/i18n/dictionaries";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -160,11 +161,15 @@ export function Chat({ t }: { t: T }) {
                 key={i}
                 className={
                   m.role === "user"
-                    ? "ml-6 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white"
-                    : "mr-6 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-900 whitespace-pre-wrap"
+                    ? "ml-6 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white whitespace-pre-wrap"
+                    : "mr-6 rounded-lg bg-slate-100 px-3 py-2 text-slate-900"
                 }
               >
-                {m.content || (isStreaming ? "…" : "")}
+                {m.role === "assistant" && m.content ? (
+                  <Markdown>{m.content}</Markdown>
+                ) : (
+                  m.content || (isStreaming ? "…" : "")
+                )}
                 {isStreaming && m.content && (
                   <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-slate-400 align-middle" />
                 )}

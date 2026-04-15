@@ -62,6 +62,58 @@ export async function getWeekEvents(userId: string) {
   return getEvents(userId, now, end);
 }
 
+export async function findEventByTitle(
+  userId: string,
+  query: string,
+): Promise<CalendarEvent | null> {
+  const now = new Date();
+  const future = new Date(now);
+  future.setDate(future.getDate() + 30);
+  const events = await getEvents(userId, now, future);
+  const needle = query.toLowerCase().trim();
+  return (
+    events.find((e) => e.title.toLowerCase() === needle) ??
+    events.find((e) => e.title.toLowerCase().includes(needle)) ??
+    null
+  );
+}
+
+export async function updateCalendarEvent(
+  userId: string,
+  eventId: string,
+  updates: {
+    title?: string;
+    start?: string;
+    end?: string;
+    description?: string;
+    location?: string;
+  },
+): Promise<{ id: string; htmlLink: string }> {
+  const auth = await getGoogleClient(userId);
+  const cal = google.calendar({ version: "v3", auth });
+  const res = await cal.events.patch({
+    calendarId: "primary",
+    eventId,
+    requestBody: {
+      summary: updates.title,
+      description: updates.description,
+      location: updates.location,
+      start: updates.start ? { dateTime: updates.start } : undefined,
+      end: updates.end ? { dateTime: updates.end } : undefined,
+    },
+  });
+  return { id: res.data.id ?? "", htmlLink: res.data.htmlLink ?? "" };
+}
+
+export async function deleteCalendarEvent(
+  userId: string,
+  eventId: string,
+): Promise<void> {
+  const auth = await getGoogleClient(userId);
+  const cal = google.calendar({ version: "v3", auth });
+  await cal.events.delete({ calendarId: "primary", eventId });
+}
+
 export async function addCalendarEvent(
   userId: string,
   args: {

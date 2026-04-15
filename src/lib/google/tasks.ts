@@ -46,6 +46,48 @@ export async function addTask(userId: string, title: string, due?: string) {
   return res.data;
 }
 
+export async function findTaskByTitle(
+  userId: string,
+  query: string,
+): Promise<Task | null> {
+  const tasks = await listTasks(userId);
+  const needle = query.toLowerCase().trim();
+  return (
+    tasks.find((t) => t.title.toLowerCase() === needle) ??
+    tasks.find((t) => t.title.toLowerCase().includes(needle)) ??
+    null
+  );
+}
+
+export async function updateTask(
+  userId: string,
+  taskId: string,
+  updates: { title?: string; notes?: string; due?: string },
+): Promise<void> {
+  const auth = await getGoogleClient(userId);
+  const tasks = google.tasks({ version: "v1", auth });
+  const lists = await tasks.tasklists.list({ maxResults: 10 });
+  const defaultList = lists.data.items?.[0];
+  if (!defaultList?.id) throw new Error("No task list found");
+  await tasks.tasks.patch({
+    tasklist: defaultList.id,
+    task: taskId,
+    requestBody: updates,
+  });
+}
+
+export async function deleteTask(userId: string, taskId: string): Promise<void> {
+  const auth = await getGoogleClient(userId);
+  const tasks = google.tasks({ version: "v1", auth });
+  const lists = await tasks.tasklists.list({ maxResults: 10 });
+  const defaultList = lists.data.items?.[0];
+  if (!defaultList?.id) throw new Error("No task list found");
+  await tasks.tasks.delete({
+    tasklist: defaultList.id,
+    task: taskId,
+  });
+}
+
 export async function completeTask(userId: string, taskId: string) {
   const auth = await getGoogleClient(userId);
   const tasks = google.tasks({ version: "v1", auth });
