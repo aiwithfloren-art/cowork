@@ -41,5 +41,13 @@ export function RealtimeRefresh({ userId, orgId }: { userId: string; orgId?: str
     };
   }, [userId, orgId, router]);
 
+  // Polling fallback — ensures new members / audit entries show up
+  // within ~15s even if the realtime websocket is blocked or the
+  // anon key isn't set on the deployment.
+  useEffect(() => {
+    const t = setInterval(() => router.refresh(), 15_000);
+    return () => clearInterval(t);
+  }, [router]);
+
   return null;
 }
