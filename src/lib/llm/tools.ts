@@ -496,6 +496,49 @@ export function buildTools(userId: string) {
       },
     }),
 
+    list_team_members: tool({
+      description:
+        "List members of the user's organization (name, email, role). Use whenever the user says 'email tim', 'kirim ke tim', 'bcc semua member', 'siapa aja di tim gue', or similar — you need this to know the recipient email addresses. Returns empty list if the user is not in any organization; in that case tell the user they need to create/join an org first at /team.",
+      inputSchema: z.object({
+        role: z
+          .enum(["owner", "manager", "member"])
+          .nullable()
+          .optional()
+          .describe("Filter by role. Omit to list everyone."),
+      }),
+      execute: async ({ role }) => {
+        const sb = supabaseAdmin();
+        const { data: myMemberships } = await sb
+          .from("org_members")
+          .select("org_id")
+          .eq("user_id", userId);
+        const orgIds = (myMemberships ?? []).map((m) => m.org_id);
+        if (orgIds.length === 0) {
+          return {
+            members: [],
+            note: "User is not a member of any organization yet.",
+          };
+        }
+        let q = sb
+          .from("org_members")
+          .select("user_id, role, org_id, users:user_id(name, email)")
+          .in("org_id", orgIds);
+        if (role) q = q.eq("role", role);
+        const { data, error } = await q;
+        if (error) return { error: error.message };
+        const members = (data ?? []).map((row) => {
+          const u = row.users as { name?: string; email?: string } | null;
+          return {
+            name: u?.name ?? "",
+            email: u?.email ?? "",
+            role: row.role,
+            org_id: row.org_id,
+          };
+        });
+        return { count: members.length, members };
+      },
+    }),
+
     get_notes: tool({
       description: "Retrieve the user's recent private notes.",
       inputSchema: z.object({

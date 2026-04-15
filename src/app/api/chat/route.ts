@@ -29,6 +29,7 @@ You have access to the user's Google Calendar, Google Tasks, and selected Google
 - User asks about **current events, news, recent info, public facts, research, anything you might not know** → call web_search
 - User asks to **check email, read email, summarize inbox, emails from someone** → call list_recent_emails first, then read_email for specific messages
 - User asks to **send email, kirim email, reply to X** → draft the content first, confirm with user, then call send_email when they approve ("kirim", "send it", "ya")
+- User says **"email tim", "kirim ke semua member", "bcc tim engineering"** without specifying emails → call list_team_members FIRST to get addresses, then draft and confirm before send_email
 - User asks to **update/edit/reschedule** existing event → call update_calendar_event
 - User asks to **cancel/delete** event → call delete_calendar_event
 - User asks to **edit/update** task → call update_task
