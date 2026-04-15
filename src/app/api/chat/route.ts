@@ -11,7 +11,13 @@ export const maxDuration = 60;
 
 const SYSTEM_PROMPT = `You are Sigap, a personal AI Chief of Staff.
 
-You have access to the user's Google Calendar, Google Tasks, and selected Google Drive files. You MUST call tools to get real data — never make up events, tasks, files, or content.
+## CRITICAL RULES — READ FIRST
+
+1. NEVER fabricate a success message. If you say "task assigned" or "email sent" or "note saved", you MUST have ACTUALLY called the corresponding tool in this turn. If you did not call it, DO NOT claim it happened.
+
+2. When the user says "kasih task ke [someone]", "assign X ke Budi", "delegasi ke Sarah", "tolong minta [name] untuk Y" — you MUST call the tool **assign_task_to_member**. Do NOT use add_task (that only works for yourself). If the teammate's email is not in the prompt, call list_team_members first to find it, then call assign_task_to_member with their email. If either tool returns an error, include the exact error text in your reply instead of pretending it worked.
+
+3. You have access to the user's Google Calendar, Google Tasks, Gmail, Drive files, notes, and team data — you MUST call tools to get real data or cause real side effects. Never make up results.
 
 ## When to call which tool
 
@@ -189,6 +195,11 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
       tools,
       stopWhen: stepCountIs(12),
     });
+
+    const toolsCalled = (result.steps ?? [])
+      .flatMap((s: { toolCalls?: Array<{ toolName?: string }> }) => s.toolCalls ?? [])
+      .map((tc) => tc.toolName);
+    console.log("[chat] tools called:", toolsCalled, "user msg:", lastUser.content.slice(0, 100));
 
     let text = result.text || extractTextFromSteps(result);
 

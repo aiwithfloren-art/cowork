@@ -550,13 +550,17 @@ export function buildTools(userId: string) {
           .describe("Extra context to attach to the task"),
       }),
       execute: async ({ member_email, title, due, notes }) => {
+        console.log("[assign_task_to_member] called", { member_email, title, due, by: userId });
         const sb = supabaseAdmin();
         const { data: target } = await sb
           .from("users")
           .select("id, name, email")
           .eq("email", member_email)
           .maybeSingle();
-        if (!target) return { error: `No user found with email ${member_email}` };
+        if (!target) {
+          console.log("[assign_task_to_member] target not found", member_email);
+          return { error: `No user found with email ${member_email}` };
+        }
 
         const { data: myMembership } = await sb
           .from("org_members")
