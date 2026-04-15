@@ -141,8 +141,11 @@ export function buildTools(userId: string) {
       },
     }),
 
+    // NOTE: add_task creates in the CURRENT user's Google Tasks only.
+    // To give a task to a teammate, use assign_task_to_member instead.
     add_task: tool({
-      description: "Add a new Google Task.",
+      description:
+        "Add a new Google Task TO THE CURRENT USER'S OWN task list. DO NOT use this when the task is for a teammate — use assign_task_to_member instead (it creates the task in the teammate's Google Tasks and sends them a notification).",
       inputSchema: z.object({
         title: z.string(),
         due: z
