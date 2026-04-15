@@ -51,6 +51,7 @@ export default async function SettingsPage() {
 
   const scope = gtokens?.scope ?? "";
   const hasGmail = scope.includes("gmail.readonly");
+  const hasGmailSend = scope.includes("gmail.send");
   const hasDriveFile = scope.includes("drive.file");
 
   const maskedKey = settings?.groq_key
@@ -69,7 +70,11 @@ export default async function SettingsPage() {
           <CardTitle>Google Permissions</CardTitle>
         </CardHeader>
         <CardContent>
-          <ConnectGoogle hasGmail={hasGmail} hasDriveFile={hasDriveFile} />
+          <ConnectGoogle
+            hasGmail={hasGmail}
+            hasGmailSend={hasGmailSend}
+            hasDriveFile={hasDriveFile}
+          />
         </CardContent>
       </Card>
 

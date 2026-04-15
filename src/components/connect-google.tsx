@@ -5,10 +5,11 @@ import { useState } from "react";
 
 type Props = {
   hasGmail: boolean;
+  hasGmailSend: boolean;
   hasDriveFile: boolean;
 };
 
-export function ConnectGoogle({ hasGmail, hasDriveFile }: Props) {
+export function ConnectGoogle({ hasGmail, hasGmailSend, hasDriveFile }: Props) {
   const [loading, setLoading] = useState(false);
 
   async function reconnect() {
@@ -21,14 +22,24 @@ export function ConnectGoogle({ hasGmail, hasDriveFile }: Props) {
   }
 
   const missing: string[] = [];
-  if (!hasGmail) missing.push("Gmail");
+  if (!hasGmail) missing.push("Gmail read");
+  if (!hasGmailSend) missing.push("Gmail send");
   if (!hasDriveFile) missing.push("Drive files");
 
   if (missing.length === 0) {
     return (
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-        ✅ All Google permissions granted. Sigap can access your Calendar,
-        Tasks, Drive (picked files), and Gmail.
+      <div className="space-y-3">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          ✅ All Google permissions granted. Sigap can access your Calendar,
+          Tasks, Drive (picked files), and Gmail (read + send).
+        </div>
+        <button
+          onClick={reconnect}
+          disabled={loading}
+          className="text-xs text-slate-500 underline hover:text-slate-700 disabled:opacity-50"
+        >
+          {loading ? "Redirecting…" : "Re-authenticate with Google (force refresh scopes)"}
+        </button>
       </div>
     );
   }
