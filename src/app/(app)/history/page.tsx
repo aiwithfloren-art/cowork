@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { getDict } from "@/lib/i18n";
+import { getDict, getLocale } from "@/lib/i18n";
 
 type Msg = {
   id: string;
@@ -17,6 +17,8 @@ export default async function HistoryPage() {
   if (!userId) redirect("/");
 
   const dict = await getDict();
+  const locale = await getLocale();
+  void dict;
 
   const sb = supabaseAdmin();
   const { data: messages } = await sb
@@ -33,7 +35,6 @@ export default async function HistoryPage() {
   const sessions = groupIntoSessions(msgs.reverse());
   const sortedSessions = [...sessions].reverse();
 
-  const locale = dict.nav.dashboard === "Dasbor" ? "id" : "en";
   const copy = {
     title: locale === "id" ? "Riwayat Chat" : "Chat History",
     sub:
