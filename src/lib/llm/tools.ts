@@ -18,7 +18,7 @@ import {
 } from "@/lib/google/tasks";
 import { findCommonSlots } from "@/lib/google/freebusy";
 import { readDoc } from "@/lib/google/docs";
-import { listRecentEmails, readEmail } from "@/lib/google/gmail";
+import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -404,7 +404,14 @@ export function buildTools(userId: string) {
             })),
           };
         } catch (e) {
-          return { error: e instanceof Error ? e.message : "Gmail fetch failed" };
+          const msg = e instanceof Error ? e.message : "Gmail fetch failed";
+          if (/insufficient.*scope|invalid_scope|PERMISSION_DENIED/i.test(msg)) {
+            return {
+              error:
+                "Gmail access not granted. The user needs to reconnect their Google account in Settings to grant the gmail.readonly scope. Tell them exactly this: buka /settings lalu klik 'Reconnect Google'.",
+            };
+          }
+          return { error: msg };
         }
       },
     }),
@@ -421,6 +428,39 @@ export function buildTools(userId: string) {
           return email;
         } catch (e) {
           return { error: e instanceof Error ? e.message : "Read failed" };
+        }
+      },
+    }),
+
+    send_email: tool({
+      description:
+        "Send a Gmail email on behalf of the user. Use when the user says 'kirim email', 'send this', 'kirimkan', etc. Always confirm the recipient, subject, and body in your reply after sending. Do NOT send unless the user has explicitly approved the draft content.",
+      inputSchema: z.object({
+        to: z.string().describe("Recipient email address"),
+        subject: z.string().describe("Email subject line"),
+        body: z.string().describe("Plain-text email body"),
+        cc: z.string().nullable().optional(),
+        bcc: z.string().nullable().optional(),
+      }),
+      execute: async ({ to, subject, body, cc, bcc }) => {
+        try {
+          const res = await sendEmail(userId, {
+            to,
+            subject,
+            body,
+            cc: cc ?? undefined,
+            bcc: bcc ?? undefined,
+          });
+          return { ok: true, id: res.id, to, subject };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Send failed";
+          if (/insufficient.*scope|invalid_scope|PERMISSION_DENIED/i.test(msg)) {
+            return {
+              error:
+                "Gmail send access not granted. Tell the user: buka /settings lalu klik 'Reconnect Google' untuk memberikan izin kirim email.",
+            };
+          }
+          return { error: msg };
         }
       },
     }),

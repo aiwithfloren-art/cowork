@@ -16,6 +16,7 @@ const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/tasks",
   "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.send",
 ].join(" ");
 
 export const { handlers, auth, signIn, signOut } = NextAuth({

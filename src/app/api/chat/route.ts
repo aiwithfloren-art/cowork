@@ -28,6 +28,7 @@ You have access to the user's Google Calendar, Google Tasks, and selected Google
 - Recall personal notes → call get_notes
 - User asks about **current events, news, recent info, public facts, research, anything you might not know** → call web_search
 - User asks to **check email, read email, summarize inbox, emails from someone** → call list_recent_emails first, then read_email for specific messages
+- User asks to **send email, kirim email, reply to X** → draft the content first, confirm with user, then call send_email when they approve ("kirim", "send it", "ya")
 - User asks to **update/edit/reschedule** existing event → call update_calendar_event
 - User asks to **cancel/delete** event → call delete_calendar_event
 - User asks to **edit/update** task → call update_task
@@ -106,10 +107,27 @@ export async function POST(req: Request) {
   const model = DEFAULT_MODEL;
   const tools = buildTools(userId);
 
+  const nowJakarta = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
+  const systemWithTime = `${SYSTEM_PROMPT}
+
+## Current date & time
+Right now it is ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
+
+When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomorrow 3pm"), resolve it relative to THIS moment. If no date is mentioned, assume today in Asia/Jakarta. Always pass ISO datetimes with the +07:00 offset to calendar tools. Never guess a year — use the current year shown above.`;
+
   try {
     const result = await generateText({
       model: groq(model),
-      system: SYSTEM_PROMPT,
+      system: systemWithTime,
       messages: body.messages,
       tools,
       stopWhen: stepCountIs(12),

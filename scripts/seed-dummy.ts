@@ -178,6 +178,73 @@ async function main() {
     }
   }
 
+  // ========== NOTES (Supabase) ==========
+  const notes = [
+    "Ide fitur: reminder otomatis kalo task overdue > 3 hari, kirim ke Telegram.",
+    "Pricing Acme: $2k/bulan flat untuk 10 seat. Mereka push diskon 20% kalo annual.",
+    "Investor update draft — highlight: 200 beta users, retention 40% W4, revenue $1.2k MRR.",
+    "Feedback dari Budi (1:1): butuh lebih banyak async komunikasi, meeting terlalu padat Selasa-Kamis.",
+    "Competitor pricing — Reclaim: $10/mo, Motion: $19/mo, Superhuman: $30/mo. Kita sweet spot di $8.",
+    "Launch checklist: (1) bikin Product Hunt draft, (2) DM 10 temen dekat, (3) post LinkedIn Jumat 21:00.",
+    "Quote dari pelanggan Acme: 'kayak punya chief of staff tapi 1/100 harganya' — pake buat testimonial.",
+    "Blog post outline: Building Cowork in 24 hours — fokus ke tooling (Next 16, Groq, Supabase), bukan ke hype.",
+  ];
+
+  console.log(`\n📝 Creating ${notes.length} notes…`);
+  const noteRows = notes.map((content, i) => ({
+    user_id: user.id,
+    content,
+    created_at: new Date(today.getTime() - (notes.length - i) * 3600_000).toISOString(),
+  }));
+  const { error: notesErr } = await sb.from("notes").insert(noteRows);
+  if (notesErr) console.error("  ✗", notesErr.message);
+  else console.log(`  ✓ inserted ${notes.length} notes`);
+
+  // ========== CHAT HISTORY (Supabase) ==========
+  const baseTime = today.getTime() - 2 * 86400_000; // 2 days ago
+  const chatMessages: Array<{
+    user_id: string;
+    role: "user" | "assistant";
+    content: string;
+    created_at: string;
+  }> = [];
+  const convo = [
+    ["user", "apa aja yang harus gue siapin buat demo Acme besok?"],
+    ["assistant", "Berdasarkan notes kamu: (1) pricing $2k/bulan flat — siapin jawaban buat pushback diskon 20% annual, (2) tekanin Team Mode karena itu yang mereka tanya, (3) bawa testimonial dari customer existing. Demo dijadwal jam 10:00 di Zoom."],
+    ["user", "bikin task reminder buat prep slide besok pagi"],
+    ["assistant", "Done. Task 'Prep slides for product review' udah ada deadline hari ini, saya tambahin satu lagi: 'Final review Acme deck' deadline besok pagi 08:00."],
+    ["user", "investor update udah sampe mana?"],
+    ["assistant", "Draft-nya ada di notes kamu — highlight 200 beta users, retention 40% W4, MRR $1.2k. Belum dikirim. Email dari investor terakhir masuk 3 hari lalu, subject 'Q1 check-in?' — mereka nanyain metrics."],
+  ];
+  convo.forEach(([role, content], i) => {
+    chatMessages.push({
+      user_id: user.id,
+      role: role as "user" | "assistant",
+      content,
+      created_at: new Date(baseTime + i * 90_000).toISOString(),
+    });
+  });
+  const yesterdayBase = today.getTime() - 86400_000;
+  const convo2 = [
+    ["user", "ringkas meeting 1:1 sama Budi kemarin"],
+    ["assistant", "Dari notes: Budi kasih feedback butuh lebih banyak async comms, meeting terlalu padat Selasa-Kamis. Saran saya: blok 'no meeting Wednesday' dan pindahin standup jadi async di Slack threads."],
+    ["user", "save ide itu ke notes"],
+    ["assistant", "Tersimpan di notes: 'No Meeting Wednesday + async standup di Slack thread — respons Budi 1:1'."],
+  ];
+  convo2.forEach(([role, content], i) => {
+    chatMessages.push({
+      user_id: user.id,
+      role: role as "user" | "assistant",
+      content,
+      created_at: new Date(yesterdayBase + i * 90_000).toISOString(),
+    });
+  });
+
+  console.log(`\n💬 Creating ${chatMessages.length} chat messages…`);
+  const { error: chatErr } = await sb.from("chat_messages").insert(chatMessages);
+  if (chatErr) console.error("  ✗", chatErr.message);
+  else console.log(`  ✓ inserted ${chatMessages.length} chat messages across 2 sessions`);
+
   console.log("\n🎉 Done! Refresh https://cowork-gilt.vercel.app/dashboard to see the data.");
 }
 

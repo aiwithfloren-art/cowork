@@ -66,14 +66,20 @@ export async function findEventByTitle(
   userId: string,
   query: string,
 ): Promise<CalendarEvent | null> {
-  const now = new Date();
-  const future = new Date(now);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const future = new Date(start);
   future.setDate(future.getDate() + 30);
-  const events = await getEvents(userId, now, future);
+  const events = await getEvents(userId, start, future);
   const needle = query.toLowerCase().trim();
+  const words = needle.split(/\s+/).filter(Boolean);
   return (
     events.find((e) => e.title.toLowerCase() === needle) ??
     events.find((e) => e.title.toLowerCase().includes(needle)) ??
+    events.find((e) => {
+      const title = e.title.toLowerCase();
+      return words.every((w) => title.includes(w));
+    }) ??
     null
   );
 }
