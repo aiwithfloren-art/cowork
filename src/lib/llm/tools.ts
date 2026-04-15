@@ -4,6 +4,7 @@ import { getTodayEvents, getWeekEvents, addCalendarEvent } from "@/lib/google/ca
 import { listTasks, addTask, completeTask } from "@/lib/google/tasks";
 import { findCommonSlots } from "@/lib/google/freebusy";
 import { readDoc } from "@/lib/google/docs";
+import { webSearch } from "@/lib/web/search";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function shortType(mime: string): string {
@@ -232,6 +233,27 @@ export function buildTools(userId: string) {
           return {
             error: e instanceof Error ? e.message : "Could not read file",
             file_name: row.file_name,
+          };
+        }
+      },
+    }),
+
+    web_search: tool({
+      description:
+        "Search the public web for current information, news, articles, facts, or research. Use this when the user asks about anything you don't have built-in knowledge of, especially recent events, current data, or topics requiring fresh sources. Returns an AI-generated answer plus source links and snippets. Combine with read_connected_file when the user wants you to enrich findings with their own documents.",
+      inputSchema: z.object({
+        query: z.string().describe("Search query in natural language"),
+      }),
+      execute: async ({ query }) => {
+        try {
+          const result = await webSearch({ query, maxResults: 5 });
+          return {
+            answer: result.answer,
+            sources: result.sources,
+          };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Web search failed",
           };
         }
       },

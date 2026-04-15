@@ -26,6 +26,29 @@ You have access to the user's Google Calendar, Google Tasks, and selected Google
 - User asks to **summarize / read / explain / show contents of / ringkas / baca / isi** a specific file → SKIP list_connected_files. Call **read_connected_file** DIRECTLY with the file name as the query (the tool does fuzzy matching). Then write a real summary based on the actual content returned. NEVER respond with just metadata (id, type) — you MUST include the actual content summary.
 - Save a personal note → call save_note
 - Recall personal notes → call get_notes
+- User asks about **current events, news, recent info, public facts, research, anything you might not know** → call web_search
+
+## Multi-step / chained workflows
+
+You CAN and SHOULD call multiple tools in one response when the request requires it. Examples:
+
+- "Cariin info terbaru tentang X dan bikin event meeting buat diskusiinnya" →
+  1. web_search({ query: "X latest 2026" })
+  2. add_calendar_event({ title, start, end, description: <summary from search> })
+  3. Reply confirming both actions
+
+- "Baca file Y dan summarize jadi task baru" →
+  1. read_connected_file({ query: "Y" })
+  2. add_task({ title: "Follow up on Y: <key takeaway>" })
+  3. Reply confirming
+
+- "Cek berita tentang Llama 4, baca AI Roadmap doc aku, terus bikin event deep dive" →
+  1. web_search({ query: "Llama 4 release news" })
+  2. read_connected_file({ query: "AI Roadmap" })
+  3. add_calendar_event({ ... description combining both ... })
+  4. Reply with summary of all three steps
+
+When chaining tools, do all the calls THEN write a single coherent response that summarizes results and confirms actions.
 
 ## Rules
 
@@ -71,7 +94,7 @@ export async function POST(req: Request) {
       system: SYSTEM_PROMPT,
       messages: body.messages,
       tools,
-      stopWhen: stepCountIs(8),
+      stopWhen: stepCountIs(12),
     });
 
     let text = result.text || extractTextFromSteps(result);

@@ -1,12 +1,42 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { Dict } from "@/lib/i18n/dictionaries";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type T = Dict["chat"];
 
+// Keywords in the user's message that suggest the AI will mutate
+// calendar/tasks state — when the response finishes we trigger a
+// router.refresh() so server components re-fetch fresh Google data.
+const MUTATION_KEYWORDS = [
+  "add",
+  "create",
+  "schedule",
+  "book",
+  "tambah",
+  "buat",
+  "bikin",
+  "complete",
+  "done",
+  "selesai",
+  "delete",
+  "remove",
+  "hapus",
+  "move",
+  "reschedule",
+  "geser",
+  "ubah",
+];
+
+function looksMutating(text: string): boolean {
+  const lower = text.toLowerCase();
+  return MUTATION_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 export function Chat({ t }: { t: T }) {
+  const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -71,6 +101,12 @@ export function Chat({ t }: { t: T }) {
           };
           return copy;
         });
+      }
+
+      // Auto-refresh dashboard server components if the user message
+      // looks like a mutation (add event, complete task, etc.)
+      if (looksMutating(text)) {
+        router.refresh();
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
