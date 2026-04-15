@@ -9,11 +9,13 @@ export function getGroq(apiKey?: string) {
   });
 }
 
-export const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+// Kimi K2 is tuned for agentic/tool-calling workflows and handles
+// multi-step chains + complex Zod schemas much better than Llama 3.3.
+export const DEFAULT_MODEL = "moonshotai/kimi-k2-instruct-0905";
 
-// Approx Groq pricing as of late 2024: $0.59 in / $0.79 out per 1M tokens for Llama 3.3 70B
-export const COST_PER_1M_IN = 0.59;
-export const COST_PER_1M_OUT = 0.79;
+// Approx Groq pricing for Kimi K2: $1.00 in / $3.00 out per 1M tokens
+export const COST_PER_1M_IN = 1.0;
+export const COST_PER_1M_OUT = 3.0;
 
 export function estimateCost(tokensIn: number, tokensOut: number): number {
   return (tokensIn / 1_000_000) * COST_PER_1M_IN + (tokensOut / 1_000_000) * COST_PER_1M_OUT;

@@ -45,23 +45,34 @@ export function buildTools(userId: string) {
 
     find_meeting_slots: tool({
       description:
-        "Find open time slots for a meeting in the user's calendar during workday hours (09:00-18:00 Mon-Fri). Optionally include teammate emails from the same org to find SHARED free slots. Returns up to 5 slots. Use this when the user asks to schedule a meeting or find a time.",
+        "Find open time slots for a meeting in the user's calendar during workday hours (09:00-18:00 Mon-Fri). Optionally include teammate emails to find SHARED free slots. Returns up to 5 slots.",
       inputSchema: z.object({
-        duration_minutes: z.number().describe("Duration of the meeting in minutes (e.g. 30, 60)"),
-        days_ahead: z.number().optional().describe("How many days to search ahead (default 7)"),
+        duration_minutes: z
+          .number()
+          .describe("Duration of the meeting in minutes (e.g. 30, 60)"),
+        days_ahead: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("How many days to search ahead (default 7)"),
         with_emails: z
           .array(z.string())
+          .nullable()
           .optional()
-          .describe("Optional teammate emails to cross-reference calendars"),
+          .describe("Optional teammate emails to cross-reference"),
       }),
       execute: async ({ duration_minutes, days_ahead, with_emails }) => {
         const sb = supabaseAdmin();
         const userIds: string[] = [userId];
-        if (with_emails && with_emails.length > 0) {
+        const emails = with_emails ?? [];
+        if (emails.length > 0) {
           const { data: others } = await sb
             .from("users")
             .select("id, email")
-            .in("email", with_emails.map((e) => e.toLowerCase()));
+            .in(
+              "email",
+              emails.map((e) => e.toLowerCase()),
+            );
           if (others) userIds.push(...others.map((u) => u.id));
         }
         const slots = await findCommonSlots(userIds, {
@@ -72,27 +83,36 @@ export function buildTools(userId: string) {
         return {
           count: slots.length,
           slots: slots.map((s) => ({ start: s.start, end: s.end })),
-          note:
-            slots.length === 0
-              ? "No free slots found in workday hours."
-              : "Present these times to the user in their local timezone (Asia/Jakarta +07:00).",
         };
       },
     }),
 
     add_calendar_event: tool({
       description:
-        "Create a new event on the user's Google Calendar. Use ISO datetime strings with timezone offset (e.g. '2026-04-15T08:00:00+07:00'). If the user doesn't specify an end time, default to 1 hour after start. The user's timezone is Asia/Jakarta (+07:00) unless stated otherwise.",
+        "Create a new event on the user's Google Calendar. Use ISO datetime strings with timezone offset (e.g. '2026-04-15T08:00:00+07:00'). If the user doesn't specify an end time, default to 1 hour after start. Default timezone: Asia/Jakarta (+07:00).",
       inputSchema: z.object({
         title: z.string().describe("Event title / summary"),
-        start: z.string().describe("ISO datetime with timezone, e.g. 2026-04-15T08:00:00+07:00"),
+        start: z
+          .string()
+          .describe("ISO datetime with timezone, e.g. 2026-04-15T08:00:00+07:00"),
         end: z.string().describe("ISO datetime with timezone"),
-        description: z.string().optional(),
-        location: z.string().optional(),
-        attendees: z.array(z.string()).optional().describe("List of attendee emails"),
+        description: z.string().nullable().optional(),
+        location: z.string().nullable().optional(),
+        attendees: z
+          .array(z.string())
+          .nullable()
+          .optional()
+          .describe("List of attendee emails (optional)"),
       }),
       execute: async (args) => {
-        const res = await addCalendarEvent(userId, args);
+        const res = await addCalendarEvent(userId, {
+          title: args.title,
+          start: args.start,
+          end: args.end,
+          description: args.description ?? undefined,
+          location: args.location ?? undefined,
+          attendees: args.attendees ?? undefined,
+        });
         return { ok: true, event_id: res.id, link: res.htmlLink };
       },
     }),
@@ -110,10 +130,14 @@ export function buildTools(userId: string) {
       description: "Add a new Google Task.",
       inputSchema: z.object({
         title: z.string(),
-        due: z.string().optional().describe("ISO date string"),
+        due: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("ISO date string, or null"),
       }),
       execute: async ({ title, due }) => {
-        const res = await addTask(userId, title, due);
+        const res = await addTask(userId, title, due ?? undefined);
         return { ok: true, id: res.id };
       },
     }),
@@ -133,6 +157,7 @@ export function buildTools(userId: string) {
       inputSchema: z.object({
         search: z
           .string()
+          .nullable()
           .optional()
           .describe("Optional substring to filter file names by (case-insensitive)"),
       }),
@@ -271,15 +296,17 @@ export function buildTools(userId: string) {
 
     get_notes: tool({
       description: "Retrieve the user's recent private notes.",
-      inputSchema: z.object({ limit: z.number().optional() }),
-      execute: async ({ limit = 20 }) => {
+      inputSchema: z.object({
+        limit: z.number().nullable().optional(),
+      }),
+      execute: async ({ limit }) => {
         const sb = supabaseAdmin();
         const { data } = await sb
           .from("notes")
           .select("content, created_at")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
-          .limit(limit);
+          .limit(limit ?? 20);
         return data ?? [];
       },
     }),
