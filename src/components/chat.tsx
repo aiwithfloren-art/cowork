@@ -36,13 +36,27 @@ function looksMutating(text: string): boolean {
   return MUTATION_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-export function Chat({ t }: { t: T }) {
+export function Chat({
+  t,
+  initialPrompt = "",
+}: {
+  t: T;
+  initialPrompt?: string;
+}) {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialPrompt);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when a prompt is preloaded (from /history resume)
+  useEffect(() => {
+    if (initialPrompt && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [initialPrompt]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -194,6 +208,7 @@ export function Chat({ t }: { t: T }) {
       >
         <div className="flex gap-2">
           <input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={t.askAnything}

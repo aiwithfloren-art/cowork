@@ -18,6 +18,7 @@ import {
 } from "@/lib/google/tasks";
 import { findCommonSlots } from "@/lib/google/freebusy";
 import { readDoc } from "@/lib/google/docs";
+import { listRecentEmails, readEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -368,6 +369,58 @@ export function buildTools(userId: string) {
             error: e instanceof Error ? e.message : "Could not read file",
             file_name: row.file_name,
           };
+        }
+      },
+    }),
+
+    list_recent_emails: tool({
+      description:
+        "List the user's recent Gmail emails (from inbox by default). Returns subject, sender, date, and snippet. Use this when the user asks 'check my email', 'what emails do I have', 'summarize my inbox', etc.",
+      inputSchema: z.object({
+        query: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Optional Gmail search query, e.g. 'from:budi', 'is:unread', 'subject:invoice'. Defaults to 'in:inbox'.",
+          ),
+        max_results: z.number().nullable().optional(),
+      }),
+      execute: async ({ query, max_results }) => {
+        try {
+          const emails = await listRecentEmails(userId, {
+            query: query ?? undefined,
+            maxResults: max_results ?? 10,
+          });
+          return {
+            count: emails.length,
+            emails: emails.map((e) => ({
+              id: e.id,
+              from: e.from,
+              subject: e.subject,
+              date: e.date,
+              snippet: e.snippet,
+              unread: e.unread,
+            })),
+          };
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : "Gmail fetch failed" };
+        }
+      },
+    }),
+
+    read_email: tool({
+      description:
+        "Read the full body of a specific Gmail email by its ID. Use after list_recent_emails to drill into a specific message. Returns from, subject, date, and body (up to 8000 chars).",
+      inputSchema: z.object({
+        message_id: z.string().describe("Gmail message ID from list_recent_emails"),
+      }),
+      execute: async ({ message_id }) => {
+        try {
+          const email = await readEmail(userId, message_id);
+          return email;
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : "Read failed" };
         }
       },
     }),

@@ -9,11 +9,18 @@ import { getDict } from "@/lib/i18n";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { TutorialModal } from "@/components/tutorial-modal";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ prompt?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/");
   const userId = (session.user as { id?: string }).id;
   if (!userId) redirect("/");
+
+  const { prompt } = await searchParams;
+  const initialPrompt = prompt ?? "";
 
   const dict = await getDict();
   const t = dict.dashboard;
@@ -131,7 +138,7 @@ export default async function DashboardPage() {
               <CardTitle>{t.chiefOfStaff}</CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0">
-              <Chat t={dict.chat} />
+              <Chat t={dict.chat} initialPrompt={initialPrompt} />
             </CardContent>
           </Card>
         </div>

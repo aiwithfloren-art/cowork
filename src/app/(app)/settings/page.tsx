@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { revalidatePath } from "next/cache";
 import { TelegramConnect } from "@/components/telegram-connect";
 import { ConnectedFiles } from "@/components/connected-files";
+import { ConnectGoogle } from "@/components/connect-google";
 import { getDict } from "@/lib/i18n";
 
 async function saveKey(formData: FormData) {
@@ -28,19 +29,29 @@ export default async function SettingsPage() {
   if (!userId) redirect("/");
 
   const sb = supabaseAdmin();
-  const [{ data: settings }, { data: tgLink }, { data: pendingCode }] = await Promise.all([
-    sb.from("user_settings").select("groq_key, model").eq("user_id", userId).maybeSingle(),
-    sb
-      .from("telegram_links")
-      .select("telegram_username, linked_at")
-      .eq("user_id", userId)
-      .maybeSingle(),
-    sb
-      .from("telegram_link_codes")
-      .select("code, expires_at")
-      .eq("user_id", userId)
-      .maybeSingle(),
-  ]);
+  const [{ data: settings }, { data: tgLink }, { data: pendingCode }, { data: gtokens }] =
+    await Promise.all([
+      sb.from("user_settings").select("groq_key, model").eq("user_id", userId).maybeSingle(),
+      sb
+        .from("telegram_links")
+        .select("telegram_username, linked_at")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      sb
+        .from("telegram_link_codes")
+        .select("code, expires_at")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      sb
+        .from("google_tokens")
+        .select("scope")
+        .eq("user_id", userId)
+        .maybeSingle(),
+    ]);
+
+  const scope = gtokens?.scope ?? "";
+  const hasGmail = scope.includes("gmail.readonly");
+  const hasDriveFile = scope.includes("drive.file");
 
   const maskedKey = settings?.groq_key
     ? `${settings.groq_key.slice(0, 8)}…${settings.groq_key.slice(-4)}`
@@ -52,6 +63,15 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold text-slate-900">{t.title}</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Google Permissions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ConnectGoogle hasGmail={hasGmail} hasDriveFile={hasDriveFile} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

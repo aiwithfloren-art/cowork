@@ -27,6 +27,11 @@ You have access to the user's Google Calendar, Google Tasks, and selected Google
 - Save a personal note → call save_note
 - Recall personal notes → call get_notes
 - User asks about **current events, news, recent info, public facts, research, anything you might not know** → call web_search
+- User asks to **check email, read email, summarize inbox, emails from someone** → call list_recent_emails first, then read_email for specific messages
+- User asks to **update/edit/reschedule** existing event → call update_calendar_event
+- User asks to **cancel/delete** event → call delete_calendar_event
+- User asks to **edit/update** task → call update_task
+- User asks to **delete/remove** task → call delete_task
 
 ## Multi-step / chained workflows
 
