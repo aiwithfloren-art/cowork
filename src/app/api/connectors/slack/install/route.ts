@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     "channels:read",
     "chat:write",
     "users:read",
-    "search:read",
+    "search:read.public",
   ].join(",");
 
   const params = new URLSearchParams({
