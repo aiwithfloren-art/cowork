@@ -175,13 +175,11 @@ function ResumeButton({
   session: Msg[];
   label: string;
 }) {
-  // Find the last user message as the prompt to preload
-  const lastUser = [...session].reverse().find((m) => m.role === "user");
-  if (!lastUser) return null;
-  const prompt = encodeURIComponent(lastUser.content);
+  const pivot = session[0];
+  if (!pivot) return null;
   return (
     <Link
-      href={`/dashboard?prompt=${prompt}`}
+      href={`/dashboard?resume=${pivot.id}`}
       className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs text-indigo-600 hover:bg-indigo-50"
     >
       {label}

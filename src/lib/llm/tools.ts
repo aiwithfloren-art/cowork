@@ -318,75 +318,80 @@ export function buildTools(userId: string) {
 
     read_connected_file: tool({
       description:
-        "READ the actual TEXT CONTENT of a connected Google Drive file. Use this whenever the user wants to summarize, read, explain, or see the content of a specific file. Pass the file name (or part of it) as 'query' — the tool fuzzy-matches. Do NOT call list_connected_files first; this tool already searches your connected files. Returns up to 8000 chars of text from the file body.",
+        "READ the actual TEXT CONTENT of connected Google Drive files. Fuzzy-matches by name. By default returns the single best match. Set read_all=true when the user asks about a topic that may span multiple files (e.g. 'summary semua doc Acme', 'ringkas semua notes tentang X') — the tool will return up to 5 matching files so you can synthesize across them. Do NOT call list_connected_files first. Each file returns up to 8000 chars.",
       inputSchema: z.object({
         query: z
           .string()
           .describe(
-            "File name, partial name, or file_id. Examples: 'Brand Style Guide', 'master content', or '1AbCdEf...'",
+            "File name, partial name, topic, or file_id. Examples: 'Brand Style Guide', 'Acme', 'master content'",
+          ),
+        read_all: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe(
+            "Default false (single best match). Set true to return all files whose names match the query (up to 5).",
           ),
       }),
-      execute: async ({ query }) => {
+      execute: async ({ query, read_all }) => {
         const sb = supabaseAdmin();
         const trimmed = query.trim();
 
-        // Fetch all user files once
         const { data: all } = await sb
           .from("user_files")
           .select("file_id, file_name, mime_type")
           .eq("user_id", userId);
         const files = all ?? [];
 
-        // Try exact file_id match first
-        let row = files.find((f) => f.file_id === trimmed) ?? null;
+        const needle = trimmed.toLowerCase();
+        const words = needle
+          .split(/\s+/)
+          .filter((w) => w.length > 2);
 
-        // Then exact name (case-insensitive)
-        if (!row) {
-          const needle = trimmed.toLowerCase();
-          row =
-            files.find((f) => (f.file_name ?? "").toLowerCase() === needle) ?? null;
-        }
+        const score = (f: { file_id: string; file_name: string | null }) => {
+          const name = (f.file_name ?? "").toLowerCase();
+          if (f.file_id === trimmed) return 100;
+          if (name === needle) return 90;
+          if (name.includes(needle)) return 80;
+          if (words.length && words.every((w) => name.includes(w))) return 60;
+          return 0;
+        };
 
-        // Then substring match on name
-        if (!row) {
-          const needle = trimmed.toLowerCase();
-          row =
-            files.find((f) =>
-              (f.file_name ?? "").toLowerCase().includes(needle),
-            ) ?? null;
-        }
+        const ranked = files
+          .map((f) => ({ file: f, score: score(f) }))
+          .filter((r) => r.score > 0)
+          .sort((a, b) => b.score - a.score);
 
-        // Then word-by-word match (each word in query must appear in name)
-        if (!row) {
-          const words = trimmed
-            .toLowerCase()
-            .split(/\s+/)
-            .filter((w) => w.length > 2);
-          row =
-            files.find((f) => {
-              const name = (f.file_name ?? "").toLowerCase();
-              return words.every((w) => name.includes(w));
-            }) ?? null;
-        }
-
-        if (!row) {
+        if (ranked.length === 0) {
           return {
             error: `No connected file matches "${trimmed}". Call list_connected_files first to see available files.`,
           };
         }
 
-        try {
-          const content = await readDoc(userId, row.file_id);
-          return {
-            file_name: row.file_name,
-            content: content || "(empty document)",
-          };
-        } catch (e) {
-          return {
-            error: e instanceof Error ? e.message : "Could not read file",
-            file_name: row.file_name,
-          };
+        const limit = read_all ? 5 : 1;
+        const targets = ranked.slice(0, limit);
+
+        const results = await Promise.all(
+          targets.map(async ({ file }) => {
+            try {
+              const content = await readDoc(userId, file.file_id);
+              return {
+                file_name: file.file_name,
+                content: (content || "(empty document)").slice(0, 8000),
+              };
+            } catch (e) {
+              return {
+                file_name: file.file_name,
+                error: e instanceof Error ? e.message : "Could not read file",
+              };
+            }
+          }),
+        );
+
+        if (!read_all) {
+          return results[0];
         }
+        return { count: results.length, files: results };
       },
     }),
 

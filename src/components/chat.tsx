@@ -39,9 +39,11 @@ function looksMutating(text: string): boolean {
 export function Chat({
   t,
   initialPrompt = "",
+  resumeId,
 }: {
   t: T;
   initialPrompt?: string;
+  resumeId?: string;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -52,12 +54,26 @@ export function Chat({
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Focus input when a prompt is preloaded (from /history resume)
   useEffect(() => {
     if (initialPrompt && inputRef.current) {
       inputRef.current.focus();
     }
   }, [initialPrompt]);
+
+  // Load prior session messages when resumeId is passed from /history
+  useEffect(() => {
+    if (!resumeId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/chat/session?pivot=${resumeId}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { messages: Msg[] };
+        if (Array.isArray(data.messages) && data.messages.length) {
+          setMessages(data.messages);
+        }
+      } catch {}
+    })();
+  }, [resumeId]);
 
   // Keyboard shortcut: Cmd/Ctrl+K or / focuses the chat input
   useEffect(() => {
