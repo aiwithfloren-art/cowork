@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendTelegramMessage } from "@/lib/telegram/client";
 import { generateText, stepCountIs } from "ai";
 import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
-import { buildTools } from "@/lib/llm/tools";
+import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 
@@ -145,7 +145,7 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
   try {
     const groq = getGroq(settings?.groq_key ?? undefined);
     const model = DEFAULT_MODEL;
-    const tools = buildTools(userId);
+    const tools = await buildToolsForUser(userId);
 
     // Indicate typing
     fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendChatAction`, {

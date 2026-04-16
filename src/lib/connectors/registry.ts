@@ -46,16 +46,16 @@ export const CONNECTORS: ConnectorSpec[] = [
     slug: "slack",
     name: "Slack",
     description:
-      "Post messages, read channel history, search for context across your workspace.",
+      "Post messages, list channels, search for context across your workspace.",
     icon: "🟣",
     category: "communication",
     scopes: ["channels:read", "chat:write", "search:read", "users:read"],
     capabilities: [
       "Kirim update ke #general",
-      "Baca thread kemarin soal launch",
-      "Search diskusi tim",
+      "List channel yang lo bisa post",
+      "Cari diskusi tim di slack",
     ],
-    status: "coming-soon",
+    status: "available",
     installUrl: "/api/connectors/slack/install",
   },
   {

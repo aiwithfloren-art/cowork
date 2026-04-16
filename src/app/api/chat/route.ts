@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { generateText, stepCountIs } from "ai";
 import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
-import { buildTools } from "@/lib/llm/tools";
+import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -190,7 +190,7 @@ export async function POST(req: Request) {
   // is reserved for a future model-picker UI but should not silently
   // pin users to an outdated default value.
   const model = DEFAULT_MODEL;
-  const tools = buildTools(userId);
+  const tools = await buildToolsForUser(userId);
 
   const nowJakarta = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Jakarta",
