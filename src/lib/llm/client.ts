@@ -9,16 +9,15 @@ export function getGroq(apiKey?: string) {
   });
 }
 
-// llama-3.3-70b-versatile — proven to work with Vercel AI SDK + tools.
-// gpt-oss-120b rejected assistant messages with reasoning_content that
-// the SDK/Groq pipeline was inserting; Llama 3.3 has no such quirks.
-// 131K context window. Our deterministic delegation bypass covers the
-// one flow where Llama historically underperformed Kimi.
-export const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+// meta-llama/llama-4-scout-17b-16e-instruct — Meta's newest Llama
+// generation, tuned for tool use with 131K context. Llama 3.3 mis-
+// called Slack tools; Scout is a stronger agentic model and smaller
+// so also cheaper + faster to first token.
+export const DEFAULT_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
-// Approx Groq pricing for Llama 3.3 70B: $0.59 in / $0.79 out per 1M tokens
-export const COST_PER_1M_IN = 0.59;
-export const COST_PER_1M_OUT = 0.79;
+// Approx Groq pricing for Llama 4 Scout: $0.11 in / $0.34 out per 1M tokens
+export const COST_PER_1M_IN = 0.11;
+export const COST_PER_1M_OUT = 0.34;
 
 export function estimateCost(tokensIn: number, tokensOut: number): number {
   return (tokensIn / 1_000_000) * COST_PER_1M_IN + (tokensOut / 1_000_000) * COST_PER_1M_OUT;

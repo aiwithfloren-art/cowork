@@ -27,8 +27,12 @@ export function buildSlackTools(userId: string) {
         "List the user's Slack channels they can post to. Call when the user references a channel by name and you need the channel ID. Returns id + name + is_private.",
       inputSchema: z.object({}),
       execute: async () => {
+        console.log("[list_slack_channels] called by", userId);
         const token = await getSlackToken(userId);
-        if (!token) return { error: "Slack not connected. Ask user to connect at /settings/connectors." };
+        if (!token) {
+          console.log("[list_slack_channels] no token");
+          return { error: "Slack not connected. Ask user to connect at /settings/connectors." };
+        }
         const res = await fetch(
           "https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=200",
           { headers: { Authorization: `Bearer ${token}` } },
@@ -38,6 +42,7 @@ export function buildSlackTools(userId: string) {
           error?: string;
           channels?: SlackChannel[];
         };
+        console.log("[list_slack_channels] slack ok:", data.ok, "count:", data.channels?.length);
         if (!data.ok) return { error: data.error || "slack error" };
         return {
           count: data.channels?.length ?? 0,
