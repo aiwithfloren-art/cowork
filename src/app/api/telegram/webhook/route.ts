@@ -5,6 +5,7 @@ import { generateText, stepCountIs } from "ai";
 import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
 import { buildTools } from "@/lib/llm/tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
+import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -130,6 +131,17 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
     return NextResponse.json({ ok: true });
   }
 
+  // Bypass LLM for delegation prompts (same as web chat)
+  const delegationReply = await tryInterceptDelegation(userId, text);
+  if (delegationReply) {
+    await sb.from("chat_messages").insert([
+      { user_id: userId, role: "user", content: text },
+      { user_id: userId, role: "assistant", content: delegationReply },
+    ]);
+    await sendTelegramMessage(chatId, delegationReply);
+    return NextResponse.json({ ok: true });
+  }
+
   try {
     const groq = getGroq(settings?.groq_key ?? undefined);
     const model = DEFAULT_MODEL;
@@ -142,13 +154,49 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
       body: JSON.stringify({ chat_id: chatId, action: "typing" }),
     }).catch(() => {});
 
+    // Load last 10 messages for context continuity
+    const { data: priorMessages } = await sb
+      .from("chat_messages")
+      .select("role, content")
+      .eq("user_id", userId)
+      .in("role", ["user", "assistant"])
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const history = (priorMessages ?? []).reverse() as {
+      role: "user" | "assistant";
+      content: string;
+    }[];
+
+    const nowJakarta = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Jakarta",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date());
+
+    const systemPrompt = `You are Sigap, a personal AI Chief of Staff replying via Telegram.
+
+Current date/time: ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
+
+## Rules
+1. Keep replies concise — Telegram messages should be 1-3 short paragraphs, not long essays.
+2. ALWAYS call tools to get real Google Calendar/Tasks/Gmail/Drive/notes data. Never invent.
+3. When user says "kasih task ke [email]" — delegation is handled before you see the message; if you're seeing it, the pattern didn't match.
+4. Silently save durable facts (names, deadlines, metrics, preferences) via save_note with the right type. Don't mention saving.
+5. Reply in the same language the user wrote in (Indonesian → Indonesian, English → English).
+6. If no date is mentioned but time is (e.g. "jam 22:00"), assume today in Asia/Jakarta.
+7. Use plain text formatting — Telegram supports limited markdown. Bullet with •, not *.`;
+
     const result = await generateText({
       model: groq(model),
-      system:
-        "You are Sigap, replying via Telegram. Keep responses concise (under 400 chars when possible). Use real tool calls to get Google data — never invent. Default timezone: Asia/Jakarta.",
-      messages: [{ role: "user", content: text }],
+      system: systemPrompt,
+      messages: [...history, { role: "user", content: text }],
       tools,
-      stopWhen: stepCountIs(6),
+      stopWhen: stepCountIs(8),
     });
 
     const tokensIn = result.usage?.inputTokens ?? 0;
