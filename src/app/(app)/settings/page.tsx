@@ -75,6 +75,18 @@ export default async function SettingsPage() {
             hasGmailSend={hasGmailSend}
             hasDriveFile={hasDriveFile}
           />
+          <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs">
+            <p className="font-medium text-indigo-900">Connectors baru</p>
+            <p className="mt-0.5 text-indigo-700">
+              Slack, Notion, Linear, Stripe, GitHub akan segera tersedia.
+            </p>
+            <a
+              href="/settings/connectors"
+              className="mt-2 inline-block text-xs font-medium text-indigo-600 hover:underline"
+            >
+              Lihat semua connectors →
+            </a>
+          </div>
         </CardContent>
       </Card>
 
