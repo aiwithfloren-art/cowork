@@ -652,6 +652,166 @@ export function buildTools(userId: string) {
       },
     }),
 
+    broadcast_to_team: tool({
+      description:
+        "Announce something to the whole team in one shot. Inserts a notification for every member in the user's organization. Optionally also (1) creates a shared calendar event on every member's Google Calendar, (2) adds a prep task to every member's Google Tasks, (3) sends an email to every member. Use for 'kabarin tim demo Jumat wajib attend', 'broadcast: launch delay ke Senin depan', 'umumin ke semua: meeting retro besok jam 15'. Excludes the sender from the recipient list (they already know).",
+      inputSchema: z.object({
+        title: z.string().describe("Short headline the team will see"),
+        body: z.string().describe("Full announcement text"),
+        create_event: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe("Create the same event on every member's calendar."),
+        event_start: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("ISO datetime with +07:00 offset, required if create_event=true"),
+        event_end: z.string().nullable().optional(),
+        event_location: z.string().nullable().optional(),
+        create_task: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe("Add a prep task to every member's Google Tasks."),
+        task_title: z.string().nullable().optional(),
+        task_due: z.string().nullable().optional(),
+        send_email: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe("Also send an email to every member via the caller's Gmail."),
+      }),
+      execute: async (args) => {
+        const sb = supabaseAdmin();
+        const { data: myMembership } = await sb
+          .from("org_members")
+          .select("org_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+        const orgId = myMembership?.org_id;
+        if (!orgId) {
+          return {
+            error:
+              "You are not in any organization. Broadcast only works within a team — create or join one at /team first.",
+          };
+        }
+
+        const { data: members } = await sb
+          .from("org_members")
+          .select("user_id, users:user_id(name, email)")
+          .eq("org_id", orgId);
+        const targets = (members ?? [])
+          .map((m) => {
+            const u = m.users as { name?: string; email?: string } | null;
+            return { user_id: m.user_id, email: u?.email, name: u?.name };
+          })
+          .filter((m) => m.user_id !== userId);
+
+        if (targets.length === 0) {
+          return {
+            error:
+              "You are the only person in this org. Invite teammates at /team before broadcasting.",
+          };
+        }
+
+        const { data: actor } = await sb
+          .from("users")
+          .select("name, email")
+          .eq("id", userId)
+          .maybeSingle();
+        const actorName = actor?.name || actor?.email || "A teammate";
+
+        const notifRows = targets.map((t) => ({
+          user_id: t.user_id,
+          actor_id: userId,
+          kind: "broadcast",
+          title: `${actorName}: ${args.title}`,
+          body: args.body,
+          link: "/dashboard",
+        }));
+        await sb.from("notifications").insert(notifRows);
+
+        const events: { email?: string; ok: boolean; err?: string }[] = [];
+        const tasks: { email?: string; ok: boolean; err?: string }[] = [];
+        const emails: { email?: string; ok: boolean; err?: string }[] = [];
+
+        if (args.create_event && args.event_start && args.event_end) {
+          const { addCalendarEvent } = await import("@/lib/google/calendar");
+          await Promise.all(
+            targets.map(async (t) => {
+              try {
+                await addCalendarEvent(t.user_id, {
+                  title: args.title,
+                  start: args.event_start!,
+                  end: args.event_end!,
+                  location: args.event_location ?? undefined,
+                  description: `${args.body}\n\n— Broadcast from ${actorName}`,
+                });
+                events.push({ email: t.email, ok: true });
+              } catch (e) {
+                events.push({
+                  email: t.email,
+                  ok: false,
+                  err: e instanceof Error ? e.message : "failed",
+                });
+              }
+            }),
+          );
+        }
+
+        if (args.create_task && args.task_title) {
+          await Promise.all(
+            targets.map(async (t) => {
+              try {
+                await addTask(t.user_id, args.task_title!, args.task_due ?? undefined);
+                tasks.push({ email: t.email, ok: true });
+              } catch (e) {
+                tasks.push({
+                  email: t.email,
+                  ok: false,
+                  err: e instanceof Error ? e.message : "failed",
+                });
+              }
+            }),
+          );
+        }
+
+        if (args.send_email) {
+          const { sendEmail } = await import("@/lib/google/gmail");
+          await Promise.all(
+            targets.map(async (t) => {
+              if (!t.email) return;
+              try {
+                await sendEmail(userId, {
+                  to: t.email,
+                  subject: `[Team] ${args.title}`,
+                  body: `${args.body}\n\n— ${actorName} via Sigap`,
+                });
+                emails.push({ email: t.email, ok: true });
+              } catch (e) {
+                emails.push({
+                  email: t.email,
+                  ok: false,
+                  err: e instanceof Error ? e.message : "failed",
+                });
+              }
+            }),
+          );
+        }
+
+        return {
+          ok: true,
+          recipients: targets.length,
+          notifications_inserted: targets.length,
+          events,
+          tasks,
+          emails,
+        };
+      },
+    }),
+
     list_notifications: tool({
       description:
         "Get the current user's in-app notifications (task assignments, mentions, etc). Use when user asks 'ada notif baru ga', 'siapa yang assign task ke gue', 'check notifications'. Unread first.",
