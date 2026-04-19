@@ -34,7 +34,7 @@ export function buildSlackTools(userId: string) {
           return { error: "Slack not connected. Ask user to connect at /settings/connectors." };
         }
         const res = await fetch(
-          "https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=200",
+          "https://slack.com/api/conversations.list?types=public_channel&limit=200&exclude_archived=true",
           { headers: { Authorization: `Bearer ${token}` } },
         );
         const data = (await res.json()) as {
