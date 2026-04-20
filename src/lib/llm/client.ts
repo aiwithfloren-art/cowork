@@ -9,13 +9,15 @@ export function getGroq(apiKey?: string) {
   });
 }
 
-// openai/gpt-oss-120b — OpenAI's open-weights model on Groq, stronger
-// tool-calling than Llama 4 Scout (which mis-formatted nullable/optional
-// params for tools like list_recent_emails).
-export const DEFAULT_MODEL = "openai/gpt-oss-120b";
+// meta-llama/llama-4-maverick-17b-128e-instruct — Llama 4's larger
+// variant. Scout (17b-16e) mis-formatted nullable/optional tool params;
+// gpt-oss-120b is a reasoning model whose reasoning_content field is
+// rejected by Groq on subsequent turns. Maverick has stronger tool use
+// than Scout without reasoning-token incompatibility.
+export const DEFAULT_MODEL = "meta-llama/llama-4-maverick-17b-128e-instruct";
 
-// Approx Groq pricing for gpt-oss-120b: $0.15 in / $0.60 out per 1M tokens
-export const COST_PER_1M_IN = 0.15;
+// Approx Groq pricing for Llama 4 Maverick: $0.20 in / $0.60 out per 1M tokens
+export const COST_PER_1M_IN = 0.2;
 export const COST_PER_1M_OUT = 0.6;
 
 export function estimateCost(tokensIn: number, tokensOut: number): number {
