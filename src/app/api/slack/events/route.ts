@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
@@ -82,6 +82,13 @@ export async function POST(req: Request) {
     });
   }
 
+  // Slack retries any event it doesn't get a 200 for within 3s. Our handler
+  // takes longer (Groq + tools), so without this guard a single user message
+  // would be processed up to 3x in parallel, producing duplicate replies.
+  if (req.headers.get("x-slack-retry-num")) {
+    return NextResponse.json({ ok: true });
+  }
+
   if (payload.type !== "event_callback" || !payload.event) {
     return NextResponse.json({ ok: true });
   }
@@ -97,39 +104,45 @@ export async function POST(req: Request) {
   }
   // For channel messages, only respond to @mentions (not every message)
   if (event.type === "message" && !event.channel?.startsWith("D")) {
-    // non-DM: ignore unless it's an app_mention (handled separately)
     return NextResponse.json({ ok: true });
   }
   if (!event.text || !event.user || !event.channel) {
     return NextResponse.json({ ok: true });
   }
 
-  // Strip leading <@BOTID> mention from text
   const cleanText = event.text.replace(/^<@[A-Z0-9]+>\s*/, "").trim();
   if (!cleanText) return NextResponse.json({ ok: true });
 
-  // Resolve which Sigap user owns this Slack workspace → slack user mapping.
-  // Simplest mapping: find the connector row whose metadata.authed_user or
-  // external_account_id matches the team_id + slack user email.
+  const channel = event.channel;
+  const slackUserId = event.user;
+  const teamId = payload.team_id ?? "";
+
+  // Ack Slack immediately so it doesn't retry. Heavy work runs after the response.
+  after(() => processSlackMessage({ teamId, slackUserId, channel, cleanText }));
+
+  return NextResponse.json({ ok: true });
+}
+
+async function processSlackMessage(args: {
+  teamId: string;
+  slackUserId: string;
+  channel: string;
+  cleanText: string;
+}) {
+  const { teamId, slackUserId, channel, cleanText } = args;
   const sb = supabaseAdmin();
 
-  // Try to find a Sigap user whose email matches this Slack user's email.
-  // We need to look up the Slack user profile via the bot token.
   const { data: connector } = await sb
     .from("connectors")
     .select("user_id, access_token, external_account_id")
     .eq("provider", "slack")
-    .eq("external_account_id", payload.team_id ?? "")
+    .eq("external_account_id", teamId)
     .maybeSingle();
 
-  if (!connector) {
-    // No connector for this workspace — nothing to do
-    return NextResponse.json({ ok: true });
-  }
+  if (!connector) return;
 
-  // Lookup Slack user profile → get their email → match to Sigap user
   const profileRes = await fetch(
-    `https://slack.com/api/users.info?user=${event.user}`,
+    `https://slack.com/api/users.info?user=${slackUserId}`,
     { headers: { Authorization: `Bearer ${connector.access_token}` } },
   );
   const profile = (await profileRes.json()) as {
@@ -137,7 +150,7 @@ export async function POST(req: Request) {
     user?: { profile?: { email?: string } };
   };
   const slackEmail = profile.user?.profile?.email;
-  if (!slackEmail) return NextResponse.json({ ok: true });
+  if (!slackEmail) return;
 
   const { data: sigapUser } = await sb
     .from("users")
@@ -148,13 +161,12 @@ export async function POST(req: Request) {
   if (!sigapUser) {
     await postSlack(
       connector.access_token,
-      event.channel,
+      channel,
       `Hi! I'd love to help, but I don't see a Sigap account linked to ${slackEmail}. Sign in at https://cowork-gilt.vercel.app first, then talk to me here.`,
     );
-    return NextResponse.json({ ok: true });
+    return;
   }
 
-  // Rate limit
   const { data: settings } = await sb
     .from("user_settings")
     .select("groq_key")
@@ -163,19 +175,18 @@ export async function POST(req: Request) {
   const userHasOwnKey = Boolean(settings?.groq_key);
   const rl = await checkRateLimit(sigapUser.id, userHasOwnKey);
   if (!rl.ok) {
-    await postSlack(connector.access_token, event.channel, `⚠️ ${rl.message}`);
-    return NextResponse.json({ ok: true });
+    await postSlack(connector.access_token, channel, `⚠️ ${rl.message}`);
+    return;
   }
 
-  // Delegation intercept first
   const delegation = await tryInterceptDelegation(sigapUser.id, cleanText);
   if (delegation) {
     await sb.from("chat_messages").insert([
       { user_id: sigapUser.id, role: "user", content: cleanText },
       { user_id: sigapUser.id, role: "assistant", content: delegation },
     ]);
-    await postSlack(connector.access_token, event.channel, delegation);
-    return NextResponse.json({ ok: true });
+    await postSlack(connector.access_token, channel, delegation);
+    return;
   }
 
   try {
@@ -224,19 +235,17 @@ export async function POST(req: Request) {
 
     await postSlack(
       connector.access_token,
-      event.channel,
+      channel,
       result.text || "(no response)",
     );
   } catch (e) {
     console.error("slack events ai error:", e);
     await postSlack(
       connector.access_token,
-      event.channel,
+      channel,
       "⚠️ Something went wrong. Try again in a moment.",
     );
   }
-
-  return NextResponse.json({ ok: true });
 }
 
 async function postSlack(token: string, channel: string, text: string) {

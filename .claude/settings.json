@@ -4,7 +4,22 @@
       "WebFetch(domain:www.anthropic.com)",
       "WebFetch(domain:claude.com)",
       "WebFetch(domain:docs.claude.com)",
-      "WebFetch(domain:support.claude.com)"
+      "WebFetch(domain:support.claude.com)",
+      "Read(//Users/florentini/OpenSource\\\\ Cowork/src/lib/llm/**)",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__wait_for",
+      "mcp__chrome-devtools__list_network_requests",
+      "mcp__chrome-devtools__get_network_request",
+      "mcp__chrome-devtools__take_screenshot",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X PATCH https://cowork-gilt.vercel.app/api/tasks/xyz-test-id -H \"Content-Type: application/json\" -d '{\"status\":\"completed\"}')",
+      "mcp__chrome-devtools__handle_dialog",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST https://cowork-gilt.vercel.app/api/notes/update -H \"Content-Type: application/json\" -d '{\"id\":\"probe\",\"content\":\"probe\"}')",
+      "mcp__chrome-devtools__list_console_messages",
+      "mcp__chrome-devtools__resize_page",
+      "Bash(curl -s https://cowork-gilt.vercel.app/)",
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:groups.google.com)",
+      "WebFetch(domain:community.latenode.com)"
     ]
   }
 }

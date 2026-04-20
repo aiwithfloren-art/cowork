@@ -1,5 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
+import crypto from "crypto";
+import { sendInviteEmail } from "@/lib/email/client";
 import {
   getTodayEvents,
   getWeekEvents,
@@ -1051,6 +1053,104 @@ export function buildTools(userId: string) {
 
         results.sort((a, b) => b.created_at.localeCompare(a.created_at));
         return results.slice(0, limit ?? 20);
+      },
+    }),
+
+    create_team: tool({
+      description:
+        "Create a new team/organization. The current user becomes the owner. Use when the user says 'bikin tim X', 'create team X', 'buat organisasi X'. Returns the new org_id which you can pass to invite_to_team in the same conversation.",
+      inputSchema: z.object({
+        name: z.string().describe("Team/organization name, e.g. 'Aboy'"),
+      }),
+      execute: async ({ name }) => {
+        const trimmed = name.trim();
+        if (!trimmed) return { error: "Name required" };
+        const slug =
+          trimmed
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "") +
+          "-" +
+          crypto.randomBytes(3).toString("hex");
+
+        const sb = supabaseAdmin();
+        const { data: org, error } = await sb
+          .from("organizations")
+          .insert({ name: trimmed, slug, owner_id: userId })
+          .select("id, name")
+          .single();
+        if (error || !org) {
+          return { error: error?.message || "Failed to create team" };
+        }
+        await sb.from("org_members").insert({
+          org_id: org.id,
+          user_id: userId,
+          role: "owner",
+          share_with_manager: true,
+        });
+        return { ok: true, org_id: org.id, name: org.name };
+      },
+    }),
+
+    invite_to_team: tool({
+      description:
+        "Invite someone to a team by email. Sends an invite email with a join link. Requires the org_id (get it from create_team or list_team_members). Use when the user says 'invite X', 'undang X', 'tambahkan X ke tim'. Caller must be owner or manager of the team.",
+      inputSchema: z.object({
+        email: z.string().describe("Invitee's email address"),
+        org_id: z.string().describe("Target team's org_id"),
+        role: z
+          .enum(["member", "manager"])
+          .nullable()
+          .optional()
+          .describe("Role to assign. Default 'member'."),
+      }),
+      execute: async ({ email, org_id, role }) => {
+        const cleanEmail = email.trim().toLowerCase();
+        if (!cleanEmail || !org_id) {
+          return { error: "email and org_id required" };
+        }
+        const sb = supabaseAdmin();
+        const { data: member } = await sb
+          .from("org_members")
+          .select("role")
+          .eq("org_id", org_id)
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (!member || (member.role !== "owner" && member.role !== "manager")) {
+          return { error: "You must be an owner or manager of this team to invite." };
+        }
+        const finalRole = role || "member";
+        const token = crypto.randomBytes(24).toString("hex");
+        const { error } = await sb.from("org_invites").insert({
+          org_id,
+          email: cleanEmail,
+          role: finalRole,
+          manager_id: finalRole === "member" ? userId : null,
+          token,
+        });
+        if (error) return { error: error.message };
+
+        const [{ data: inviter }, { data: org }] = await Promise.all([
+          sb.from("users").select("name, email").eq("id", userId).maybeSingle(),
+          sb.from("organizations").select("name").eq("id", org_id).maybeSingle(),
+        ]);
+        const baseUrl =
+          process.env.NEXT_PUBLIC_APP_URL || "https://cowork-gilt.vercel.app";
+        const inviteUrl = `${baseUrl}/invite/${token}`;
+        try {
+          await sendInviteEmail({
+            to: cleanEmail,
+            inviterName: inviter?.name || inviter?.email || "Someone",
+            orgName: org?.name || "a team",
+            inviteUrl,
+          });
+        } catch (e) {
+          return {
+            ok: true,
+            warning: `Invite created but email failed: ${e instanceof Error ? e.message : "unknown"}. Share this link manually: ${inviteUrl}`,
+          };
+        }
+        return { ok: true, email: cleanEmail, role: finalRole };
       },
     }),
   };
