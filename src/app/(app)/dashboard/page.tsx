@@ -5,6 +5,7 @@ import { listTasks } from "@/lib/google/tasks";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { formatTime } from "@/lib/utils";
 import { Chat } from "@/components/chat";
+import { TasksPanel } from "@/components/tasks-panel";
 import { getDict } from "@/lib/i18n";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { TutorialModal } from "@/components/tutorial-modal";
@@ -108,32 +109,22 @@ export default async function DashboardPage({
               </span>
             </CardHeader>
             <CardContent>
-              {tasks.length === 0 ? (
-                <p className="text-sm text-slate-500">{t.noTasks}</p>
-              ) : (
-                <ul className="space-y-2">
-                  {tasks.slice(0, 8).map((t2) => (
-                    <li
-                      key={t2.id}
-                      className="flex items-center gap-3 rounded-lg border border-slate-100 p-3"
-                    >
-                      <div className="h-4 w-4 rounded-full border-2 border-slate-300" />
-                      <span className="flex-1 text-sm text-slate-900">{t2.title}</span>
-                      {t2.due && (
-                        <span className="text-xs text-slate-500">
-                          {new Date(t2.due).toLocaleDateString()}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <TasksPanel
+                initialTasks={tasks}
+                labels={{
+                  edit: "Edit",
+                  delete: "Delete",
+                  save: "Save",
+                  cancel: "Cancel",
+                  empty: t.noTasks,
+                }}
+              />
             </CardContent>
           </Card>
         </div>
 
         <div className="lg:col-span-1">
-          <Card className="h-[620px] flex flex-col">
+          <Card className="flex flex-col h-[calc(100vh-180px)] lg:sticky lg:top-6">
             <CardHeader>
               <CardTitle>{t.chiefOfStaff}</CardTitle>
             </CardHeader>
