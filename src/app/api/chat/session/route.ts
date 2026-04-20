@@ -13,22 +13,15 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const pivotId = url.searchParams.get("pivot");
-  if (!pivotId) {
-    return NextResponse.json({ error: "pivot required" }, { status: 400 });
+  const wantsLatest = url.searchParams.get("latest") === "true";
+  if (!pivotId && !wantsLatest) {
+    return NextResponse.json({ error: "pivot or latest=true required" }, { status: 400 });
   }
 
   const sb = supabaseAdmin();
-  const { data: pivot } = await sb
-    .from("chat_messages")
-    .select("created_at")
-    .eq("id", pivotId)
-    .eq("user_id", uid)
-    .maybeSingle();
-  if (!pivot) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
 
-  // Fetch all user messages ordered, then walk outward from pivot with 30m gap rule
+  // Fetch all user messages ordered, then resolve the pivot (either the
+  // explicitly requested id, or — when latest=true — the most recent one).
   const { data: all } = await sb
     .from("chat_messages")
     .select("id, role, content, created_at")
@@ -37,8 +30,15 @@ export async function GET(req: Request) {
     .limit(500);
 
   const msgs = all ?? [];
-  const pivotIdx = msgs.findIndex((m) => m.id === pivotId);
-  if (pivotIdx === -1) return NextResponse.json({ messages: [] });
+  if (msgs.length === 0) return NextResponse.json({ messages: [] });
+
+  const pivotIdx = pivotId
+    ? msgs.findIndex((m) => m.id === pivotId && m.role !== "tool")
+    : msgs.length - 1;
+
+  if (pivotId && pivotIdx === -1) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const GAP_MS = 30 * 60 * 1000;
   let start = pivotIdx;

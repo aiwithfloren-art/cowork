@@ -51,8 +51,22 @@ export function Chat({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitResetAt, setRateLimitResetAt] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [fullscreen]);
 
   useEffect(() => {
     if (initialPrompt && inputRef.current) {
@@ -60,12 +74,16 @@ export function Chat({
     }
   }, [initialPrompt]);
 
-  // Load prior session messages when resumeId is passed from /history
+  // Load prior session messages — explicit resumeId from /history, or on
+  // fresh dashboard mount, the latest session (so navigating away and back
+  // doesn't blank the conversation).
   useEffect(() => {
-    if (!resumeId) return;
     (async () => {
       try {
-        const res = await fetch(`/api/chat/session?pivot=${resumeId}`);
+        const url = resumeId
+          ? `/api/chat/session?pivot=${resumeId}`
+          : `/api/chat/session?latest=true`;
+        const res = await fetch(url);
         if (!res.ok) return;
         const data = (await res.json()) as { messages: Msg[] };
         if (Array.isArray(data.messages) && data.messages.length) {
@@ -211,8 +229,19 @@ export function Chat({
     }
   }
 
-  return (
+  const body = (
     <div className="flex h-full flex-col">
+      <div className="flex items-center justify-end border-b border-slate-100 px-3 py-1.5">
+        <button
+          type="button"
+          onClick={() => setFullscreen((v) => !v)}
+          title={fullscreen ? "Exit fullscreen (Esc)" : "Expand to fullscreen"}
+          aria-label={fullscreen ? "Exit fullscreen" : "Expand to fullscreen"}
+          className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+        >
+          {fullscreen ? "✕" : "⛶"}
+        </button>
+      </div>
       <div className="flex-1 overflow-y-auto px-5 py-3">
         {messages.length === 0 && !error && (
           <div className="space-y-4 py-2">
@@ -292,7 +321,7 @@ export function Chat({
           e.preventDefault();
           send(input);
         }}
-        className="border-t border-slate-200 p-3"
+        className="border-t border-slate-200 p-3 bg-white"
       >
         <div className="flex items-end gap-2">
           <textarea
@@ -339,6 +368,21 @@ export function Chat({
           </button>
         </div>
       </form>
+    </div>
+  );
+
+  if (!fullscreen) return body;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-950/60 backdrop-blur-sm">
+      <div
+        className="my-4 flex w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl mx-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Chief of Staff — fullscreen chat"
+      >
+        {body}
+      </div>
     </div>
   );
 }
