@@ -5,6 +5,7 @@ import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
 import { buildMemberTools } from "@/lib/llm/member-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -94,6 +95,9 @@ export async function POST(req: Request) {
       ],
       tools,
       stopWhen: stepCountIs(10),
+      prepareStep: async ({ messages }) => ({
+        messages: stripReasoningFromMessages(messages),
+      }),
     });
 
     const text = result.text || "(no response — try rephrasing)";

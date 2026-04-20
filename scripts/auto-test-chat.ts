@@ -80,6 +80,20 @@ const SCENARIOS: Scenario[] = [
     prompt: "channel slack apa aja yang ada",
     expectTools: ["list_slack_channels"],
   },
+  {
+    name: "delegate_to_budi",
+    prompt:
+      "kasih task ke humanevaluationofficial@gmail.com: review proposal, deadline besok",
+    expectTools: ["assign_task_to_member"],
+  },
+  {
+    name: "share_drive_no_files",
+    // When no files are connected, the correct behavior is to call
+    // list_connected_files first (to verify) and report "not found",
+    // rather than blindly invoking share_drive_file. Accept either.
+    prompt: "share folder Proposal Q1 ke budi@example.com kasih view",
+    expectTools: ["share_drive_file", "list_connected_files"],
+  },
 ];
 
 type ResultRow = {
