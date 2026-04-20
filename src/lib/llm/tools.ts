@@ -1396,17 +1396,18 @@ export function buildTools(userId: string) {
         const baseUrl =
           process.env.NEXT_PUBLIC_APP_URL || "https://cowork-gilt.vercel.app";
         const inviteUrl = `${baseUrl}/invite/${token}`;
-        try {
-          await sendInviteEmail({
-            to: cleanEmail,
-            inviterName: inviter?.name || inviter?.email || "Someone",
-            orgName: org?.name || "a team",
-            inviteUrl,
-          });
-        } catch (e) {
+        const emailResult = await sendInviteEmail({
+          to: cleanEmail,
+          inviterName: inviter?.name || inviter?.email || "Someone",
+          orgName: org?.name || "a team",
+          inviteUrl,
+        });
+        if (!emailResult.ok) {
           return {
-            ok: true,
-            warning: `Invite created but email failed: ${e instanceof Error ? e.message : "unknown"}. Share this link manually: ${inviteUrl}`,
+            invite_created: true,
+            email_sent: false,
+            warning: `Invite row created but email NOT delivered: ${emailResult.error}. Tell the user explicitly the email did not send and share this link: ${inviteUrl}`,
+            invite_url: inviteUrl,
           };
         }
         return { ok: true, email: cleanEmail, role: finalRole };
