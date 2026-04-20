@@ -222,13 +222,13 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
                         {n.content}
                       </p>
                     )}
-                    <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex gap-1 md:opacity-0 md:transition-opacity md:group-hover:opacity-100">
                       <button
                         onClick={() => {
                           setEditingId(n.id);
                           setEditValue(n.content);
                         }}
-                        className="text-xs text-slate-400 hover:text-indigo-600"
+                        className="rounded p-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-indigo-600"
                         aria-label="Edit note"
                         title="Edit"
                       >
@@ -236,7 +236,7 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
                       </button>
                       <button
                         onClick={() => remove(n.id)}
-                        className="text-xs text-slate-400 hover:text-red-600"
+                        className="rounded p-1 text-xs text-slate-400 hover:bg-red-50 hover:text-red-600"
                         aria-label="Delete note"
                         title="Delete"
                       >

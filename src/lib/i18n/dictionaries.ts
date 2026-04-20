@@ -178,6 +178,23 @@ export const dictionaries = {
     },
     settings: {
       title: "Settings",
+      googlePermissions: "Google Permissions",
+      googleAllGranted:
+        "✅ All Google permissions granted. Sigap can access your Calendar, Tasks, Drive (picked files), and Gmail (read + send).",
+      connectorsNew: "More connectors",
+      connectorsNewDesc: "Notion, Linear, Stripe, GitHub coming soon.",
+      seeAllConnectors: "See all connectors →",
+      slackTitle: "Slack",
+      slackConnected: "✅ Connected to workspace",
+      slackDesc:
+        "The Sigap bot can be DM'd or @-mentioned in channels you invite it to.",
+      slackConnect: "Connect Slack",
+      slackConnectDesc:
+        "Link your Slack workspace — chat with Sigap straight from Slack without opening Cowork.",
+      slackDisconnect: "Disconnect",
+      connectedFiles: "Connected Files",
+      connectedFilesDesc:
+        "Pick Google Drive files that Sigap can read. Sigap will only access files you explicitly add — not your entire Drive. Each file has its own visibility setting.",
       connectTelegram: "Connect Telegram",
       telegramLinked: "✅ Linked to",
       telegramDesc:
@@ -420,6 +437,23 @@ export const dictionaries = {
     },
     settings: {
       title: "Pengaturan",
+      googlePermissions: "Izin Google",
+      googleAllGranted:
+        "✅ Semua izin Google sudah diberikan. Sigap bisa akses Calendar, Tasks, Drive (file yang di-pick), dan Gmail (baca + kirim).",
+      connectorsNew: "Connectors lain",
+      connectorsNewDesc: "Notion, Linear, Stripe, GitHub akan segera tersedia.",
+      seeAllConnectors: "Lihat semua connectors →",
+      slackTitle: "Slack",
+      slackConnected: "✅ Terhubung ke workspace",
+      slackDesc:
+        "Bot Sigap bisa dipanggil via DM atau @mention di channel yang kamu invite.",
+      slackConnect: "Hubungkan Slack",
+      slackConnectDesc:
+        "Hubungkan workspace Slack kamu — chat Sigap langsung dari Slack tanpa buka Cowork.",
+      slackDisconnect: "Putus",
+      connectedFiles: "File Terhubung",
+      connectedFilesDesc:
+        "Pilih file Google Drive yang bisa dibaca Sigap. Sigap cuma akses file yang kamu add di sini — bukan seluruh Drive. Tiap file punya setting visibility sendiri.",
       connectTelegram: "Hubungkan Telegram",
       telegramLinked: "✅ Terhubung ke",
       telegramDesc:

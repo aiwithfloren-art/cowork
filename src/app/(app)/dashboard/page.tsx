@@ -6,7 +6,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { formatTime } from "@/lib/utils";
 import { Chat } from "@/components/chat";
 import { TasksPanel } from "@/components/tasks-panel";
-import { getDict } from "@/lib/i18n";
+import { EmptyState } from "@/components/empty-state";
+import { getDict, getLocale } from "@/lib/i18n";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { TutorialModal } from "@/components/tutorial-modal";
 
@@ -25,6 +26,7 @@ export default async function DashboardPage({
 
   const dict = await getDict();
   const t = dict.dashboard;
+  const locale = await getLocale();
 
   const sb = supabaseAdmin();
   const { data: settings } = await sb
@@ -71,12 +73,12 @@ export default async function DashboardPage({
             <CardHeader className="flex items-center justify-between">
               <CardTitle>{t.todaySchedule}</CardTitle>
               <span className="text-xs text-slate-500">
-                {events.length} {t.eventsCount}
+                {events.length} {pluralEvents(events.length, locale)}
               </span>
             </CardHeader>
             <CardContent>
               {events.length === 0 ? (
-                <p className="text-sm text-slate-500">{t.noEvents}</p>
+                <EmptyState icon="☕️" title={t.noEvents} />
               ) : (
                 <ul className="space-y-3">
                   {events.map((e) => (
@@ -111,11 +113,12 @@ export default async function DashboardPage({
             <CardContent>
               <TasksPanel
                 initialTasks={tasks}
+                locale={locale}
                 labels={{
-                  edit: "Edit",
-                  delete: "Delete",
-                  save: "Save",
-                  cancel: "Cancel",
+                  edit: locale === "id" ? "Edit" : "Edit",
+                  delete: locale === "id" ? "Hapus" : "Delete",
+                  save: locale === "id" ? "Simpan" : "Save",
+                  cancel: locale === "id" ? "Batal" : "Cancel",
                   empty: t.noTasks,
                 }}
               />
@@ -147,4 +150,9 @@ function getGreeting(t: {
   if (h < 12) return t.greetingMorning;
   if (h < 18) return t.greetingAfternoon;
   return t.greetingEvening;
+}
+
+function pluralEvents(n: number, locale: string): string {
+  if (locale === "id") return n === 0 ? "jadwal" : "jadwal";
+  return n === 1 ? "event" : "events";
 }

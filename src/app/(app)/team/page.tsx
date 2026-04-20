@@ -11,6 +11,7 @@ import {
   DeleteOrgButton,
   RemoveMemberButton,
 } from "@/components/team-manage";
+import { Avatar } from "@/components/avatar";
 
 type MemberRow = {
   user_id: string;
@@ -176,10 +177,12 @@ export default async function TeamPage() {
             {members.map((m) => (
               <li key={m.user_id} className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
-                  {m.user?.image && (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={m.user.image} alt="" className="h-8 w-8 rounded-full" />
-                  )}
+                  <Avatar
+                    name={m.user?.name}
+                    email={m.user?.email}
+                    imageUrl={m.user?.image}
+                    size={32}
+                  />
                   <div>
                     <p className="text-sm font-medium text-slate-900">
                       {m.user?.name ?? m.user?.email ?? m.user_id.slice(0, 8)}

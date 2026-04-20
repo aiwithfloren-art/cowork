@@ -72,7 +72,7 @@ export default async function HistoryPage({
   const sortedSessions = sessions ? [...sessions].reverse() : null;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">{copy.title}</h1>
         <p className="mt-1 text-sm text-slate-600">{copy.sub}</p>
@@ -208,9 +208,15 @@ function MessageBubble({
       </div>
     );
   }
+  const hasWideContent = /\|.+\|/.test(msg.content) || /```/.test(msg.content);
   return (
     <div className="flex justify-start">
-      <div className="max-w-[75%] rounded-2xl bg-slate-100 px-4 py-2 text-slate-900">
+      <div
+        className={
+          "rounded-2xl bg-slate-100 px-4 py-2 text-slate-900 " +
+          (hasWideContent ? "w-full overflow-x-auto" : "max-w-[85%]")
+        }
+      >
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
           {aiLabel}
         </p>

@@ -73,7 +73,7 @@ export function RenameOrgButton({
   return (
     <button
       onClick={() => setEditing(true)}
-      className="text-xs text-slate-500 hover:text-indigo-600"
+      className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
     >
       ✏️ Rename
     </button>
@@ -113,7 +113,7 @@ export function DeleteOrgButton({ orgId }: { orgId: string }) {
     <button
       onClick={confirmAndDelete}
       disabled={deleting}
-      className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs text-red-700 hover:border-red-300 hover:bg-red-100 disabled:opacity-50"
     >
       {deleting ? "Deleting…" : "🗑 Delete org"}
     </button>

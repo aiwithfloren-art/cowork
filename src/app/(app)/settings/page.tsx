@@ -83,12 +83,12 @@ export default async function SettingsPage() {
   const t = dict.settings;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold text-slate-900">{t.title}</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>Google Permissions</CardTitle>
+          <CardTitle>{t.googlePermissions}</CardTitle>
         </CardHeader>
         <CardContent>
           <ConnectGoogle
@@ -97,15 +97,13 @@ export default async function SettingsPage() {
             hasDriveFile={hasDriveFile}
           />
           <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs">
-            <p className="font-medium text-indigo-900">Connectors baru</p>
-            <p className="mt-0.5 text-indigo-700">
-              Notion, Linear, Stripe, GitHub akan segera tersedia.
-            </p>
+            <p className="font-medium text-indigo-900">{t.connectorsNew}</p>
+            <p className="mt-0.5 text-indigo-700">{t.connectorsNewDesc}</p>
             <a
               href="/settings/connectors"
               className="mt-2 inline-block text-xs font-medium text-indigo-600 hover:underline"
             >
-              Lihat semua connectors →
+              {t.seeAllConnectors}
             </a>
           </div>
         </CardContent>
@@ -113,41 +111,35 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Slack</CardTitle>
+          <CardTitle>{t.slackTitle}</CardTitle>
         </CardHeader>
         <CardContent>
           {slackConnector ? (
             <div className="flex items-center justify-between">
               <div className="text-sm">
                 <p className="text-slate-900">
-                  ✅ Connected to workspace{" "}
+                  {t.slackConnected}{" "}
                   <strong>{slackConnector.external_account_label ?? "Slack"}</strong>
                 </p>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Bot Sigap bisa dipanggil via DM atau @mention di channel yang kamu
-                  invite.
-                </p>
+                <p className="mt-0.5 text-xs text-slate-500">{t.slackDesc}</p>
               </div>
               <form action={disconnectSlack}>
                 <button
                   type="submit"
                   className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-red-50 hover:text-red-700"
                 >
-                  Disconnect
+                  {t.slackDisconnect}
                 </button>
               </form>
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-slate-600">
-                Hubungkan Slack workspace kamu — chat Sigap langsung dari Slack tanpa
-                buka Cowork.
-              </p>
+              <p className="text-sm text-slate-600">{t.slackConnectDesc}</p>
               <a
                 href="/api/connectors/slack/install"
                 className="inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
               >
-                Connect Slack
+                {t.slackConnect}
               </a>
             </div>
           )}
@@ -168,7 +160,7 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Connected Files</CardTitle>
+          <CardTitle>{t.connectedFiles}</CardTitle>
         </CardHeader>
         <CardContent>
           <ConnectedFiles />

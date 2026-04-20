@@ -7,6 +7,7 @@ import { getTodayEvents, getWeekEvents } from "@/lib/google/calendar";
 import { listTasks } from "@/lib/google/tasks";
 import { formatTime } from "@/lib/utils";
 import { AskMember } from "@/components/ask-member";
+import { Avatar } from "@/components/avatar";
 
 export default async function MemberPage({
   params,
@@ -123,10 +124,12 @@ export default async function MemberPage({
       </Link>
 
       <div className="flex items-center gap-4">
-        {targetUser.image && (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={targetUser.image} alt="" className="h-12 w-12 rounded-full" />
-        )}
+        <Avatar
+          name={targetUser.name}
+          email={targetUser.email}
+          imageUrl={targetUser.image}
+          size={48}
+        />
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
             {targetUser.name ?? targetUser.email}
@@ -141,11 +144,16 @@ export default async function MemberPage({
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Meetings today" value={events.length} />
-        <StatCard label="Open tasks" value={tasks.length} />
-        <StatCard label="Overdue" value={overdue} tone={overdue > 0 ? "warn" : "ok"} />
-        <StatCard label="Events this week" value={week.length} />
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+        <StatCard icon="📅" label="Meetings today" value={events.length} />
+        <StatCard icon="✅" label="Open tasks" value={tasks.length} />
+        <StatCard
+          icon="⚠️"
+          label="Overdue"
+          value={overdue}
+          tone={overdue > 0 ? "warn" : "ok"}
+        />
+        <StatCard icon="🗓" label="Events this week" value={week.length} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -214,10 +222,12 @@ function StatCard({
   label,
   value,
   tone = "neutral",
+  icon,
 }: {
   label: string;
   value: number;
   tone?: "neutral" | "ok" | "warn";
+  icon?: string;
 }) {
   const color =
     tone === "warn"
@@ -227,9 +237,14 @@ function StatCard({
       : "text-slate-900";
   return (
     <Card>
-      <CardContent className="pt-5">
-        <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-        <p className={`mt-1 text-3xl font-bold ${color}`}>{value}</p>
+      <CardContent className="flex items-center gap-3 py-3">
+        {icon && <span className="text-2xl leading-none">{icon}</span>}
+        <div className="min-w-0">
+          <p className="truncate text-[11px] uppercase tracking-wide text-slate-500">
+            {label}
+          </p>
+          <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>
+        </div>
       </CardContent>
     </Card>
   );
