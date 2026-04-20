@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 const PALETTE = [
   "bg-orange-500",
   "bg-rose-500",
@@ -21,10 +19,18 @@ function hashColor(key: string): string {
   return PALETTE[h % PALETTE.length];
 }
 
+/**
+ * Server component that renders a consistently-colored initial avatar.
+ * Previous version tried Next/Image with Google profile URLs, but those
+ * domains aren't allowlisted in next.config.ts and fail silently — and
+ * users that sign up via Google often have default/invalid profile
+ * URLs anyway. Initials-with-hashed-color gives every teammate a
+ * distinct avatar with zero external deps.
+ */
 export function Avatar({
   name,
   email,
-  imageUrl,
+  imageUrl: _imageUrl,
   size = 32,
 }: {
   name?: string | null;
@@ -37,23 +43,10 @@ export function Avatar({
   const colorCls = hashColor(seed);
   const dim = `${size}px`;
 
-  if (imageUrl) {
-    return (
-      <Image
-        src={imageUrl}
-        alt=""
-        width={size}
-        height={size}
-        className="rounded-full object-cover"
-        style={{ width: dim, height: dim }}
-      />
-    );
-  }
-
   return (
     <span
       aria-hidden
-      className={`inline-flex items-center justify-center rounded-full text-white font-medium ${colorCls}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full text-white font-medium ${colorCls}`}
       style={{ width: dim, height: dim, fontSize: Math.round(size * 0.4) }}
     >
       {initial}
