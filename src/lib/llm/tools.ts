@@ -1,7 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
 import crypto from "crypto";
-import OpenAI from "openai";
 import { sendInviteEmail } from "@/lib/email/client";
 import {
   getTodayEvents,
@@ -754,20 +753,15 @@ export function buildTools(userId: string) {
 
     generate_image: tool({
       description:
-        "Generate an image from a text prompt. Use when the user asks to 'bikin gambar', 'create image', 'generate image', 'buatin ilustrasi', etc. Returns a URL — for Slack, post the URL on its own line (no markdown wrapper) so Slack auto-unfurls it into a preview. For web chat, you can use markdown ![](url).",
+        "Generate an image from a text prompt using Google Gemini Flash Image via OpenRouter. Use when the user asks to 'bikin gambar', 'create image', 'generate image', 'buatin ilustrasi', etc. Returns a public URL — for Slack, post the URL on its own line (no markdown wrapper) so Slack auto-unfurls it into a preview. For web chat, use markdown ![](url).",
       inputSchema: z.object({
         prompt: z
           .string()
           .describe(
             "Detailed description of the image. Include style, mood, composition. English gives best results but Indonesian works.",
           ),
-        size: z
-          .enum(["1024x1024", "1024x1792", "1792x1024"])
-          .nullable()
-          .optional()
-          .describe("Default 1024x1024 (square). Use 1024x1792 for portrait, 1792x1024 for landscape."),
       }),
-      execute: async ({ prompt, size }) => {
+      execute: async ({ prompt }) => {
         const apiKey = process.env.OPENROUTER_API_KEY;
         if (!apiKey) {
           return {
@@ -776,23 +770,87 @@ export function buildTools(userId: string) {
           };
         }
         try {
-          const openai = new OpenAI({
-            apiKey,
-            baseURL: "https://openrouter.ai/api/v1",
-          });
-          const res = await openai.images.generate({
-            model: "openai/dall-e-3",
-            prompt,
-            size: size ?? "1024x1024",
-            n: 1,
-          });
-          const url = res.data?.[0]?.url;
-          const revised = res.data?.[0]?.revised_prompt;
-          if (!url) return { error: "No image returned" };
+          const res = await fetch(
+            "https://openrouter.ai/api/v1/chat/completions",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash-image",
+                messages: [{ role: "user", content: prompt }],
+                modalities: ["image", "text"],
+              }),
+            },
+          );
+          if (!res.ok) {
+            const text = await res.text();
+            return {
+              error: `OpenRouter ${res.status}: ${text.slice(0, 300)}`,
+            };
+          }
+          const data = (await res.json()) as {
+            choices?: Array<{
+              message?: {
+                content?: string;
+                images?: Array<{ image_url?: { url?: string } }>;
+              };
+            }>;
+          };
+          const dataUri =
+            data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          if (!dataUri || !dataUri.startsWith("data:image/")) {
+            return { error: "No image returned from model" };
+          }
+          const match = dataUri.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+          if (!match) return { error: "Unexpected image data URI format" };
+          const mime = match[1];
+          const base64 = match[2];
+          const buffer = Buffer.from(base64, "base64");
+          const ext = mime.split("/")[1] || "png";
+          const filename = `${userId}/${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${ext}`;
+
+          const sb = supabaseAdmin();
+          const BUCKET = "sigap-images";
+          const { error: uploadErr } = await sb.storage
+            .from(BUCKET)
+            .upload(filename, buffer, {
+              contentType: mime,
+              cacheControl: "31536000",
+            });
+          if (uploadErr) {
+            if (/Bucket not found/i.test(uploadErr.message)) {
+              const { error: createErr } = await sb.storage.createBucket(
+                BUCKET,
+                { public: true },
+              );
+              if (createErr) {
+                return { error: `Bucket create failed: ${createErr.message}` };
+              }
+              const retry = await sb.storage
+                .from(BUCKET)
+                .upload(filename, buffer, {
+                  contentType: mime,
+                  cacheControl: "31536000",
+                });
+              if (retry.error) {
+                return { error: `Upload failed: ${retry.error.message}` };
+              }
+            } else {
+              return { error: `Upload failed: ${uploadErr.message}` };
+            }
+          }
+          const { data: publicData } = sb.storage
+            .from(BUCKET)
+            .getPublicUrl(filename);
+          const publicUrl = publicData.publicUrl;
+          const caption = data.choices?.[0]?.message?.content ?? "";
           return {
-            url,
-            revised_prompt: revised,
-            expires_note: "URL valid ~1 hour — save now if needed.",
+            url: publicUrl,
+            caption,
+            note: "Image stored permanently. Embed the URL directly so Slack auto-unfurls it.",
           };
         } catch (e) {
           return {
