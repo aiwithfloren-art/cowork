@@ -1,6 +1,7 @@
 import { buildTools } from "./tools";
 import { buildSlackTools } from "@/lib/slack/tools";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getComposioTools } from "@/lib/composio/tools";
 
 /**
  * Builds the full tool set for a user, including any connector tools
@@ -22,6 +23,9 @@ export async function buildToolsForUser(userId: string) {
   if (providers.has("slack")) {
     extras = { ...extras, ...buildSlackTools(userId) };
   }
+
+  const composio = await getComposioTools(userId);
+  extras = { ...extras, ...composio };
 
   return { ...base, ...extras };
 }

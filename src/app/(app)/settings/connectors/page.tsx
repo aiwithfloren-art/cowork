@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CONNECTORS } from "@/lib/connectors/registry";
 import { Card, CardContent } from "@/components/ui/card";
+import { ComposioConnectors } from "@/components/composio-connectors";
 import Link from "next/link";
 
 export default async function ConnectorsPage() {
@@ -122,6 +123,8 @@ export default async function ConnectorsPage() {
           );
         })}
       </div>
+
+      <ComposioConnectors />
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
         <p className="font-medium text-slate-700">Privacy</p>
