@@ -5,6 +5,7 @@ import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -231,6 +232,9 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
       messages: body.messages,
       tools,
       stopWhen: stepCountIs(12),
+      prepareStep: async ({ messages }) => ({
+        messages: stripReasoningFromMessages(messages),
+      }),
     });
 
     const toolsCalled = (result.steps ?? [])

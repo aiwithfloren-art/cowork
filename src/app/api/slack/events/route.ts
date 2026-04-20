@@ -6,6 +6,7 @@ import { generateText, stepCountIs } from "ai";
 import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
+import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -199,6 +200,9 @@ export async function POST(req: Request) {
       messages: [...history, { role: "user", content: cleanText }],
       tools,
       stopWhen: stepCountIs(6),
+      prepareStep: async ({ messages }) => ({
+        messages: stripReasoningFromMessages(messages),
+      }),
     });
 
     const tokensIn = result.usage?.inputTokens ?? 0;
