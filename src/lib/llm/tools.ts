@@ -624,16 +624,15 @@ export function buildTools(userId: string) {
           .describe("Display name for the bot in the meeting. Default 'Sigap Notetaker'."),
       }),
       execute: async ({ meeting_url, bot_name }) => {
-        const apiKey = process.env.RECALL_API_KEY;
+        const apiKey = process.env.ATTENDEE_API_KEY;
         if (!apiKey) {
           return {
             error:
-              "Meeting bot not configured. Admin must set RECALL_API_KEY and RECALL_REGION in environment.",
+              "Meeting bot not configured. Admin must set ATTENDEE_API_KEY in environment.",
           };
         }
-        const region = process.env.RECALL_REGION || "us-west-2";
         try {
-          const res = await fetch(`https://${region}.recall.ai/api/v1/bot`, {
+          const res = await fetch("https://app.attendee.dev/api/v1/bots", {
             method: "POST",
             headers: {
               Authorization: `Token ${apiKey}`,
@@ -642,14 +641,13 @@ export function buildTools(userId: string) {
             body: JSON.stringify({
               meeting_url,
               bot_name: bot_name || "Sigap Notetaker",
-              recording_config: {
-                transcript: { provider: { meeting_captions: {} } },
-              },
             }),
           });
           if (!res.ok) {
             const text = await res.text();
-            return { error: `Recall API ${res.status}: ${text.slice(0, 200)}` };
+            return {
+              error: `Attendee API ${res.status}: ${text.slice(0, 200)}`,
+            };
           }
           const data = (await res.json()) as { id: string };
           const sb = supabaseAdmin();
@@ -683,11 +681,8 @@ export function buildTools(userId: string) {
           .describe("Bot ID from start_meeting_bot. Omit to use the most recent."),
       }),
       execute: async ({ bot_id }) => {
-        const apiKey = process.env.RECALL_API_KEY;
-        if (!apiKey) {
-          return { error: "RECALL_API_KEY not set" };
-        }
-        const region = process.env.RECALL_REGION || "us-west-2";
+        const apiKey = process.env.ATTENDEE_API_KEY;
+        if (!apiKey) return { error: "ATTENDEE_API_KEY not set" };
         const sb = supabaseAdmin();
         let id = bot_id;
         if (!id) {
@@ -702,45 +697,49 @@ export function buildTools(userId: string) {
           if (!id) return { error: "No meeting bot found. Dispatch one first." };
         }
         try {
-          const res = await fetch(`https://${region}.recall.ai/api/v1/bot/${id}`, {
-            headers: { Authorization: `Token ${apiKey}` },
-          });
-          if (!res.ok) {
-            return { error: `Recall API ${res.status}` };
+          const statusRes = await fetch(
+            `https://app.attendee.dev/api/v1/bots/${id}`,
+            { headers: { Authorization: `Token ${apiKey}` } },
+          );
+          if (!statusRes.ok) {
+            return { error: `Attendee API ${statusRes.status}` };
           }
-          const bot = (await res.json()) as {
-            status_changes?: Array<{ code: string }>;
-            recordings?: Array<{
-              media_shortcuts?: {
-                transcript?: {
-                  data?: { download_url?: string };
-                };
-              };
-            }>;
+          const bot = (await statusRes.json()) as {
+            state?: string;
+            transcription_state?: string;
           };
-          const latestStatus =
-            bot.status_changes?.[bot.status_changes.length - 1]?.code;
-          if (latestStatus !== "done") {
+          if (bot.state !== "ended") {
             return {
-              status: latestStatus || "unknown",
+              status: bot.state || "unknown",
               note: "Meeting not finished yet. Try again after it ends.",
             };
           }
-          const transcriptUrl =
-            bot.recordings?.[0]?.media_shortcuts?.transcript?.data?.download_url;
-          if (!transcriptUrl) {
-            return { status: "done", error: "No transcript URL yet (still processing)." };
+          if (bot.transcription_state !== "complete") {
+            return {
+              status: "ended",
+              transcription_state: bot.transcription_state,
+              note: "Meeting ended but transcript is still processing. Try again in ~30s.",
+            };
           }
-          const tRes = await fetch(transcriptUrl);
-          const transcript = (await tRes.json()) as Array<{
-            participant?: { name?: string };
-            words?: Array<{ text: string }>;
+          const transRes = await fetch(
+            `https://app.attendee.dev/api/v1/bots/${id}/transcript`,
+            { headers: { Authorization: `Token ${apiKey}` } },
+          );
+          if (!transRes.ok) {
+            return {
+              error: `Attendee transcript fetch ${transRes.status}`,
+            };
+          }
+          const segments = (await transRes.json()) as Array<{
+            speaker_name?: string;
+            transcription?: string;
           }>;
-          const plain = transcript
+          const plain = segments
             .map(
-              (seg) =>
-                `${seg.participant?.name ?? "Speaker"}: ${(seg.words ?? []).map((w) => w.text).join(" ")}`,
+              (s) =>
+                `${s.speaker_name ?? "Speaker"}: ${s.transcription ?? ""}`,
             )
+            .filter((l) => l.trim().length > 0)
             .join("\n");
           await sb
             .from("meeting_bots")
@@ -750,7 +749,7 @@ export function buildTools(userId: string) {
             ok: true,
             transcript_excerpt: plain.slice(0, 4000),
             note:
-              "Full transcript stored. You (the AI) should now write a concise summary from the excerpt: key decisions, action items, next steps. Offer to save it as a team note.",
+              "Full transcript stored. You (the AI) should now write a concise summary from the excerpt: key decisions, action items, next steps. Extract and call tools for anything actionable: add_calendar_event for meetings mentioned, assign_task_to_member for delegated work, save_note for durable context.",
           };
         } catch (e) {
           return {
