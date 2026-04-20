@@ -1426,6 +1426,7 @@ export function buildTools(userId: string) {
       </p>
     </div>
   `;
+        let emailSendError: string | null = null;
         try {
           await sendHtmlEmail(userId, {
             to: cleanEmail,
@@ -1433,11 +1434,36 @@ export function buildTools(userId: string) {
             html,
           });
         } catch (e) {
-          const msg = e instanceof Error ? e.message : "Unknown error";
+          emailSendError = e instanceof Error ? e.message : "Unknown error";
+        }
+
+        // If the invitee is already a Sigap user, insert an in-app
+        // notification so they see it in the web app's notification bell
+        // without having to click the email link first.
+        let inAppNotified = false;
+        const { data: existingUser } = await sb
+          .from("users")
+          .select("id")
+          .eq("email", cleanEmail)
+          .maybeSingle();
+        if (existingUser?.id) {
+          const { error: notifErr } = await sb.from("notifications").insert({
+            user_id: existingUser.id,
+            actor_id: userId,
+            kind: "team_invite",
+            title: `${inviterName} invited you to join ${orgName}`,
+            body: `Click to accept the invite to ${orgName}.`,
+            link: `/invite/${token}`,
+          });
+          if (!notifErr) inAppNotified = true;
+        }
+
+        if (emailSendError) {
           return {
             invite_created: true,
             email_sent: false,
-            warning: `Invite row created but Gmail send failed: ${msg}. Tell the user explicitly and share this link: ${inviteUrl}`,
+            in_app_notified: inAppNotified,
+            warning: `Invite row created${inAppNotified ? " and in-app notification delivered" : ""} but Gmail send failed: ${emailSendError}. Tell the user explicitly and share this link: ${inviteUrl}`,
             invite_url: inviteUrl,
           };
         }
@@ -1446,6 +1472,10 @@ export function buildTools(userId: string) {
           email: cleanEmail,
           role: finalRole,
           sent_via: "gmail",
+          in_app_notified: inAppNotified,
+          note: inAppNotified
+            ? "Invitee already has a Sigap account — they got both email and in-app notification."
+            : "Invitee does not have a Sigap account yet — they only got the email. They'll be auto-added when they sign up via the invite link.",
         };
       },
     }),
