@@ -39,8 +39,23 @@ create table if not exists public.email_log (
   created_at timestamptz default now()
 );
 
+-- ============ MEETING BOTS (Recall.ai) ============
+create table if not exists public.meeting_bots (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.users(id) on delete cascade,
+  bot_id text not null unique,
+  meeting_url text,
+  status text default 'joining',
+  transcript text,
+  summary text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create index if not exists idx_meeting_bots_user on public.meeting_bots(user_id, created_at desc);
+
 -- RLS
 alter table public.telegram_links enable row level security;
 alter table public.telegram_link_codes enable row level security;
 alter table public.weekly_reports enable row level security;
 alter table public.email_log enable row level security;
+alter table public.meeting_bots enable row level security;

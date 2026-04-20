@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import crypto from "crypto";
+import OpenAI from "openai";
 import { sendInviteEmail } from "@/lib/email/client";
 import {
   getTodayEvents,
@@ -596,6 +597,206 @@ export function buildTools(userId: string) {
         } catch (e) {
           return {
             error: e instanceof Error ? e.message : "Web search failed",
+          };
+        }
+      },
+    }),
+
+    start_meeting_bot: tool({
+      description:
+        "Send an AI bot to join a Zoom/Meet/Teams meeting to record and transcribe it. Use when the user says 'rekam meeting', 'join meeting X untuk record', 'suruh bot masuk ke meeting'. Returns a bot_id — user later says 'kelar meeting gue, kasih summary' and you call get_meeting_summary with that bot_id.",
+      inputSchema: z.object({
+        meeting_url: z
+          .string()
+          .describe("Full URL of the Zoom/Meet/Teams meeting"),
+        bot_name: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Display name for the bot in the meeting. Default 'Sigap Notetaker'."),
+      }),
+      execute: async ({ meeting_url, bot_name }) => {
+        const apiKey = process.env.RECALL_API_KEY;
+        if (!apiKey) {
+          return {
+            error:
+              "Meeting bot not configured. Admin must set RECALL_API_KEY and RECALL_REGION in environment.",
+          };
+        }
+        const region = process.env.RECALL_REGION || "us-west-2";
+        try {
+          const res = await fetch(`https://${region}.recall.ai/api/v1/bot`, {
+            method: "POST",
+            headers: {
+              Authorization: `Token ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              meeting_url,
+              bot_name: bot_name || "Sigap Notetaker",
+              recording_config: {
+                transcript: { provider: { meeting_captions: {} } },
+              },
+            }),
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            return { error: `Recall API ${res.status}: ${text.slice(0, 200)}` };
+          }
+          const data = (await res.json()) as { id: string };
+          const sb = supabaseAdmin();
+          await sb.from("meeting_bots").insert({
+            user_id: userId,
+            bot_id: data.id,
+            meeting_url,
+            status: "joining",
+          });
+          return {
+            ok: true,
+            bot_id: data.id,
+            note: "Bot dispatched. Say 'kasih summary meeting' after it ends.",
+          };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Failed to dispatch bot",
+          };
+        }
+      },
+    }),
+
+    get_meeting_summary: tool({
+      description:
+        "Retrieve transcript and generate a summary for a meeting that a bot recorded earlier. Use when the user says 'kasih summary meeting', 'apa hasil meeting tadi', 'udah kelar, kasih report'. If bot_id is omitted, picks the user's most recent bot.",
+      inputSchema: z.object({
+        bot_id: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Bot ID from start_meeting_bot. Omit to use the most recent."),
+      }),
+      execute: async ({ bot_id }) => {
+        const apiKey = process.env.RECALL_API_KEY;
+        if (!apiKey) {
+          return { error: "RECALL_API_KEY not set" };
+        }
+        const region = process.env.RECALL_REGION || "us-west-2";
+        const sb = supabaseAdmin();
+        let id = bot_id;
+        if (!id) {
+          const { data } = await sb
+            .from("meeting_bots")
+            .select("bot_id")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          id = data?.bot_id;
+          if (!id) return { error: "No meeting bot found. Dispatch one first." };
+        }
+        try {
+          const res = await fetch(`https://${region}.recall.ai/api/v1/bot/${id}`, {
+            headers: { Authorization: `Token ${apiKey}` },
+          });
+          if (!res.ok) {
+            return { error: `Recall API ${res.status}` };
+          }
+          const bot = (await res.json()) as {
+            status_changes?: Array<{ code: string }>;
+            recordings?: Array<{
+              media_shortcuts?: {
+                transcript?: {
+                  data?: { download_url?: string };
+                };
+              };
+            }>;
+          };
+          const latestStatus =
+            bot.status_changes?.[bot.status_changes.length - 1]?.code;
+          if (latestStatus !== "done") {
+            return {
+              status: latestStatus || "unknown",
+              note: "Meeting not finished yet. Try again after it ends.",
+            };
+          }
+          const transcriptUrl =
+            bot.recordings?.[0]?.media_shortcuts?.transcript?.data?.download_url;
+          if (!transcriptUrl) {
+            return { status: "done", error: "No transcript URL yet (still processing)." };
+          }
+          const tRes = await fetch(transcriptUrl);
+          const transcript = (await tRes.json()) as Array<{
+            participant?: { name?: string };
+            words?: Array<{ text: string }>;
+          }>;
+          const plain = transcript
+            .map(
+              (seg) =>
+                `${seg.participant?.name ?? "Speaker"}: ${(seg.words ?? []).map((w) => w.text).join(" ")}`,
+            )
+            .join("\n");
+          await sb
+            .from("meeting_bots")
+            .update({ status: "done", transcript: plain.slice(0, 50000) })
+            .eq("bot_id", id);
+          return {
+            ok: true,
+            transcript_excerpt: plain.slice(0, 4000),
+            note:
+              "Full transcript stored. You (the AI) should now write a concise summary from the excerpt: key decisions, action items, next steps. Offer to save it as a team note.",
+          };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Failed to fetch bot status",
+          };
+        }
+      },
+    }),
+
+    generate_image: tool({
+      description:
+        "Generate an image from a text prompt. Use when the user asks to 'bikin gambar', 'create image', 'generate image', 'buatin ilustrasi', etc. Returns a URL — for Slack, post the URL on its own line (no markdown wrapper) so Slack auto-unfurls it into a preview. For web chat, you can use markdown ![](url).",
+      inputSchema: z.object({
+        prompt: z
+          .string()
+          .describe(
+            "Detailed description of the image. Include style, mood, composition. English gives best results but Indonesian works.",
+          ),
+        size: z
+          .enum(["1024x1024", "1024x1792", "1792x1024"])
+          .nullable()
+          .optional()
+          .describe("Default 1024x1024 (square). Use 1024x1792 for portrait, 1792x1024 for landscape."),
+      }),
+      execute: async ({ prompt, size }) => {
+        const apiKey = process.env.OPENROUTER_API_KEY;
+        if (!apiKey) {
+          return {
+            error:
+              "Image generation not configured. Admin must set OPENROUTER_API_KEY in environment.",
+          };
+        }
+        try {
+          const openai = new OpenAI({
+            apiKey,
+            baseURL: "https://openrouter.ai/api/v1",
+          });
+          const res = await openai.images.generate({
+            model: "openai/dall-e-3",
+            prompt,
+            size: size ?? "1024x1024",
+            n: 1,
+          });
+          const url = res.data?.[0]?.url;
+          const revised = res.data?.[0]?.revised_prompt;
+          if (!url) return { error: "No image returned" };
+          return {
+            url,
+            revised_prompt: revised,
+            expires_note: "URL valid ~1 hour — save now if needed.",
+          };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Image generation failed",
           };
         }
       },

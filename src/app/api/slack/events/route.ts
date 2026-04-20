@@ -207,7 +207,7 @@ async function processSlackMessage(args: {
 
     const result = await generateText({
       model: groq(DEFAULT_MODEL),
-      system: `You are Sigap, replying inside Slack. Keep replies under 400 chars when possible. ALWAYS call tools for real Google/notes/team data. Default timezone: Asia/Jakarta. Reply in same language the user wrote.`,
+      system: `You are Sigap, replying inside Slack. Keep replies under 400 chars when possible. ALWAYS call tools for real Google/notes/team data. Default timezone: Asia/Jakarta. Reply in same language the user wrote. When generate_image returns a URL, put the URL on its own line with no surrounding markdown so Slack auto-unfurls it into a preview.`,
       messages: [...history, { role: "user", content: cleanText }],
       tools,
       stopWhen: stepCountIs(6),
