@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import crypto from "crypto";
-import { sendInviteEmail } from "@/lib/email/client";
+import { sendHtmlEmail } from "@/lib/google/gmail";
 import {
   getTodayEvents,
   getWeekEvents,
@@ -24,6 +24,15 @@ import { shareFile, type DriveRole } from "@/lib/google/drive";
 import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 function shortType(mime: string): string {
   if (mime.includes("document")) return "Doc";
@@ -1396,21 +1405,48 @@ export function buildTools(userId: string) {
         const baseUrl =
           process.env.NEXT_PUBLIC_APP_URL || "https://cowork-gilt.vercel.app";
         const inviteUrl = `${baseUrl}/invite/${token}`;
-        const emailResult = await sendInviteEmail({
-          to: cleanEmail,
-          inviterName: inviter?.name || inviter?.email || "Someone",
-          orgName: org?.name || "a team",
-          inviteUrl,
-        });
-        if (!emailResult.ok) {
+        const inviterName = inviter?.name || inviter?.email || "Someone";
+        const orgName = org?.name || "a team";
+        const subject = `${inviterName} invited you to join ${orgName} on Sigap`;
+        const html = `
+    <div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+      <div style="background: linear-gradient(135deg, #6366f1, #22d3ee); height: 4px; border-radius: 2px; margin-bottom: 24px;"></div>
+      <h1 style="color: #0f172a; font-size: 24px; margin-bottom: 8px;">You're invited to ${escapeHtml(orgName)}</h1>
+      <p style="color: #475569; font-size: 15px; line-height: 1.6;">
+        <strong>${escapeHtml(inviterName)}</strong> invited you to join their team on <strong>Sigap</strong> — an AI Chief of Staff that helps teams stay in sync without interruptions.
+      </p>
+      <div style="margin: 32px 0;">
+        <a href="${inviteUrl}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
+          Accept invite
+        </a>
+      </div>
+      <p style="color: #64748b; font-size: 13px; line-height: 1.5;">
+        Or paste this link in your browser:<br>
+        <span style="color: #6366f1; word-break: break-all;">${inviteUrl}</span>
+      </p>
+    </div>
+  `;
+        try {
+          await sendHtmlEmail(userId, {
+            to: cleanEmail,
+            subject,
+            html,
+          });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Unknown error";
           return {
             invite_created: true,
             email_sent: false,
-            warning: `Invite row created but email NOT delivered: ${emailResult.error}. Tell the user explicitly the email did not send and share this link: ${inviteUrl}`,
+            warning: `Invite row created but Gmail send failed: ${msg}. Tell the user explicitly and share this link: ${inviteUrl}`,
             invite_url: inviteUrl,
           };
         }
-        return { ok: true, email: cleanEmail, role: finalRole };
+        return {
+          ok: true,
+          email: cleanEmail,
+          role: finalRole,
+          sent_via: "gmail",
+        };
       },
     }),
   };

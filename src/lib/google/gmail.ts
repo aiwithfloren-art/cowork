@@ -120,6 +120,39 @@ export async function sendEmail(
   };
 }
 
+export async function sendHtmlEmail(
+  userId: string,
+  args: { to: string; subject: string; html: string; fromName?: string },
+): Promise<{ id: string; threadId: string }> {
+  const auth = await getGoogleClient(userId);
+  const gmail = google.gmail({ version: "v1", auth });
+
+  const subjectEncoded = `=?UTF-8?B?${Buffer.from(args.subject).toString("base64")}?=`;
+  const headers = [
+    `To: ${args.to}`,
+    `Subject: ${subjectEncoded}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "MIME-Version: 1.0",
+  ].join("\r\n");
+
+  const rfc822 = `${headers}\r\n\r\n${args.html}`;
+  const raw = Buffer.from(rfc822)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  const res = await gmail.users.messages.send({
+    userId: "me",
+    requestBody: { raw },
+  });
+
+  return {
+    id: res.data.id ?? "",
+    threadId: res.data.threadId ?? "",
+  };
+}
+
 type GmailPart = {
   mimeType?: string | null;
   body?: { data?: string | null } | null;
