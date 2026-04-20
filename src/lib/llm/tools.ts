@@ -18,6 +18,7 @@ import {
 } from "@/lib/google/tasks";
 import { findCommonSlots } from "@/lib/google/freebusy";
 import { readDoc } from "@/lib/google/docs";
+import { shareFile, type DriveRole } from "@/lib/google/drive";
 import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -392,6 +393,96 @@ export function buildTools(userId: string) {
           return results[0];
         }
         return { count: results.length, files: results };
+      },
+    }),
+
+    share_drive_file: tool({
+      description:
+        "Share a connected Google Drive file or folder with someone by email, granting them access (view / comment / edit). Use when the user says things like 'kasih akses', 'share folder X ke budi', 'bagi akses gdrive', 'beri izin edit', etc. The file MUST already be in the user's connected files (run list_connected_files first if unsure). Only picks files the user explicitly connected via Cowork — cannot share arbitrary Drive files. Google sends a notification email to the recipient automatically.",
+      inputSchema: z.object({
+        query: z
+          .string()
+          .describe(
+            "Name, partial name, or file_id of the connected file/folder to share. Example: 'Proposal Q1', 'Brand Guide'",
+          ),
+        email: z.string().describe("Recipient email address"),
+        role: z
+          .enum(["reader", "commenter", "writer"])
+          .describe(
+            "Access level. 'reader' = view only, 'commenter' = view + comment, 'writer' = full edit. Default to 'reader' if the user did not specify.",
+          ),
+        message: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Optional personal message included in Google's notification email"),
+      }),
+      execute: async ({ query, email, role, message }) => {
+        const sb = supabaseAdmin();
+        const trimmed = query.trim();
+
+        const { data: all } = await sb
+          .from("user_files")
+          .select("file_id, file_name, mime_type")
+          .eq("user_id", userId);
+        const files = all ?? [];
+
+        const needle = trimmed.toLowerCase();
+        const words = needle.split(/\s+/).filter((w) => w.length > 2);
+
+        const score = (f: { file_id: string; file_name: string | null }) => {
+          const name = (f.file_name ?? "").toLowerCase();
+          if (f.file_id === trimmed) return 100;
+          if (name === needle) return 90;
+          if (name.includes(needle)) return 80;
+          if (words.length && words.every((w) => name.includes(w))) return 60;
+          return 0;
+        };
+
+        const ranked = files
+          .map((f) => ({ file: f, score: score(f) }))
+          .filter((r) => r.score > 0)
+          .sort((a, b) => b.score - a.score);
+
+        if (ranked.length === 0) {
+          return {
+            error: `No connected file matches "${trimmed}". The user must first connect the file/folder to Cowork via Settings → Connect Google Drive file (picker), then retry. Only connected files can be shared.`,
+          };
+        }
+
+        const target = ranked[0].file;
+
+        try {
+          const res = await shareFile(
+            userId,
+            target.file_id,
+            email,
+            role as DriveRole,
+            message ?? undefined,
+          );
+          return {
+            ok: true,
+            file_name: target.file_name,
+            file_id: target.file_id,
+            shared_with: email,
+            role,
+            permission_id: res.permissionId,
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Share failed";
+          if (/insufficient.*scope|invalid_scope|PERMISSION_DENIED/i.test(msg)) {
+            return {
+              error:
+                "Google Drive share access not granted. Tell the user: buka /settings lalu klik 'Reconnect Google' untuk memberikan izin share file.",
+            };
+          }
+          if (/notFound|not found/i.test(msg)) {
+            return {
+              error: `File "${target.file_name}" tidak ditemukan di Google Drive user. Mungkin udah dihapus atau user ga punya akses lagi.`,
+            };
+          }
+          return { error: msg };
+        }
       },
     }),
 
