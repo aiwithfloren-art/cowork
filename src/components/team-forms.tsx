@@ -174,25 +174,40 @@ export function PrivacyToggle({
     }
   }
 
+  const dirty = share !== initialShare;
+
   return (
-    <form onSubmit={submit} className="flex items-center gap-4">
+    <form onSubmit={submit} className="flex flex-wrap items-center gap-4">
       <label className="flex items-center gap-3 text-sm">
         <input
           type="checkbox"
           checked={share}
-          onChange={(e) => setShare(e.target.checked)}
+          onChange={(e) => {
+            setShare(e.target.checked);
+            setSaved(false);
+          }}
           className="h-4 w-4"
         />
         {label}
       </label>
       <button
         type="submit"
-        disabled={loading}
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 disabled:opacity-50"
+        disabled={loading || !dirty}
+        className={
+          "rounded-lg border px-3 py-1.5 text-xs disabled:opacity-50 " +
+          (dirty
+            ? "border-indigo-300 bg-indigo-600 text-white hover:bg-indigo-500"
+            : "border-slate-200 hover:bg-slate-50")
+        }
       >
         {loading ? "…" : saveLabel}
       </button>
-      {saved && <span className="text-xs text-emerald-600">✓</span>}
+      {dirty && !loading && !saved && (
+        <span className="text-xs text-amber-600">● unsaved changes</span>
+      )}
+      {saved && (
+        <span className="text-xs text-emerald-600">✓ saved</span>
+      )}
     </form>
   );
 }

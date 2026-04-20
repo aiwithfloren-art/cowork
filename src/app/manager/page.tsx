@@ -1,23 +1,38 @@
 import Link from "next/link";
 import { getDict, getLocale } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
+import { auth } from "@/auth";
 
 export default async function ManagerPage() {
   const dict = await getDict();
   const locale = await getLocale();
   const t = dict.manager;
+  const session = await auth();
+  const isLoggedIn = Boolean(session?.user);
 
   return (
     <main className="min-h-screen bg-slate-50">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
+        <Link
+          href={isLoggedIn ? "/dashboard" : "/"}
+          className="flex items-center gap-2 font-semibold"
+        >
           <span className="inline-block h-7 w-7 rounded-lg bg-gradient-to-br from-indigo-600 to-cyan-400" />
           Sigap
         </Link>
         <div className="flex items-center gap-5 text-sm text-slate-600">
-          <Link href="/" className="hover:text-slate-900">
-            {t.backHome}
-          </Link>
+          {isLoggedIn ? (
+            <Link
+              href="/dashboard"
+              className="rounded-lg bg-slate-900 px-3 py-1.5 text-white hover:bg-slate-800"
+            >
+              ← Back to dashboard
+            </Link>
+          ) : (
+            <Link href="/" className="hover:text-slate-900">
+              {t.backHome}
+            </Link>
+          )}
           <LanguageToggle locale={locale} />
         </div>
       </nav>

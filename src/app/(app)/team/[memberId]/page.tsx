@@ -199,7 +199,11 @@ export default async function MemberPage({
           <p className="mb-3 text-xs text-slate-500">
             Every question you ask is logged and visible to the member in their audit log.
           </p>
-          <AskMember memberId={memberId} orgId={sharedOrgWithAccess.org_id} />
+          <AskMember
+            memberId={memberId}
+            orgId={sharedOrgWithAccess.org_id}
+            memberName={targetUser.name?.split(" ")[0] ?? targetUser.email.split("@")[0]}
+          />
         </CardContent>
       </Card>
     </div>

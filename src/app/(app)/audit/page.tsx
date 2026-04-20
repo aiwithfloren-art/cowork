@@ -12,18 +12,34 @@ export default async function AuditPage() {
   const sb = supabaseAdmin();
   const dict = await getDict();
   const t = dict.audit;
-  const { data: log } = await sb
-    .from("audit_log")
-    .select("id, actor_id, action, question, answer, created_at, users:actor_id(name, email)")
-    .eq("target_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const [{ data: log }, { data: ownerMembership }] = await Promise.all([
+    sb
+      .from("audit_log")
+      .select(
+        "id, actor_id, action, question, answer, created_at, users:actor_id(name, email)",
+      )
+      .eq("target_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(100),
+    sb
+      .from("org_members")
+      .select("role, org_id")
+      .eq("user_id", userId)
+      .eq("role", "owner")
+      .maybeSingle(),
+  ]);
+
+  const isOwner = Boolean(ownerMembership);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">{t.title}</h1>
-        <p className="mt-1 text-sm text-slate-600">{t.sub}</p>
+        <p className="mt-1 text-sm text-slate-600">
+          {isOwner
+            ? "As the org owner, this log shows when managers ask the AI about YOU. To see queries about your team members, open a member's page from the Team tab."
+            : t.sub}
+        </p>
       </div>
 
       <Card>

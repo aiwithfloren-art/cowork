@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 
-export function AskMember({ memberId, orgId }: { memberId: string; orgId: string }) {
+export function AskMember({
+  memberId,
+  orgId,
+  memberName,
+}: {
+  memberId: string;
+  orgId: string;
+  memberName?: string;
+}) {
   const [q, setQ] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -36,7 +44,11 @@ export function AskMember({ memberId, orgId }: { memberId: string; orgId: string
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="What is Budi working on this week?"
+          placeholder={
+            memberName
+              ? `What is ${memberName} working on this week?`
+              : "What is this teammate working on this week?"
+          }
           className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           disabled={loading}
         />

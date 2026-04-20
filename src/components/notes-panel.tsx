@@ -29,6 +29,8 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
   const [filter, setFilter] = useState<NoteType | "all">("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   const copy = {
     placeholder:
@@ -88,6 +90,27 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
     setNotes((prev) => prev.filter((n) => n.id !== id));
   }
 
+  async function saveEdit(id: string) {
+    const content = editValue.trim();
+    if (!content) {
+      setEditingId(null);
+      return;
+    }
+    const prev = notes;
+    setNotes((ns) => ns.map((n) => (n.id === id ? { ...n, content } : n)));
+    setEditingId(null);
+    try {
+      const res = await fetch("/api/notes/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, content }),
+      });
+      if (!res.ok) throw new Error("failed");
+    } catch {
+      setNotes(prev);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <form onSubmit={create} className="space-y-2">
@@ -133,20 +156,26 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
 
       <div className="flex flex-wrap gap-1 border-b border-slate-100 pb-2">
         {(["all", "user", "feedback", "project", "reference", "general"] as const).map(
-          (t) => (
-            <button
-              key={t}
-              onClick={() => setFilter(t)}
-              className={
-                "rounded-full px-3 py-1 text-xs transition " +
-                (filter === t
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200")
-              }
-            >
-              {t}
-            </button>
-          ),
+          (t) => {
+            const count =
+              t === "all"
+                ? notes.length
+                : notes.filter((n) => (n.type ?? "general") === t).length;
+            return (
+              <button
+                key={t}
+                onClick={() => setFilter(t)}
+                className={
+                  "rounded-full px-3 py-1 text-xs transition " +
+                  (filter === t
+                    ? "bg-slate-900 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200")
+                }
+              >
+                {t} ({count})
+              </button>
+            );
+          },
         )}
       </div>
 
@@ -166,16 +195,54 @@ export function NotesPanel({ locale }: { locale: "en" | "id" }) {
                   className="group rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <p className="flex-1 whitespace-pre-wrap text-slate-900">
-                      {n.content}
-                    </p>
-                    <button
-                      onClick={() => remove(n.id)}
-                      className="text-xs text-slate-400 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100"
-                      aria-label="Delete note"
-                    >
-                      ×
-                    </button>
+                    {editingId === n.id ? (
+                      <textarea
+                        autoFocus
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => saveEdit(n.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                            saveEdit(n.id);
+                          }
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        rows={2}
+                        className="flex-1 resize-y rounded border border-indigo-200 bg-white px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                      />
+                    ) : (
+                      <p
+                        className="flex-1 whitespace-pre-wrap text-slate-900"
+                        onDoubleClick={() => {
+                          setEditingId(n.id);
+                          setEditValue(n.content);
+                        }}
+                        title="Double-click to edit"
+                      >
+                        {n.content}
+                      </p>
+                    )}
+                    <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        onClick={() => {
+                          setEditingId(n.id);
+                          setEditValue(n.content);
+                        }}
+                        className="text-xs text-slate-400 hover:text-indigo-600"
+                        aria-label="Edit note"
+                        title="Edit"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => remove(n.id)}
+                        className="text-xs text-slate-400 hover:text-red-600"
+                        aria-label="Delete note"
+                        title="Delete"
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <span

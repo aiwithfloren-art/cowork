@@ -23,31 +23,52 @@ async function saveKey(formData: FormData) {
   revalidatePath("/settings");
 }
 
+async function disconnectSlack() {
+  "use server";
+  const session = await auth();
+  const uid = (session?.user as { id?: string } | undefined)?.id;
+  if (!uid) return;
+  const sb = supabaseAdmin();
+  await sb.from("connectors").delete().eq("user_id", uid).eq("provider", "slack");
+  revalidatePath("/settings");
+}
+
 export default async function SettingsPage() {
   const session = await auth();
   const userId = (session?.user as { id?: string } | undefined)?.id;
   if (!userId) redirect("/");
 
   const sb = supabaseAdmin();
-  const [{ data: settings }, { data: tgLink }, { data: pendingCode }, { data: gtokens }] =
-    await Promise.all([
-      sb.from("user_settings").select("groq_key, model").eq("user_id", userId).maybeSingle(),
-      sb
-        .from("telegram_links")
-        .select("telegram_username, linked_at")
-        .eq("user_id", userId)
-        .maybeSingle(),
-      sb
-        .from("telegram_link_codes")
-        .select("code, expires_at")
-        .eq("user_id", userId)
-        .maybeSingle(),
-      sb
-        .from("google_tokens")
-        .select("scope")
-        .eq("user_id", userId)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: settings },
+    { data: tgLink },
+    { data: pendingCode },
+    { data: gtokens },
+    { data: connectors },
+  ] = await Promise.all([
+    sb.from("user_settings").select("groq_key, model").eq("user_id", userId).maybeSingle(),
+    sb
+      .from("telegram_links")
+      .select("telegram_username, linked_at")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    sb
+      .from("telegram_link_codes")
+      .select("code, expires_at")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    sb
+      .from("google_tokens")
+      .select("scope")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    sb
+      .from("connectors")
+      .select("provider, external_account_label, updated_at")
+      .eq("user_id", userId),
+  ]);
+
+  const slackConnector = (connectors ?? []).find((c) => c.provider === "slack");
 
   const scope = gtokens?.scope ?? "";
   const hasGmail = scope.includes("gmail.readonly");
@@ -78,7 +99,7 @@ export default async function SettingsPage() {
           <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs">
             <p className="font-medium text-indigo-900">Connectors baru</p>
             <p className="mt-0.5 text-indigo-700">
-              Slack, Notion, Linear, Stripe, GitHub akan segera tersedia.
+              Notion, Linear, Stripe, GitHub akan segera tersedia.
             </p>
             <a
               href="/settings/connectors"
@@ -87,6 +108,49 @@ export default async function SettingsPage() {
               Lihat semua connectors →
             </a>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Slack</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {slackConnector ? (
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <p className="text-slate-900">
+                  ✅ Connected to workspace{" "}
+                  <strong>{slackConnector.external_account_label ?? "Slack"}</strong>
+                </p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Bot Sigap bisa dipanggil via DM atau @mention di channel yang kamu
+                  invite.
+                </p>
+              </div>
+              <form action={disconnectSlack}>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-red-50 hover:text-red-700"
+                >
+                  Disconnect
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600">
+                Hubungkan Slack workspace kamu — chat Sigap langsung dari Slack tanpa
+                buka Cowork.
+              </p>
+              <a
+                href="/api/connectors/slack/install"
+                className="inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+              >
+                Connect Slack
+              </a>
+            </div>
+          )}
         </CardContent>
       </Card>
 
