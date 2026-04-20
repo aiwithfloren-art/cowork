@@ -2,6 +2,60 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useState } from "react";
+
+function ChatImage({ src, alt }: { src: string; alt?: string }) {
+  const [busy, setBusy] = useState(false);
+  async function download() {
+    setBusy(true);
+    try {
+      const res = await fetch(src);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const ext = blob.type.split("/")[1]?.split("+")[0] || "png";
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = `sigap-${Date.now()}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objUrl);
+    } catch {
+      window.open(src, "_blank");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <span className="my-2 inline-block">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt ?? ""}
+        className="block max-w-full rounded-lg border border-slate-200"
+      />
+      <span className="mt-1 flex gap-2 text-xs">
+        <button
+          type="button"
+          onClick={download}
+          disabled={busy}
+          className="rounded-md bg-slate-900 px-2 py-1 text-white hover:bg-slate-700 disabled:opacity-50"
+        >
+          {busy ? "Downloading…" : "Download"}
+        </button>
+        <a
+          href={src}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-md border border-slate-200 px-2 py-1 text-slate-700 hover:bg-slate-50"
+        >
+          Open
+        </a>
+      </span>
+    </span>
+  );
+}
 
 export function Markdown({ children }: { children: string }) {
   return (
@@ -58,6 +112,8 @@ export function Markdown({ children }: { children: string }) {
             </blockquote>
           ),
           hr: () => <hr className="my-3 border-slate-200" />,
+          img: ({ src, alt }) =>
+            typeof src === "string" ? <ChatImage src={src} alt={alt} /> : null,
           table: ({ children }) => (
             <div className="my-2 overflow-x-auto">
               <table className="w-full border-collapse text-xs">{children}</table>
