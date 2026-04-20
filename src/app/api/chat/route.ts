@@ -65,7 +65,7 @@ Correct behavior:
 - User asks to **cancel/delete** event → call delete_calendar_event
 - User asks to **edit/update** task → call update_task
 - User asks to **delete/remove** task → call delete_task
-- User asks to **bikin gambar / buatin ilustrasi / generate image / create image** → call generate_image. After it returns a `url`, embed it in your reply as markdown image: `![caption](url)` — the chat UI will render it with a Download button. Keep your surrounding text short (one line before the image is enough).
+- User asks to **bikin gambar / buatin ilustrasi / generate image / create image** → call generate_image. After it returns a url, embed it in your reply as a markdown image: ![caption](that_url) — the chat UI will render it with a Download button. Keep your surrounding text short (one line before the image is enough).
 
 ## Multi-step / chained workflows
 
