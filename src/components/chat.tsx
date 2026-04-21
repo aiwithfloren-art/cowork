@@ -40,10 +40,12 @@ export function Chat({
   t,
   initialPrompt = "",
   resumeId,
+  agentSlug,
 }: {
   t: T;
   initialPrompt?: string;
   resumeId?: string;
+  agentSlug?: string;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -80,10 +82,11 @@ export function Chat({
   useEffect(() => {
     (async () => {
       try {
-        const url = resumeId
-          ? `/api/chat/session?pivot=${resumeId}`
-          : `/api/chat/session?latest=true`;
-        const res = await fetch(url);
+        const params = new URLSearchParams();
+        if (resumeId) params.set("pivot", resumeId);
+        else params.set("latest", "true");
+        if (agentSlug) params.set("agent", agentSlug);
+        const res = await fetch(`/api/chat/session?${params.toString()}`);
         if (!res.ok) return;
         const data = (await res.json()) as { messages: Msg[] };
         if (Array.isArray(data.messages) && data.messages.length) {
@@ -91,7 +94,7 @@ export function Chat({
         }
       } catch {}
     })();
-  }, [resumeId]);
+  }, [resumeId, agentSlug]);
 
   // Keyboard shortcut: Cmd/Ctrl+K or / focuses the chat input
   useEffect(() => {
@@ -169,7 +172,10 @@ export function Chat({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({
+          messages: newMessages,
+          ...(agentSlug ? { agent_slug: agentSlug } : {}),
+        }),
       });
 
       if (!res.ok) {

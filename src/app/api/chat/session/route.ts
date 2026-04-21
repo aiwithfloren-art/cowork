@@ -14,20 +14,41 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const pivotId = url.searchParams.get("pivot");
   const wantsLatest = url.searchParams.get("latest") === "true";
+  const agentSlug = url.searchParams.get("agent");
   if (!pivotId && !wantsLatest) {
     return NextResponse.json({ error: "pivot or latest=true required" }, { status: 400 });
   }
 
   const sb = supabaseAdmin();
 
+  let agentId: string | null = null;
+  if (agentSlug) {
+    const { data: agent } = await sb
+      .from("custom_agents")
+      .select("id")
+      .eq("user_id", uid)
+      .eq("slug", agentSlug)
+      .maybeSingle();
+    if (!agent) {
+      return NextResponse.json({ messages: [] });
+    }
+    agentId = agent.id;
+  }
+
   // Fetch all user messages ordered, then resolve the pivot (either the
   // explicitly requested id, or — when latest=true — the most recent one).
-  const { data: all } = await sb
+  let q = sb
     .from("chat_messages")
-    .select("id, role, content, created_at")
+    .select("id, role, content, created_at, agent_id")
     .eq("user_id", uid)
     .order("created_at", { ascending: true })
     .limit(500);
+  if (agentId) {
+    q = q.eq("agent_id", agentId);
+  } else {
+    q = q.is("agent_id", null);
+  }
+  const { data: all } = await q;
 
   const msgs = all ?? [];
   if (msgs.length === 0) return NextResponse.json({ messages: [] });

@@ -1481,5 +1481,39 @@ export function buildTools(userId: string) {
         };
       },
     }),
+
+    list_agents: tool({
+      description:
+        "List the user's custom agents (sub-assistants they've built). Use when user says 'agent aku apa aja', 'list agent', 'siapa aja employee aku'. Returns each agent's name, emoji, description, and slug for linking.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const sb = supabaseAdmin();
+        const { data, error } = await sb
+          .from("custom_agents")
+          .select("slug, name, emoji, description, created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false });
+        if (error) return { error: error.message };
+        return { count: data?.length ?? 0, agents: data ?? [] };
+      },
+    }),
+
+    delete_agent: tool({
+      description:
+        "Delete one of the user's custom agents. Use when user says 'hapus agent X', 'buang Siska', 'delete agent'.",
+      inputSchema: z.object({
+        slug: z.string().describe("Agent slug (from list_agents)"),
+      }),
+      execute: async ({ slug }) => {
+        const sb = supabaseAdmin();
+        const { error } = await sb
+          .from("custom_agents")
+          .delete()
+          .eq("user_id", userId)
+          .eq("slug", slug);
+        if (error) return { error: error.message };
+        return { ok: true, deleted: slug };
+      },
+    }),
   };
 }

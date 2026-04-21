@@ -12,6 +12,7 @@ export const maxDuration = 60;
 
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
+import { tryInterceptAgentCreate } from "@/lib/llm/agent-intercept";
 
 const SYSTEM_PROMPT = `You are Sigap, a personal AI Chief of Staff.
 
@@ -182,6 +183,7 @@ export async function POST(req: Request) {
 
   const body = (await req.json()) as {
     messages: { role: "user" | "assistant"; content: string }[];
+    agent_slug?: string;
   };
   if (!Array.isArray(body.messages)) {
     return NextResponse.json({ error: "messages array required" }, { status: 400 });
@@ -189,11 +191,40 @@ export async function POST(req: Request) {
 
   const lastUser = body.messages[body.messages.length - 1];
   const groq = getGroq(settings?.groq_key ?? undefined);
-  // Always use the current DEFAULT_MODEL; the per-user `model` column
-  // is reserved for a future model-picker UI but should not silently
-  // pin users to an outdated default value.
   const model = DEFAULT_MODEL;
-  const tools = await buildToolsForUser(userId);
+  const allTools = await buildToolsForUser(userId);
+
+  // If caller is chatting with a specific custom agent, narrow the tool
+  // set + swap in the agent's system prompt.
+  let agentRecord: {
+    id: string;
+    name: string;
+    system_prompt: string;
+    enabled_tools: string[];
+  } | null = null;
+  if (body.agent_slug) {
+    const { data } = await sb
+      .from("custom_agents")
+      .select("id, name, system_prompt, enabled_tools")
+      .eq("user_id", userId)
+      .eq("slug", body.agent_slug)
+      .maybeSingle();
+    if (!data) {
+      return NextResponse.json(
+        { error: `Agent '${body.agent_slug}' not found` },
+        { status: 404 },
+      );
+    }
+    agentRecord = data;
+  }
+
+  const tools = agentRecord
+    ? Object.fromEntries(
+        Object.entries(allTools).filter(([k]) =>
+          agentRecord!.enabled_tools.includes(k),
+        ),
+      )
+    : allTools;
 
   const nowJakarta = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Jakarta",
@@ -205,7 +236,8 @@ export async function POST(req: Request) {
     minute: "2-digit",
     hour12: false,
   }).format(new Date());
-  const systemWithTime = `${SYSTEM_PROMPT}
+  const baseSystem = agentRecord ? agentRecord.system_prompt : SYSTEM_PROMPT;
+  const systemWithTime = `${baseSystem}
 
 ## Current date & time
 Right now it is ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
@@ -214,7 +246,27 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
 
   // Hard bypass: Kimi K2 fabricates responses for delegation prompts.
   // Intercept the pattern and execute the tool logic directly.
-  const summaryReply = await tryInterceptMeetingSummary(userId, lastUser.content);
+  // Intercepts only run for main Sigap chat — inside a sub-agent thread
+  // we stay focused on that agent's job and never spawn new agents or
+  // meeting bots mid-conversation.
+  const agentReply = !agentRecord
+    ? await tryInterceptAgentCreate(userId, lastUser.content)
+    : null;
+  if (agentReply) {
+    const sb2 = supabaseAdmin();
+    await sb2.from("chat_messages").insert([
+      { user_id: userId, role: "user", content: lastUser.content, agent_id: null },
+      { user_id: userId, role: "assistant", content: agentReply, agent_id: null },
+    ]);
+    return new Response(agentReply, {
+      status: 200,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  const summaryReply = !agentRecord
+    ? await tryInterceptMeetingSummary(userId, lastUser.content)
+    : null;
   if (summaryReply) {
     const sb2 = supabaseAdmin();
     await sb2.from("chat_messages").insert([
@@ -227,7 +279,9 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
     });
   }
 
-  const meetingReply = await tryInterceptMeetingRecord(userId, lastUser.content);
+  const meetingReply = !agentRecord
+    ? await tryInterceptMeetingRecord(userId, lastUser.content)
+    : null;
   if (meetingReply) {
     const sb2 = supabaseAdmin();
     await sb2.from("chat_messages").insert([
@@ -240,7 +294,9 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
     });
   }
 
-  const delegationReply = await tryInterceptDelegation(userId, lastUser.content);
+  const delegationReply = !agentRecord
+    ? await tryInterceptDelegation(userId, lastUser.content)
+    : null;
   if (delegationReply) {
     const sb2 = supabaseAdmin();
     await sb2.from("chat_messages").insert([
@@ -304,8 +360,18 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
     }
 
     await sb.from("chat_messages").insert([
-      { user_id: userId, role: "user", content: lastUser.content },
-      { user_id: userId, role: "assistant", content: text },
+      {
+        user_id: userId,
+        role: "user",
+        content: lastUser.content,
+        agent_id: agentRecord?.id ?? null,
+      },
+      {
+        user_id: userId,
+        role: "assistant",
+        content: text,
+        agent_id: agentRecord?.id ?? null,
+      },
     ]);
 
     // Stream the buffered text back so the Chat component still animates it.

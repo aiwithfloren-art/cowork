@@ -7,6 +7,7 @@ import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
+import { tryInterceptAgentCreate } from "@/lib/llm/agent-intercept";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 
 export const runtime = "nodejs";
@@ -177,6 +178,16 @@ async function processSlackMessage(args: {
   const rl = await checkRateLimit(sigapUser.id, userHasOwnKey);
   if (!rl.ok) {
     await postSlack(connector.access_token, channel, `⚠️ ${rl.message}`);
+    return;
+  }
+
+  const agentMsg = await tryInterceptAgentCreate(sigapUser.id, cleanText);
+  if (agentMsg) {
+    await sb.from("chat_messages").insert([
+      { user_id: sigapUser.id, role: "user", content: cleanText },
+      { user_id: sigapUser.id, role: "assistant", content: agentMsg },
+    ]);
+    await postSlack(connector.access_token, channel, agentMsg);
     return;
   }
 
