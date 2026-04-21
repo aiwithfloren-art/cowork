@@ -732,14 +732,17 @@ export function buildTools(userId: string) {
           }
           const segments = (await transRes.json()) as Array<{
             speaker_name?: string;
-            transcription?: string;
+            transcription?: { transcript?: string } | string | null;
           }>;
           const plain = segments
-            .map(
-              (s) =>
-                `${s.speaker_name ?? "Speaker"}: ${s.transcription ?? ""}`,
-            )
-            .filter((l) => l.trim().length > 0)
+            .map((s) => {
+              const text =
+                typeof s.transcription === "string"
+                  ? s.transcription
+                  : s.transcription?.transcript ?? "";
+              return `${s.speaker_name ?? "Speaker"}: ${text}`;
+            })
+            .filter((l) => l.trim().length > 0 && !l.endsWith(": "))
             .join("\n");
           await sb
             .from("meeting_bots")

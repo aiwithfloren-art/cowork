@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
-import { tryInterceptMeetingRecord } from "@/lib/llm/meeting-intercept";
+import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
 
 const SYSTEM_PROMPT = `You are Sigap, a personal AI Chief of Staff.
 
@@ -214,6 +214,19 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
 
   // Hard bypass: Kimi K2 fabricates responses for delegation prompts.
   // Intercept the pattern and execute the tool logic directly.
+  const summaryReply = await tryInterceptMeetingSummary(userId, lastUser.content);
+  if (summaryReply) {
+    const sb2 = supabaseAdmin();
+    await sb2.from("chat_messages").insert([
+      { user_id: userId, role: "user", content: lastUser.content },
+      { user_id: userId, role: "assistant", content: summaryReply },
+    ]);
+    return new Response(summaryReply, {
+      status: 200,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
   const meetingReply = await tryInterceptMeetingRecord(userId, lastUser.content);
   if (meetingReply) {
     const sb2 = supabaseAdmin();

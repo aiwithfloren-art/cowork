@@ -19,7 +19,8 @@
       "Bash(curl -s https://cowork-gilt.vercel.app/)",
       "WebFetch(domain:developers.google.com)",
       "WebFetch(domain:groups.google.com)",
-      "WebFetch(domain:community.latenode.com)"
+      "WebFetch(domain:community.latenode.com)",
+      "mcp__chrome-devtools__new_page"
     ]
   }
 }

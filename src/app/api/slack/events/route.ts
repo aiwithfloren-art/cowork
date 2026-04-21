@@ -6,7 +6,7 @@ import { generateText, stepCountIs } from "ai";
 import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
-import { tryInterceptMeetingRecord } from "@/lib/llm/meeting-intercept";
+import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 
 export const runtime = "nodejs";
@@ -177,6 +177,16 @@ async function processSlackMessage(args: {
   const rl = await checkRateLimit(sigapUser.id, userHasOwnKey);
   if (!rl.ok) {
     await postSlack(connector.access_token, channel, `⚠️ ${rl.message}`);
+    return;
+  }
+
+  const summaryMsg = await tryInterceptMeetingSummary(sigapUser.id, cleanText);
+  if (summaryMsg) {
+    await sb.from("chat_messages").insert([
+      { user_id: sigapUser.id, role: "user", content: cleanText },
+      { user_id: sigapUser.id, role: "assistant", content: summaryMsg },
+    ]);
+    await postSlack(connector.access_token, channel, summaryMsg);
     return;
   }
 

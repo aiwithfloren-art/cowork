@@ -1,4 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { generateText, stepCountIs } from "ai";
+import { getGroq, DEFAULT_MODEL } from "./client";
+import { buildToolsForUser } from "./build-tools";
+import { stripReasoningFromMessages } from "./strip-reasoning";
 
 /**
  * Kimi K2 (via Groq) is unreliable about actually calling start_meeting_bot —
@@ -61,5 +65,119 @@ export async function tryInterceptMeetingRecord(
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown";
     return `⚠️ Gagal kirim bot: ${msg}`;
+  }
+}
+
+const SUMMARY_PATTERN =
+  /\b(summary|summarize|rangkum|rangkuman|ringkas|ringkasan|hasil|recap)\b.*\b(meeting|rapat|call)\b|\b(meeting|rapat|call)\b.*\b(summary|summarize|rangkum|rangkuman|ringkas|ringkasan|hasil|recap)\b|\bkasih\s+summary\b|\bkelar\s+meeting\b|\bkasih\s+report\b.*(meeting|rapat)/i;
+
+/**
+ * Bypass for "kasih summary meeting" — Kimi K2 often claims the meeting
+ * isn't done without actually calling get_meeting_summary. We fetch
+ * Attendee directly, then hand the transcript to a second LLM call with
+ * the full tool set so the model can actually write a summary AND take
+ * action (create events, assign tasks, save notes).
+ */
+export async function tryInterceptMeetingSummary(
+  userId: string,
+  message: string,
+): Promise<string | null> {
+  if (!SUMMARY_PATTERN.test(message)) return null;
+
+  const apiKey = process.env.ATTENDEE_API_KEY;
+  if (!apiKey) return null;
+
+  const sb = supabaseAdmin();
+  const { data: latest } = await sb
+    .from("meeting_bots")
+    .select("bot_id, meeting_url")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!latest?.bot_id) {
+    return "Belum ada bot yang ter-dispatch buat kamu. Pastikan kamu udah ketik 'rekam meeting ini <URL>' dulu.";
+  }
+
+  try {
+    const statusRes = await fetch(
+      `https://app.attendee.dev/api/v1/bots/${latest.bot_id}`,
+      { headers: { Authorization: `Token ${apiKey}` } },
+    );
+    if (!statusRes.ok) {
+      return `⚠️ Gagal cek status bot (Attendee ${statusRes.status}).`;
+    }
+    const bot = (await statusRes.json()) as {
+      state?: string;
+      transcription_state?: string;
+    };
+    if (bot.state !== "ended") {
+      return `Meeting belum selesai (state: ${bot.state}). Akan otomatis berakhir kalau semua peserta leave, atau kamu klik End di Meet.`;
+    }
+    if (bot.transcription_state !== "complete") {
+      return `Meeting udah selesai, tapi transcript masih diproses (state: ${bot.transcription_state}). Coba lagi ~30 detik.`;
+    }
+
+    const tRes = await fetch(
+      `https://app.attendee.dev/api/v1/bots/${latest.bot_id}/transcript`,
+      { headers: { Authorization: `Token ${apiKey}` } },
+    );
+    if (!tRes.ok) {
+      return `⚠️ Gagal ambil transcript (Attendee ${tRes.status}).`;
+    }
+    const segments = (await tRes.json()) as Array<{
+      speaker_name?: string;
+      transcription?: { transcript?: string } | string | null;
+    }>;
+    const plain = segments
+      .map((s) => {
+        const text =
+          typeof s.transcription === "string"
+            ? s.transcription
+            : s.transcription?.transcript ?? "";
+        return `${s.speaker_name ?? "Speaker"}: ${text}`;
+      })
+      .filter((l) => l.trim().length > 0 && !l.endsWith(": "))
+      .join("\n");
+
+    if (!plain) {
+      return "Meeting udah selesai tapi transcript kosong — mungkin nggak ada yang ngomong atau audio bot tidak capture.";
+    }
+
+    await sb
+      .from("meeting_bots")
+      .update({ status: "done", transcript: plain.slice(0, 50000) })
+      .eq("bot_id", latest.bot_id);
+
+    const groq = getGroq();
+    const tools = await buildToolsForUser(userId);
+    const result = await generateText({
+      model: groq(DEFAULT_MODEL),
+      system: `You are Sigap. You just received a meeting transcript. Your job:
+1) Write a concise summary in the user's language (2-4 bullet points: key decisions, topics, mood).
+2) Extract action items and CALL tools for each:
+   - Mentioned future meeting/event → add_calendar_event
+   - Task delegated to a teammate (with their email) → assign_task_to_member
+   - Task for the user themselves → add_task
+   - Durable context worth remembering → save_note
+3) End with a short confirmation of what tools you called.
+Default timezone: Asia/Jakarta. Be brief.`,
+      messages: [
+        {
+          role: "user",
+          content: `Transcript from the meeting I just attended:\n\n${plain.slice(0, 8000)}`,
+        },
+      ],
+      tools,
+      stopWhen: stepCountIs(6),
+      prepareStep: async ({ messages }) => ({
+        messages: stripReasoningFromMessages(messages),
+      }),
+    });
+
+    return result.text || "Transcript di-fetch, tapi model nggak balas apa-apa. Coba lagi.";
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "unknown";
+    return `⚠️ Gagal proses summary: ${msg}`;
   }
 }
