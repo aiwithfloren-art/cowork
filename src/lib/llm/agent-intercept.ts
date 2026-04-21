@@ -51,6 +51,7 @@ const ALL_TOOL_SLUGS = [
   "broadcast_to_team",
   "list_notifications",
   "list_team_members",
+  "get_member_workload",
   "get_notes",
   "create_team",
   "invite_to_team",

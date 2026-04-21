@@ -1206,6 +1206,115 @@ export function buildTools(userId: string) {
       },
     }),
 
+    get_member_workload: tool({
+      description:
+        "Read a teammate's current workload — today's calendar events, this week's events, and open tasks. Use when the user says 'apa kerjaan Budi minggu ini', 'tugas tim', 'workload Sarah', 'jadwal [email]'. Requires: (1) you share an org with the target, (2) the target has enabled share_with_manager. Every call is written to audit_log so the teammate has full visibility into what was queried. Identify the target by email — if the user said a name only, call list_team_members first to find their email.",
+      inputSchema: z.object({
+        member_email: z
+          .string()
+          .describe("The teammate's email address."),
+      }),
+      execute: async ({ member_email }) => {
+        const sb = supabaseAdmin();
+        const cleanEmail = member_email.trim().toLowerCase();
+
+        const { data: target } = await sb
+          .from("users")
+          .select("id, name, email")
+          .eq("email", cleanEmail)
+          .maybeSingle();
+        if (!target) {
+          return { error: `Tidak ada Sigap user dengan email ${cleanEmail}.` };
+        }
+        if (target.id === userId) {
+          return {
+            error:
+              "Itu adalah akun kamu sendiri — pakai list_tasks / get_today_schedule / get_week_schedule biasa.",
+          };
+        }
+
+        // Both viewer and target must share at least one org. Viewer role
+        // must be owner/manager in that org. Target must have opted in
+        // via share_with_manager.
+        const { data: viewerMems } = await sb
+          .from("org_members")
+          .select("org_id, role")
+          .eq("user_id", userId)
+          .in("role", ["owner", "manager"]);
+        const orgIds = (viewerMems ?? []).map((m) => m.org_id);
+        if (orgIds.length === 0) {
+          return {
+            error:
+              "Kamu bukan owner atau manager di org manapun — query workload cuma bisa dari manager.",
+          };
+        }
+        const { data: targetMem } = await sb
+          .from("org_members")
+          .select("org_id, share_with_manager")
+          .eq("user_id", target.id)
+          .in("org_id", orgIds)
+          .maybeSingle();
+        if (!targetMem) {
+          return {
+            error: `${target.name ?? cleanEmail} bukan member di org kamu.`,
+          };
+        }
+        if (!targetMem.share_with_manager) {
+          return {
+            error: `${target.name ?? cleanEmail} belum mengaktifkan "share with manager" — minta dia toggle di /team/settings sebelum kamu bisa lihat workload-nya. Privacy by default.`,
+          };
+        }
+
+        const orgId = targetMem.org_id;
+
+        let today: Awaited<ReturnType<typeof getTodayEvents>> = [];
+        let week: Awaited<ReturnType<typeof getWeekEvents>> = [];
+        let tasks: Awaited<ReturnType<typeof listTasks>> = [];
+        const errors: string[] = [];
+        try {
+          today = await getTodayEvents(target.id);
+        } catch (e) {
+          errors.push(`calendar today: ${e instanceof Error ? e.message : "err"}`);
+        }
+        try {
+          week = await getWeekEvents(target.id);
+        } catch (e) {
+          errors.push(`calendar week: ${e instanceof Error ? e.message : "err"}`);
+        }
+        try {
+          tasks = await listTasks(target.id);
+        } catch (e) {
+          errors.push(`tasks: ${e instanceof Error ? e.message : "err"}`);
+        }
+
+        // Audit — teammate sees who queried what.
+        await sb.from("audit_log").insert({
+          org_id: orgId,
+          actor_id: userId,
+          target_id: target.id,
+          action: "get_member_workload",
+          question: `workload query for ${cleanEmail}`,
+          answer: JSON.stringify({
+            today_count: today.length,
+            week_count: week.length,
+            task_count: tasks.length,
+          }),
+        });
+
+        return {
+          member: { name: target.name, email: target.email },
+          today: today.map((e) => ({
+            title: e.title,
+            start: e.start,
+            end: e.end,
+          })),
+          week: week.map((e) => ({ title: e.title, start: e.start, end: e.end })),
+          open_tasks: tasks.map((t) => ({ title: t.title, due: t.due })),
+          ...(errors.length > 0 ? { partial_errors: errors } : {}),
+        };
+      },
+    }),
+
     list_team_members: tool({
       description:
         "List members of the user's organization (name, email, role). Use whenever the user says 'email tim', 'kirim ke tim', 'bcc semua member', 'siapa aja di tim gue', or similar — you need this to know the recipient email addresses. Returns empty list if the user is not in any organization; in that case tell the user they need to create/join an org first at /team.",

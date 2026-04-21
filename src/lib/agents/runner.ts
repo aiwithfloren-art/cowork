@@ -53,6 +53,7 @@ export async function runAgent(agentId: string): Promise<RunResult> {
     "get_notes",
     "list_notifications",
     "list_team_members",
+    "get_member_workload",
     "list_agents",
   ]);
   const tools = Object.fromEntries(
