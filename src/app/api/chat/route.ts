@@ -250,7 +250,14 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
   // we stay focused on that agent's job and never spawn new agents or
   // meeting bots mid-conversation.
   const agentReply = !agentRecord
-    ? await tryInterceptAgentCreate(userId, lastUser.content)
+    ? await tryInterceptAgentCreate(
+        userId,
+        lastUser.content,
+        body.messages.slice(0, -1) as Array<{
+          role: "user" | "assistant";
+          content: string;
+        }>,
+      )
     : null;
   if (agentReply) {
     const sb2 = supabaseAdmin();

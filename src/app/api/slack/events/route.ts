@@ -181,7 +181,26 @@ async function processSlackMessage(args: {
     return;
   }
 
-  const agentMsg = await tryInterceptAgentCreate(sigapUser.id, cleanText);
+  // Pull last few assistant/user messages so the multi-turn agent builder
+  // can track whether it's mid-conversation.
+  const { data: recentChat } = await sb
+    .from("chat_messages")
+    .select("role, content")
+    .eq("user_id", sigapUser.id)
+    .is("agent_id", null)
+    .in("role", ["user", "assistant"])
+    .order("created_at", { ascending: false })
+    .limit(8);
+  const historyForBuilder = ((recentChat ?? []).reverse()) as Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
+
+  const agentMsg = await tryInterceptAgentCreate(
+    sigapUser.id,
+    cleanText,
+    historyForBuilder,
+  );
   if (agentMsg) {
     await sb.from("chat_messages").insert([
       { user_id: sigapUser.id, role: "user", content: cleanText },
