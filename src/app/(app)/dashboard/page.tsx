@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { getTodayEvents } from "@/lib/google/calendar";
+import { getTodayEvents, getWeekEvents } from "@/lib/google/calendar";
 import { listTasks } from "@/lib/google/tasks";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { formatTime } from "@/lib/utils";
@@ -10,6 +10,8 @@ import { EmptyState } from "@/components/empty-state";
 import { getDict, getLocale } from "@/lib/i18n";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { TutorialModal } from "@/components/tutorial-modal";
+import { DashboardInsights } from "@/components/dashboard-insights";
+import { TeamSnapshot, type MemberSignal } from "@/components/team-snapshot";
 
 export default async function DashboardPage({
   searchParams,
@@ -48,6 +50,73 @@ export default async function DashboardPage({
     error = e instanceof Error ? e.message : t.googleError;
   }
 
+  const now = Date.now();
+  const overdueTasks = tasks.filter((t) => {
+    if (!t.due) return false;
+    return new Date(t.due).getTime() < now;
+  }).length;
+
+  // Manager-only signals: agent digests pending + team snapshot.
+  const { count: pendingDigestCountRaw } = await sb
+    .from("agent_digests")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("status", "pending");
+  const pendingDigestCount = pendingDigestCountRaw ?? 0;
+
+  const { data: myMemberships } = await sb
+    .from("org_members")
+    .select("org_id, role")
+    .eq("user_id", userId)
+    .in("role", ["owner", "manager"]);
+  const managerOrgIds = (myMemberships ?? []).map((m) => m.org_id);
+  const isManager = managerOrgIds.length > 0;
+
+  let teamSnapshot: MemberSignal[] = [];
+  if (isManager) {
+    const { data: memberRows } = await sb
+      .from("org_members")
+      .select(
+        "user_id, role, share_with_manager, users:user_id(id, name, email)",
+      )
+      .in("org_id", managerOrgIds);
+    const rows = (memberRows ?? []).filter((r) => r.user_id !== userId);
+    teamSnapshot = await Promise.all(
+      rows.map(async (r) => {
+        const u = r.users as { id?: string; name?: string; email?: string } | null;
+        const signal: MemberSignal = {
+          user_id: r.user_id,
+          name: u?.name ?? u?.email ?? "—",
+          email: u?.email ?? "",
+          role: r.role as string,
+          share_with_manager: Boolean(r.share_with_manager),
+        };
+        if (r.share_with_manager && u?.id) {
+          try {
+            const [dayEvents, memberTasks] = await Promise.all([
+              getTodayEvents(u.id).catch(() => []),
+              listTasks(u.id).catch(() => []),
+            ]);
+            signal.today_events = dayEvents.length;
+            signal.open_tasks = memberTasks.length;
+          } catch {}
+        }
+        return signal;
+      }),
+    );
+    // Stable order: sharing members first (most actionable), then by name.
+    teamSnapshot.sort((a, b) => {
+      if (a.share_with_manager !== b.share_with_manager)
+        return a.share_with_manager ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  const teamOverdueTotal = teamSnapshot.reduce(
+    (sum, m) => sum + (m.open_tasks ?? 0),
+    0,
+  );
+
   const greeting = getGreeting(t);
   const firstName = session.user.name?.split(" ")[0] ?? "there";
 
@@ -66,6 +135,37 @@ export default async function DashboardPage({
           {t.googleError}
         </div>
       )}
+
+      <DashboardInsights
+        pills={[
+          {
+            label: locale === "id" ? "Jadwal hari ini" : "Today's events",
+            value: events.length,
+            tone: events.length > 0 ? "indigo" : "default",
+          },
+          {
+            label: locale === "id" ? "Task overdue" : "Overdue tasks",
+            value: overdueTasks,
+            tone: overdueTasks > 0 ? "warning" : "default",
+          },
+          ...(isManager
+            ? [
+                {
+                  label: locale === "id" ? "Tim — task terbuka" : "Team — open tasks",
+                  value: teamOverdueTotal,
+                  tone: "default" as const,
+                },
+              ]
+            : []),
+          {
+            label:
+              locale === "id" ? "Digest agent pending" : "Pending agent digests",
+            value: pendingDigestCount,
+            tone: pendingDigestCount > 0 ? "emerald" : "default",
+            href: pendingDigestCount > 0 ? "/agents" : undefined,
+          },
+        ]}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
@@ -124,6 +224,8 @@ export default async function DashboardPage({
               />
             </CardContent>
           </Card>
+
+          {isManager && <TeamSnapshot members={teamSnapshot} locale={locale} />}
         </div>
 
         <div className="lg:col-span-1">
