@@ -366,7 +366,7 @@ ${spec.description ?? ""}
 
 **Tools:** ${toolList}
 
-Chat sama dia di → **/agents/${created.slug}**`;
+Chat sama dia di → [**/agents/${created.slug}**](/agents/${created.slug})`;
 }
 
 // ==================== DELETE FLOW ====================
@@ -524,5 +524,5 @@ If the user asked for something impossible (tool not in allowed list), keep the 
 
 **Perubahan:** ${spec.summary_of_changes || "(tidak ada ringkasan)"}
 
-Coba chat dia → **/agents/${target.slug}**`;
+Coba chat dia → [**/agents/${target.slug}**](/agents/${target.slug})`;
 }

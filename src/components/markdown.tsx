@@ -2,6 +2,7 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import Link from "next/link";
 import { useState } from "react";
 
 function ChatImage({ src, alt }: { src: string; alt?: string }) {
@@ -87,16 +88,30 @@ export function Markdown({ children }: { children: string }) {
               </code>
             );
           },
-          a: ({ children, href }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              className="text-indigo-600 underline hover:text-indigo-500"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ children, href }) => {
+            const isInternal =
+              typeof href === "string" && href.startsWith("/");
+            if (isInternal) {
+              return (
+                <Link
+                  href={href}
+                  className="text-indigo-600 underline hover:text-indigo-500"
+                >
+                  {children}
+                </Link>
+              );
+            }
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-indigo-600 underline hover:text-indigo-500"
+              >
+                {children}
+              </a>
+            );
+          },
           h1: ({ children }) => (
             <h1 className="mb-2 text-base font-bold">{children}</h1>
           ),
