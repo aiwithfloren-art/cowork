@@ -21,6 +21,40 @@ export function AgentHeader({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(roleDescription);
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  async function saveRole() {
+    if (!draft.trim() || draft.trim() === roleDescription.trim()) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${encodeURIComponent(slug)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role_description: draft }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setError(err.error ?? `Failed (${res.status})`);
+        setSaving(false);
+        return;
+      }
+      setSavedAt(new Date().toLocaleTimeString());
+      setEditing(false);
+      setSaving(false);
+      // Refresh the server component to reflect new system_prompt on reload.
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (!confirmOpen) return;
@@ -100,18 +134,73 @@ export function AgentHeader({
             </div>
           </div>
           <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-              Role description
-            </p>
-            <pre className="whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-xs leading-relaxed text-slate-700">
-              {roleDescription || "(not set)"}
-            </pre>
-            <p className="mt-2 text-xs text-slate-400">
-              Mau ganti? Balik ke main chat dan ketik:{" "}
-              <span className="font-mono text-slate-600">
-                edit agent {name}: &lt;perubahan&gt;
-              </span>
-            </p>
+            <div className="mb-1 flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Role description
+              </p>
+              {!editing ? (
+                <button
+                  onClick={() => {
+                    setDraft(roleDescription);
+                    setEditing(true);
+                    setSavedAt(null);
+                  }}
+                  className="rounded-md border border-slate-200 px-2 py-1 text-[10px] text-slate-600 hover:bg-slate-50"
+                >
+                  Edit ✏️
+                </button>
+              ) : (
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => {
+                      setEditing(false);
+                      setDraft(roleDescription);
+                      setError(null);
+                    }}
+                    disabled={saving}
+                    className="rounded-md border border-slate-200 px-2 py-1 text-[10px] text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={saveRole}
+                    disabled={saving}
+                    className="rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    {saving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              )}
+            </div>
+            {editing ? (
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={Math.max(4, Math.min(draft.split("\n").length + 1, 12))}
+                className="w-full rounded-md border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-900 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                placeholder="Describe what this agent does: its role, main tasks, tone, boundaries…"
+              />
+            ) : (
+              <pre className="whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-xs leading-relaxed text-slate-700">
+                {roleDescription || "(not set)"}
+              </pre>
+            )}
+            {error && editing && (
+              <p className="mt-2 rounded-md bg-red-50 p-2 text-xs text-red-700">
+                {error}
+              </p>
+            )}
+            {savedAt && !editing && (
+              <p className="mt-2 text-xs text-emerald-600">Saved at {savedAt}</p>
+            )}
+            {!editing && (
+              <p className="mt-2 text-xs text-slate-400">
+                Atau via main chat:{" "}
+                <span className="font-mono text-slate-600">
+                  edit agent {name}: &lt;perubahan&gt;
+                </span>
+              </p>
+            )}
           </div>
         </div>
       )}
