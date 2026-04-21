@@ -4,6 +4,7 @@ import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Chat } from "@/components/chat";
 import { getDict } from "@/lib/i18n";
+import { AgentHeader } from "@/components/agent-header";
 
 export default async function AgentChatPage({
   params,
@@ -18,7 +19,7 @@ export default async function AgentChatPage({
   const sb = supabaseAdmin();
   const { data: agent } = await sb
     .from("custom_agents")
-    .select("slug, name, emoji, description, enabled_tools")
+    .select("slug, name, emoji, description, system_prompt, enabled_tools")
     .eq("user_id", userId)
     .eq("slug", slug)
     .maybeSingle();
@@ -26,6 +27,16 @@ export default async function AgentChatPage({
   if (!agent) notFound();
 
   const dict = await getDict();
+
+  // Strip the hardened wrapper so user sees just their role description.
+  function extractRoleDescription(sp: string | null): string {
+    if (!sp) return "";
+    const begin = sp.indexOf("=== BEGIN ROLE ===");
+    const end = sp.indexOf("=== END ROLE ===");
+    if (begin === -1 || end === -1) return sp.trim();
+    return sp.slice(begin + "=== BEGIN ROLE ===".length, end).trim();
+  }
+  const roleDescription = extractRoleDescription(agent.system_prompt);
 
   return (
     <div className="mx-auto flex h-[calc(100vh-120px)] max-w-4xl flex-col gap-4">
@@ -37,16 +48,14 @@ export default async function AgentChatPage({
           ← Agents
         </Link>
       </div>
-      <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
-        <span className="text-4xl">{agent.emoji ?? "🤖"}</span>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-slate-900">{agent.name}</h1>
-          <p className="mt-1 text-sm text-slate-600">{agent.description}</p>
-          <p className="mt-2 text-xs text-slate-400">
-            {(agent.enabled_tools ?? []).length} tools aktif
-          </p>
-        </div>
-      </div>
+      <AgentHeader
+        name={agent.name}
+        emoji={agent.emoji ?? "🤖"}
+        description={agent.description ?? ""}
+        enabledTools={agent.enabled_tools ?? []}
+        roleDescription={roleDescription}
+        slug={agent.slug}
+      />
       <div className="flex-1 min-h-0">
         <Chat t={dict.chat} agentSlug={agent.slug} />
       </div>

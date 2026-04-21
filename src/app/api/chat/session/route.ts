@@ -4,6 +4,38 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
+export async function DELETE(req: Request) {
+  const session = await auth();
+  const uid = (session?.user as { id?: string } | undefined)?.id;
+  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const url = new URL(req.url);
+  const agentSlug = url.searchParams.get("agent");
+  const sb = supabaseAdmin();
+
+  let agentId: string | null = null;
+  if (agentSlug) {
+    const { data: agent } = await sb
+      .from("custom_agents")
+      .select("id")
+      .eq("user_id", uid)
+      .eq("slug", agentSlug)
+      .maybeSingle();
+    if (!agent) {
+      return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+    }
+    agentId = agent.id;
+  }
+
+  let q = sb.from("chat_messages").delete().eq("user_id", uid);
+  if (agentId) q = q.eq("agent_id", agentId);
+  else q = q.is("agent_id", null);
+
+  const { error } = await q;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
+
 // Load all messages in the same "session window" around a pivot message.
 // A session = chain of messages where each consecutive pair is within 30 minutes.
 export async function GET(req: Request) {

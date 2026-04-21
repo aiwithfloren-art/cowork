@@ -6,7 +6,7 @@ import { useState } from "react";
 import { LanguageToggle } from "./language-toggle";
 import { NotificationBell } from "./notification-bell";
 
-type NavItem = { href: string; label: string };
+type NavItem = { href: string; label: string; badge?: number };
 
 type Props = {
   items: NavItem[];
@@ -37,11 +37,16 @@ export function AppNav({ items, locale, user, signOutLabel, onSignOut }: Props) 
                   href={item.href}
                   className={
                     active
-                      ? "text-slate-900 font-medium"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "text-slate-900 font-medium flex items-center gap-1.5"
+                      : "text-slate-600 hover:text-slate-900 flex items-center gap-1.5"
                   }
                 >
                   {item.label}
+                  {typeof item.badge === "number" && item.badge > 0 && (
+                    <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}

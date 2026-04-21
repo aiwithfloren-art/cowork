@@ -126,16 +126,18 @@ export async function tryInterceptAgentCreate(
   const groq = getGroq();
   const toolOptions = ALL_TOOL_SLUGS.join(", ");
 
-  const systemPrompt = `You are Sigap's Agent Builder. The user wants to build a sub-agent (an AI employee with a focused role). Through conversation, gather:
+  const systemPrompt = `You are Sigap's Agent Builder. The user wants to build a sub-agent (an AI employee with a focused role). Through conversation, gather 4 things IN ORDER:
 
 1. **Role / main purpose** — HR, sales, marketing, research, content, customer-support, etc.
 2. **Concrete tasks** — 2-5 specific things this agent should do (not generic).
 3. **Tone / personality** — formal, casual, strict, friendly. Default to what fits the role if user doesn't care.
-4. **Tool needs** — inferred from tasks. You pick from the allowed list below.
+4. **Name** — a short 1-2 word human name. Invent one if user doesn't care.
 
-Ask ONE focused question at a time, in the user's language. Use short questions. Don't overwhelm.
+After step 4 (or whenever you have name + role + at least 1 task), move to "create". You pick tools automatically based on tasks, from the allowed list below.
 
-When you have enough info (role + at least 2 tasks + a name), move to "create".
+Ask ONE focused question at a time, in the user's language. Prefix every question with a step counter like "[Step N/4]" (e.g. "[Step 2/4]") so the user knows how far along they are.
+
+If the user's message already packs all 4 info points, skip straight to create.
 
 Available tool slugs:
 ${toolOptions}
@@ -165,14 +167,33 @@ Rules:
   ];
 
   let planned: unknown;
+  let rawText = "";
   try {
     const result = await generateText({
       model: groq(DEFAULT_MODEL),
       system: systemPrompt,
       messages: llmMessages,
     });
-    const raw = result.text.trim().replace(/^```json\s*|\s*```$/g, "");
-    planned = JSON.parse(raw);
+    rawText = result.text.trim();
+    const stripped = rawText.replace(/^```json\s*|\s*```$/g, "");
+    // If the model ignored the JSON instruction and replied in prose,
+    // treat whatever it said as the next clarifying question rather than
+    // bailing out — this keeps the conversation flowing.
+    try {
+      planned = JSON.parse(stripped);
+    } catch {
+      const firstBrace = stripped.indexOf("{");
+      const lastBrace = stripped.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        try {
+          planned = JSON.parse(stripped.slice(firstBrace, lastBrace + 1));
+        } catch {
+          planned = { action: "ask", question: stripped };
+        }
+      } else {
+        planned = { action: "ask", question: stripped };
+      }
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown";
     return `${BUILDER_TAG} Maaf, ada kendala teknis bikin agent (${msg}). Coba ulangi: "bikin agent X buat Y".`;
@@ -191,8 +212,10 @@ Rules:
   };
 
   if (decision.action === "ask") {
-    const q = decision.question?.trim() || "Ceritakan lebih detail dong — agent ini buat apa?";
-    return `${BUILDER_TAG} ${q}`;
+    const cleanedQ =
+      (decision.question || "").trim().replace(new RegExp(`^${BUILDER_TAG}\\s*`), "") ||
+      "Ceritakan lebih detail dong — agent ini buat apa?";
+    return `${BUILDER_TAG} ${cleanedQ}`;
   }
 
   if (decision.action !== "create" || !decision.spec) {
