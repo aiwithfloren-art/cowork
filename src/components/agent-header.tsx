@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function AgentHeader({
   name,
@@ -19,13 +18,26 @@ export function AgentHeader({
   slug: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
-  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!confirmOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !clearing) setConfirmOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [confirmOpen, clearing]);
 
   async function clearHistory() {
-    if (!confirm(`Bersihkan semua history chat dengan ${name}? Tidak bisa di-undo.`))
-      return;
     setClearing(true);
+    setError(null);
     try {
       const res = await fetch(
         `/api/chat/session?agent=${encodeURIComponent(slug)}`,
@@ -33,14 +45,13 @@ export function AgentHeader({
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(`Gagal: ${err.error ?? res.status}`);
+        setError(err.error ?? `Failed (${res.status})`);
         setClearing(false);
         return;
       }
-      // Force reload so Chat component re-fetches (now empty) session.
       window.location.reload();
     } catch (e) {
-      alert(`Error: ${e instanceof Error ? e.message : "unknown"}`);
+      setError(e instanceof Error ? e.message : "Network error");
       setClearing(false);
     }
   }
@@ -54,12 +65,11 @@ export function AgentHeader({
             <h1 className="text-xl font-bold text-slate-900">{name}</h1>
             <div className="flex items-center gap-2">
               <button
-                onClick={clearHistory}
-                disabled={clearing}
-                className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                onClick={() => setConfirmOpen(true)}
+                className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
                 title="Clear chat history"
               >
-                {clearing ? "Clearing…" : "New thread"}
+                New thread
               </button>
               <button
                 onClick={() => setExpanded((v) => !v)}
@@ -102,6 +112,50 @@ export function AgentHeader({
                 edit agent {name}: &lt;perubahan&gt;
               </span>
             </p>
+          </div>
+        </div>
+      )}
+      {confirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !clearing) setConfirmOpen(false);
+          }}
+        >
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl">{emoji}</span>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-semibold text-slate-900">
+                  Mulai thread baru dengan {name}?
+                </h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  Seluruh riwayat chat dengan {name} akan dihapus. Agent
+                  dan konfigurasinya tetap ada. Aksi ini tidak bisa di-undo.
+                </p>
+              </div>
+            </div>
+            {error && (
+              <p className="mt-3 rounded-md bg-red-50 p-2 text-xs text-red-700">
+                {error}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmOpen(false)}
+                disabled={clearing}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={clearHistory}
+                disabled={clearing}
+                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+              >
+                {clearing ? "Menghapus…" : "Mulai thread baru"}
+              </button>
+            </div>
           </div>
         </div>
       )}

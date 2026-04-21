@@ -12,7 +12,7 @@ export const maxDuration = 60;
 
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
-import { tryInterceptAgentCreate, tryInterceptAgentEdit } from "@/lib/llm/agent-intercept";
+import { tryInterceptAgentCreate, tryInterceptAgentEdit, tryInterceptAgentDelete } from "@/lib/llm/agent-intercept";
 
 const SYSTEM_PROMPT = `You are Sigap, a personal AI Chief of Staff.
 
@@ -237,7 +237,29 @@ export async function POST(req: Request) {
     hour12: false,
   }).format(new Date());
   const baseSystem = agentRecord ? agentRecord.system_prompt : SYSTEM_PROMPT;
-  const systemWithTime = `${baseSystem}
+
+  // For main Sigap, show the list of sub-agents the user has built so the
+  // model can accurately answer "what agents do I have?" and refer users
+  // to /agents/<slug> without hallucinating.
+  let agentsContext = "";
+  if (!agentRecord) {
+    const { data: userAgents } = await sb
+      .from("custom_agents")
+      .select("slug, name, emoji, description")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (userAgents && userAgents.length > 0) {
+      const list = userAgents
+        .map(
+          (a) =>
+            `- ${a.emoji ?? "🤖"} **${a.name}** — ${a.description ?? "(no description)"} — link: /agents/${a.slug}`,
+        )
+        .join("\n");
+      agentsContext = `\n\n## User's sub-agents\n\nThe user has built the following sub-agents (AI employees). When the user asks about one by name, refer to it and share the link. For focused work on that role, suggest the user open its dedicated page.\n\n${list}`;
+    }
+  }
+
+  const systemWithTime = `${baseSystem}${agentsContext}
 
 ## Current date & time
 Right now it is ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
@@ -249,6 +271,21 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
   // Intercepts only run for main Sigap chat — inside a sub-agent thread
   // we stay focused on that agent's job and never spawn new agents or
   // meeting bots mid-conversation.
+  const deleteReply = !agentRecord
+    ? await tryInterceptAgentDelete(userId, lastUser.content)
+    : null;
+  if (deleteReply) {
+    const sb2 = supabaseAdmin();
+    await sb2.from("chat_messages").insert([
+      { user_id: userId, role: "user", content: lastUser.content, agent_id: null },
+      { user_id: userId, role: "assistant", content: deleteReply, agent_id: null },
+    ]);
+    return new Response(deleteReply, {
+      status: 200,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
   const editReply = !agentRecord
     ? await tryInterceptAgentEdit(userId, lastUser.content)
     : null;

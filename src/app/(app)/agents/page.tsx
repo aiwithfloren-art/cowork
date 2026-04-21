@@ -4,6 +4,7 @@ import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { DeleteAgentButton } from "@/components/delete-agent-button";
+import { AgentTemplates } from "@/components/agent-templates";
 
 export default async function AgentsPage() {
   const session = await auth();
@@ -32,18 +33,21 @@ export default async function AgentsPage() {
       </div>
 
       {(!agents || agents.length === 0) ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-sm text-slate-500">No agents yet.</p>
-            <p className="mt-2 text-xs text-slate-400">
-              Go to{" "}
-              <Link href="/dashboard" className="text-indigo-600 underline">
-                main chat
-              </Link>{" "}
-              and say &quot;bikin agent X buat Y&quot;.
-            </p>
-          </CardContent>
-        </Card>
+        <>
+          <Card>
+            <CardContent className="py-10 text-center">
+              <p className="text-2xl">🤖</p>
+              <p className="mt-2 text-sm font-medium text-slate-900">
+                Belum ada agent
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Bikin sub-agent buat fokus di task spesifik — HR, sales,
+                research, content, dll.
+              </p>
+            </CardContent>
+          </Card>
+          <AgentTemplates />
+        </>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {agents.map((a) => (

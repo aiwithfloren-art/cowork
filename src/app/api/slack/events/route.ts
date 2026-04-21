@@ -7,7 +7,7 @@ import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
-import { tryInterceptAgentCreate, tryInterceptAgentEdit } from "@/lib/llm/agent-intercept";
+import { tryInterceptAgentCreate, tryInterceptAgentEdit, tryInterceptAgentDelete } from "@/lib/llm/agent-intercept";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 
 export const runtime = "nodejs";
@@ -195,6 +195,16 @@ async function processSlackMessage(args: {
     role: "user" | "assistant";
     content: string;
   }>;
+
+  const deleteMsg = await tryInterceptAgentDelete(sigapUser.id, cleanText);
+  if (deleteMsg) {
+    await sb.from("chat_messages").insert([
+      { user_id: sigapUser.id, role: "user", content: cleanText },
+      { user_id: sigapUser.id, role: "assistant", content: deleteMsg },
+    ]);
+    await postSlack(connector.access_token, channel, deleteMsg);
+    return;
+  }
 
   const editMsg = await tryInterceptAgentEdit(sigapUser.id, cleanText);
   if (editMsg) {

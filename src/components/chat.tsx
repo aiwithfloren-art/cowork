@@ -76,6 +76,19 @@ export function Chat({
     }
   }, [initialPrompt]);
 
+  // Pull any prefilled prompt stashed by /agents templates, etc.
+  useEffect(() => {
+    if (agentSlug) return; // only for main Sigap
+    try {
+      const pending = sessionStorage.getItem("agent_template_prompt");
+      if (pending) {
+        sessionStorage.removeItem("agent_template_prompt");
+        setInput(pending);
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+    } catch {}
+  }, [agentSlug]);
+
   // Load prior session messages — explicit resumeId from /history, or on
   // fresh dashboard mount, the latest session (so navigating away and back
   // doesn't blank the conversation).
@@ -250,36 +263,55 @@ export function Chat({
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-3">
         {messages.length === 0 && !error && (
-          <div className="space-y-4 py-2">
-            <p className="text-center text-sm text-slate-500">{t.askPrompt}</p>
+          agentSlug ? (
+            <div className="space-y-4 py-2">
+              <p className="text-center text-sm text-slate-500">
+                Mulai ngobrol — agent siap kerja.
+              </p>
+              <div className="mx-auto flex max-w-md flex-col gap-2">
+                <SuggestionChip onClick={() => send("Halo, kamu bisa bantu apa aja?")}>
+                  Halo, kamu bisa bantu apa aja?
+                </SuggestionChip>
+                <SuggestionChip onClick={() => send("Apa tool yang kamu punya?")}>
+                  Apa tool yang kamu punya?
+                </SuggestionChip>
+                <SuggestionChip onClick={() => send("Kasih aku ide apa yang bisa kita kerjain sekarang")}>
+                  Kasih aku ide apa yang bisa kita kerjain sekarang
+                </SuggestionChip>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <p className="text-center text-sm text-slate-500">{t.askPrompt}</p>
 
-            <SuggestionGroup title={t.suggestions.briefingTitle}>
-              <SuggestionChip onClick={() => send(t.suggestions.briefing1)}>
-                {t.suggestions.briefing1}
-              </SuggestionChip>
-              <SuggestionChip onClick={() => send(t.suggestions.briefing2)}>
-                {t.suggestions.briefing2}
-              </SuggestionChip>
-            </SuggestionGroup>
+              <SuggestionGroup title={t.suggestions.briefingTitle}>
+                <SuggestionChip onClick={() => send(t.suggestions.briefing1)}>
+                  {t.suggestions.briefing1}
+                </SuggestionChip>
+                <SuggestionChip onClick={() => send(t.suggestions.briefing2)}>
+                  {t.suggestions.briefing2}
+                </SuggestionChip>
+              </SuggestionGroup>
 
-            <SuggestionGroup title={t.suggestions.actionTitle}>
-              <SuggestionChip onClick={() => send(t.suggestions.action1)}>
-                {t.suggestions.action1}
-              </SuggestionChip>
-              <SuggestionChip onClick={() => send(t.suggestions.action2)}>
-                {t.suggestions.action2}
-              </SuggestionChip>
-            </SuggestionGroup>
+              <SuggestionGroup title={t.suggestions.actionTitle}>
+                <SuggestionChip onClick={() => send(t.suggestions.action1)}>
+                  {t.suggestions.action1}
+                </SuggestionChip>
+                <SuggestionChip onClick={() => send(t.suggestions.action2)}>
+                  {t.suggestions.action2}
+                </SuggestionChip>
+              </SuggestionGroup>
 
-            <SuggestionGroup title={t.suggestions.insightTitle}>
-              <SuggestionChip onClick={() => send(t.suggestions.insight1)}>
-                {t.suggestions.insight1}
-              </SuggestionChip>
-              <SuggestionChip onClick={() => send(t.suggestions.insight2)}>
-                {t.suggestions.insight2}
-              </SuggestionChip>
-            </SuggestionGroup>
-          </div>
+              <SuggestionGroup title={t.suggestions.insightTitle}>
+                <SuggestionChip onClick={() => send(t.suggestions.insight1)}>
+                  {t.suggestions.insight1}
+                </SuggestionChip>
+                <SuggestionChip onClick={() => send(t.suggestions.insight2)}>
+                  {t.suggestions.insight2}
+                </SuggestionChip>
+              </SuggestionGroup>
+            </div>
+          )
         )}
         <div className="space-y-3">
           {messages.map((m, i) => {
