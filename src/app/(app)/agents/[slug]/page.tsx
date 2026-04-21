@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Chat } from "@/components/chat";
 import { getDict } from "@/lib/i18n";
 import { AgentHeader } from "@/components/agent-header";
+import { AgentSchedule } from "@/components/agent-schedule";
+import { AgentDigests } from "@/components/agent-digests";
 
 export default async function AgentChatPage({
   params,
@@ -19,12 +21,21 @@ export default async function AgentChatPage({
   const sb = supabaseAdmin();
   const { data: agent } = await sb
     .from("custom_agents")
-    .select("slug, name, emoji, description, system_prompt, enabled_tools")
+    .select(
+      "id, slug, name, emoji, description, system_prompt, enabled_tools, schedule_cron, objectives",
+    )
     .eq("user_id", userId)
     .eq("slug", slug)
     .maybeSingle();
 
   if (!agent) notFound();
+
+  const { data: digests } = await sb
+    .from("agent_digests")
+    .select("id, summary, status, created_at")
+    .eq("agent_id", agent.id)
+    .order("created_at", { ascending: false })
+    .limit(10);
 
   const dict = await getDict();
 
@@ -39,7 +50,7 @@ export default async function AgentChatPage({
   const roleDescription = extractRoleDescription(agent.system_prompt);
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-120px)] max-w-4xl flex-col gap-4">
+    <div className="mx-auto max-w-4xl space-y-4 pb-12">
       <div className="flex items-center gap-3">
         <Link
           href="/agents"
@@ -56,9 +67,15 @@ export default async function AgentChatPage({
         roleDescription={roleDescription}
         slug={agent.slug}
       />
-      <div className="flex-1 min-h-0">
+      <AgentSchedule
+        slug={agent.slug}
+        scheduleCron={agent.schedule_cron ?? null}
+        objectives={agent.objectives ?? []}
+      />
+      <div className="h-[520px]">
         <Chat t={dict.chat} agentSlug={agent.slug} />
       </div>
+      <AgentDigests initial={(digests ?? []) as Parameters<typeof AgentDigests>[0]["initial"]} />
     </div>
   );
 }

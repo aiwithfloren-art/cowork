@@ -139,6 +139,8 @@ export async function PATCH(
     description?: string;
     role_description?: string;
     enabled_tools?: string[];
+    schedule_cron?: string | null;
+    objectives?: string[];
   };
 
   const sb = supabaseAdmin();
@@ -174,6 +176,26 @@ export async function PATCH(
       ALL_TOOL_SLUGS.includes(t),
     );
     if (cleaned.length > 0) updates.enabled_tools = cleaned;
+  }
+  if (body.schedule_cron !== undefined) {
+    const cron = body.schedule_cron;
+    if (cron === null || cron === "") {
+      updates.schedule_cron = null;
+    } else if (typeof cron === "string" && /^[\d*/,\s\-]+$/.test(cron) && cron.split(/\s+/).length === 5) {
+      updates.schedule_cron = cron.trim();
+    } else {
+      return NextResponse.json(
+        { error: "schedule_cron must be a valid 5-field cron expression or empty" },
+        { status: 400 },
+      );
+    }
+  }
+  if (Array.isArray(body.objectives)) {
+    updates.objectives = body.objectives
+      .filter((o): o is string => typeof o === "string")
+      .map((o) => o.trim().slice(0, 200))
+      .filter((o) => o.length > 0)
+      .slice(0, 10);
   }
 
   const { error } = await sb
