@@ -63,7 +63,7 @@ export default async function AgentsPage() {
                 </Link>
                 <div className="flex items-center justify-between text-xs text-slate-400">
                   <span>{(a.enabled_tools ?? []).length} tools</span>
-                  <DeleteAgentButton slug={a.slug} name={a.name} />
+                  <DeleteAgentButton slug={a.slug} name={a.name} emoji={a.emoji} />
                 </div>
               </CardContent>
             </Card>

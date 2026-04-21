@@ -12,7 +12,7 @@ export const maxDuration = 60;
 
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
-import { tryInterceptAgentCreate } from "@/lib/llm/agent-intercept";
+import { tryInterceptAgentCreate, tryInterceptAgentEdit } from "@/lib/llm/agent-intercept";
 
 const SYSTEM_PROMPT = `You are Sigap, a personal AI Chief of Staff.
 
@@ -249,6 +249,21 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
   // Intercepts only run for main Sigap chat — inside a sub-agent thread
   // we stay focused on that agent's job and never spawn new agents or
   // meeting bots mid-conversation.
+  const editReply = !agentRecord
+    ? await tryInterceptAgentEdit(userId, lastUser.content)
+    : null;
+  if (editReply) {
+    const sb2 = supabaseAdmin();
+    await sb2.from("chat_messages").insert([
+      { user_id: userId, role: "user", content: lastUser.content, agent_id: null },
+      { user_id: userId, role: "assistant", content: editReply, agent_id: null },
+    ]);
+    return new Response(editReply, {
+      status: 200,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
   const agentReply = !agentRecord
     ? await tryInterceptAgentCreate(
         userId,
