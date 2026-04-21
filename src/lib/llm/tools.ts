@@ -1208,15 +1208,22 @@ export function buildTools(userId: string) {
 
     get_member_workload: tool({
       description:
-        "Read a teammate's current workload — today's calendar events, this week's events, and open tasks. Use when the user says 'apa kerjaan Budi minggu ini', 'tugas tim', 'workload Sarah', 'jadwal [email]'. Requires: (1) you share an org with the target, (2) the target has enabled share_with_manager. Every call is written to audit_log so the teammate has full visibility into what was queried. Identify the target by email — if the user said a name only, call list_team_members first to find their email.",
+        "Read a teammate's current workload — today's calendar events, this week's events, and open tasks. Use when the user says 'apa kerjaan Budi minggu ini', 'tugas tim', 'workload Sarah', 'jadwal [email]'. Requires: (1) you share an org with the target, (2) the target has enabled share_with_manager. Every call is written to audit_log so the teammate has full visibility into what was queried. Identify the target by email — if the user said a name only, call list_team_members first to find their email. Pass a 'reason' string echoing the user's underlying question so the audit entry is meaningful to the teammate.",
       inputSchema: z.object({
         member_email: z
           .string()
           .describe("The teammate's email address."),
+        reason: z
+          .string()
+          .describe(
+            "A short paraphrase of what the user actually wanted to know (e.g. \"checking if Budi is overloaded this week\", \"drafting standup\"). Shown to the teammate in their audit log — be honest and specific.",
+          ),
       }),
-      execute: async ({ member_email }) => {
+      execute: async ({ member_email, reason }) => {
         const sb = supabaseAdmin();
         const cleanEmail = member_email.trim().toLowerCase();
+        const cleanReason = (reason ?? "").trim().slice(0, 400) ||
+          "workload query (no reason provided)";
 
         const { data: target } = await sb
           .from("users")
@@ -1248,17 +1255,21 @@ export function buildTools(userId: string) {
               "Kamu bukan owner atau manager di org manapun — query workload cuma bisa dari manager.",
           };
         }
-        const { data: targetMem } = await sb
+        // Find ALL shared orgs between viewer and target, then prefer one
+        // where the target has opted in to sharing. Fixes multi-org bug
+        // where an arbitrary (possibly non-shared) membership was picked.
+        const { data: targetMems } = await sb
           .from("org_members")
           .select("org_id, share_with_manager")
           .eq("user_id", target.id)
-          .in("org_id", orgIds)
-          .maybeSingle();
-        if (!targetMem) {
+          .in("org_id", orgIds);
+        if (!targetMems || targetMems.length === 0) {
           return {
             error: `${target.name ?? cleanEmail} bukan member di org kamu.`,
           };
         }
+        const targetMem =
+          targetMems.find((m) => m.share_with_manager) ?? targetMems[0];
         if (!targetMem.share_with_manager) {
           return {
             error: `${target.name ?? cleanEmail} belum mengaktifkan "share with manager" — minta dia toggle di /team/settings sebelum kamu bisa lihat workload-nya. Privacy by default.`,
@@ -1287,13 +1298,14 @@ export function buildTools(userId: string) {
           errors.push(`tasks: ${e instanceof Error ? e.message : "err"}`);
         }
 
-        // Audit — teammate sees who queried what.
+        // Audit — teammate sees who queried what, including the
+        // paraphrased reason the LLM supplied on behalf of the user.
         await sb.from("audit_log").insert({
           org_id: orgId,
           actor_id: userId,
           target_id: target.id,
           action: "get_member_workload",
-          question: `workload query for ${cleanEmail}`,
+          question: cleanReason,
           answer: JSON.stringify({
             today_count: today.length,
             week_count: week.length,

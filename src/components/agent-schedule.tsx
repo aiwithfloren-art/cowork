@@ -71,6 +71,12 @@ export function AgentSchedule({
         `/api/agents/${encodeURIComponent(slug)}/run`,
         { method: "POST" },
       );
+      if (res.status === 429) {
+        const err = await res.json().catch(() => ({}));
+        setError(err.error ?? "Tunggu sebentar sebelum run lagi.");
+        setSaving(false);
+        return;
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         setError(err.error ?? `Failed (${res.status})`);

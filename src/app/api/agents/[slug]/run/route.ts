@@ -23,12 +23,28 @@ export async function POST(
   const sb = supabaseAdmin();
   const { data: agent } = await sb
     .from("custom_agents")
-    .select("id")
+    .select("id, last_run_at")
     .eq("user_id", uid)
     .eq("slug", slug)
     .maybeSingle();
   if (!agent) {
     return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+  }
+
+  // Prevent manual spam: at most one run per minute per agent.
+  const MIN_GAP_MS = 60 * 1000;
+  if (agent.last_run_at) {
+    const age = Date.now() - new Date(agent.last_run_at).getTime();
+    if (age < MIN_GAP_MS) {
+      const remaining = Math.ceil((MIN_GAP_MS - age) / 1000);
+      return NextResponse.json(
+        {
+          error: `Baru aja dijalanin. Tunggu ${remaining}s sebelum run lagi.`,
+          retry_after_sec: remaining,
+        },
+        { status: 429 },
+      );
+    }
   }
 
   const result = await runAgent(agent.id);
