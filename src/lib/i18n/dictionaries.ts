@@ -169,12 +169,60 @@ export const dictionaries = {
       memberPrivate: "private",
       viewDetails: "View details →",
       sharingStat: "members sharing data",
+      companyProfile: "Company profile",
+      companyProfileDesc:
+        "Tell Sigap and your agents what your company does. They'll use this as background context in every conversation.",
+      companyAboutLabel: "What does your company do?",
+      companyAboutPlaceholder:
+        "e.g. We're Acme, a B2B logistics startup serving SMEs in Southeast Asia. Our priority this quarter is launching the driver app.",
+      companyBrandToneLabel: "Brand tone",
+      companyBrandTonePlaceholder:
+        "e.g. Casual but professional. Confident, not corporate. Skip jargon.",
+      companyWebsitesLabel: "Relevant websites",
+      companyWebsitesPlaceholder: "https://acme.com (one per line)",
+      companyEmpty: "Not set yet — owners and managers can fill this in.",
+      companyEdit: "Edit",
+      companyNudge:
+        "Sigap doesn't know your company yet. Fill this in (or just ask Sigap to make a deliverable and it'll ask you) — every PPT, proposal, or client email will come out sharper.",
     },
     audit: {
       title: "Your audit log",
       sub: "Everything managers have asked the AI about you. You have full transparency.",
       managerQueries: "Manager queries",
       noQueries: "No queries yet.",
+    },
+    skills: {
+      pageTitle: "AI Employee Directory",
+      pageSubtitle:
+        "AI employees your team has hired. Activate one in your workspace to chat with it.",
+      backToTeam: "Back to Team",
+      noOrg: "You need to belong to a team before employees show up here.",
+      goToTeam: "Set up your team",
+      emptyTitle: "No AI employees hired yet",
+      emptyOwnerSubtitle:
+        "Go to one of your agents, hit Publish, and it shows up here for the whole team to activate.",
+      emptyMemberSubtitle:
+        "Your team hasn't hired any AI employees yet. Ask an owner or manager to publish one.",
+      browseMyAgents: "Go to my AI employees",
+      publishedBy: "Hired by",
+      installs: "activations",
+      install: "Activate",
+      installing: "Activating…",
+      installedBadge: "Active",
+      openAgent: "Open",
+      remove: "Fire (remove from team)",
+      removing: "Removing…",
+      confirmRemove:
+        "Remove {name} from the team? Teammates who already activated keep their copy — only the team template goes away.",
+      publishBtn: "Hire for team",
+      publishAction: "Hire",
+      publishConfirmTitle: "Hire as team AI employee?",
+      publishConfirmBody:
+        "{name} will appear in your team's AI Employee Directory. Anyone on the team can activate a copy into their workspace. You can remove anytime.",
+      publishSuccess: "Hired for your team. Teammates can activate from /team/skills.",
+      publishUpdated: "Employee profile updated with the latest version of this agent.",
+      publishError: "Hiring failed",
+      cancel: "Cancel",
     },
     settings: {
       title: "Settings",
@@ -428,12 +476,60 @@ export const dictionaries = {
       memberPrivate: "privat",
       viewDetails: "Lihat detail →",
       sharingStat: "anggota membagikan data",
+      companyProfile: "Profil perusahaan",
+      companyProfileDesc:
+        "Kasih tau Sigap dan agent-agent tim tentang perusahaan kamu. Mereka bakal pakai ini sebagai konteks di setiap percakapan.",
+      companyAboutLabel: "Perusahaan kamu ngapain?",
+      companyAboutPlaceholder:
+        "contoh: Kami Acme, startup logistik B2B buat UMKM di Asia Tenggara. Prioritas kuartal ini: launch driver app.",
+      companyBrandToneLabel: "Brand tone",
+      companyBrandTonePlaceholder:
+        "contoh: Casual tapi profesional. Percaya diri, bukan kaku. Hindari jargon.",
+      companyWebsitesLabel: "Website yang relevan",
+      companyWebsitesPlaceholder: "https://acme.com (satu per baris)",
+      companyEmpty: "Belum diisi — owner atau manager bisa isi di sini.",
+      companyEdit: "Edit",
+      companyNudge:
+        "Sigap belum tau soal perusahaan kamu. Isi di sini (atau langsung minta Sigap bikin deliverable — nanti dia nanya sendiri) biar setiap PPT, proposal, atau email client hasilnya lebih pas.",
     },
     audit: {
       title: "Audit log Anda",
       sub: "Semua yang ditanyakan manager ke AI tentang Anda. Transparansi penuh.",
       managerQueries: "Query manager",
       noQueries: "Belum ada query.",
+    },
+    skills: {
+      pageTitle: "Direktori AI Employee",
+      pageSubtitle:
+        "AI employee yang uda dihire sama tim kamu. Activate di workspace lu biar bisa langsung chat.",
+      backToTeam: "Balik ke Team",
+      noOrg: "Gabung tim dulu biar bisa liat AI employee di sini.",
+      goToTeam: "Setup tim",
+      emptyTitle: "Belum ada AI employee yang dihire",
+      emptyOwnerSubtitle:
+        "Masuk ke salah satu agent kamu, klik Hire, nanti muncul di sini buat semua tim activate.",
+      emptyMemberSubtitle:
+        "Tim kamu belum hire AI employee. Minta owner atau manager buat publish.",
+      browseMyAgents: "Ke AI employee saya",
+      publishedBy: "Di-hire oleh",
+      installs: "activation",
+      install: "Activate",
+      installing: "Activating…",
+      installedBadge: "Active",
+      openAgent: "Buka",
+      remove: "Fire (hapus dari tim)",
+      removing: "Menghapus…",
+      confirmRemove:
+        "Hapus {name} dari tim? Copy yang sudah ter-activate di anggota tetap ada — hanya template tim yang hilang.",
+      publishBtn: "Hire buat tim",
+      publishAction: "Hire",
+      publishConfirmTitle: "Hire jadi AI employee tim?",
+      publishConfirmBody:
+        "{name} bakal muncul di Direktori AI Employee tim. Semua anggota bisa activate copy-nya ke workspace masing-masing. Bisa di-fire kapan aja.",
+      publishSuccess: "Udah ke-hire ke tim. Anggota bisa activate dari /team/skills.",
+      publishUpdated: "Profile employee di-update dengan versi terbaru dari agent ini.",
+      publishError: "Hiring gagal",
+      cancel: "Batal",
     },
     settings: {
       title: "Pengaturan",

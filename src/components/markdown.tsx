@@ -59,6 +59,11 @@ function ChatImage({ src, alt }: { src: string; alt?: string }) {
 }
 
 export function Markdown({ children }: { children: string }) {
+  // Strip HTML comments up-front — react-markdown's default pipeline passes
+  // them through as text rather than hiding them. We use <!-- ... --> to
+  // carry server-side state (e.g. pending-task markers in the Company
+  // Context intercept) that must NEVER be visible to the user.
+  const cleaned = children.replace(/<!--[\s\S]*?-->/g, "");
   return (
     <div className="markdown text-sm leading-relaxed">
       <ReactMarkdown
@@ -144,7 +149,7 @@ export function Markdown({ children }: { children: string }) {
           ),
         }}
       >
-        {children}
+        {cleaned}
       </ReactMarkdown>
     </div>
   );

@@ -10,8 +10,10 @@ import {
   RenameOrgButton,
   DeleteOrgButton,
   RemoveMemberButton,
+  EditCompanyProfile,
 } from "@/components/team-manage";
 import { Avatar } from "@/components/avatar";
+import { TeamSubnav } from "@/components/team-subnav";
 
 type MemberRow = {
   user_id: string;
@@ -56,13 +58,16 @@ export default async function TeamPage() {
   const orgId = primary.org_id;
   const role = primary.role;
 
-  // Load org name separately
+  // Load org name + company profile
   const { data: org } = await sb
     .from("organizations")
-    .select("name")
+    .select("name, description, brand_tone, websites")
     .eq("id", orgId)
     .maybeSingle();
   const orgName = org?.name ?? "Team";
+  const orgDescription = (org?.description as string | null) ?? "";
+  const orgBrandTone = (org?.brand_tone as string | null) ?? "";
+  const orgWebsites = (org?.websites as string[] | null) ?? [];
 
   // Load all members of this org
   const { data: memberRows } = await sb
@@ -125,6 +130,42 @@ export default async function TeamPage() {
           {role}
         </span>
       </div>
+
+      <TeamSubnav showAdmin={isOwner} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.companyProfile}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!orgDescription.trim() &&
+            !orgBrandTone.trim() &&
+            orgWebsites.length === 0 && (
+              <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                💡 {t.companyNudge}
+              </div>
+            )}
+          <EditCompanyProfile
+            orgId={orgId}
+            canEdit={isManager}
+            initialDescription={orgDescription}
+            initialBrandTone={orgBrandTone}
+            initialWebsites={orgWebsites}
+            t={{
+              profileDesc: t.companyProfileDesc,
+              aboutLabel: t.companyAboutLabel,
+              aboutPlaceholder: t.companyAboutPlaceholder,
+              brandToneLabel: t.companyBrandToneLabel,
+              brandTonePlaceholder: t.companyBrandTonePlaceholder,
+              websitesLabel: t.companyWebsitesLabel,
+              websitesPlaceholder: t.companyWebsitesPlaceholder,
+              empty: t.companyEmpty,
+              edit: t.companyEdit,
+              save: t.save,
+            }}
+          />
+        </CardContent>
+      </Card>
 
       {isManager && (
         <div className="grid gap-6 md:grid-cols-2">

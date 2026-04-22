@@ -24,6 +24,12 @@ export default async function LandingPage() {
             {dict.nav.manager}
           </Link>
           <Link
+            href="/enterprise"
+            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+          >
+            Enterprise →
+          </Link>
+          <Link
             href="https://github.com/aiwithfloren-art/cowork"
             target="_blank"
             className="hover:text-slate-900"

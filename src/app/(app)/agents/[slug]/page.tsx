@@ -7,6 +7,7 @@ import { getDict } from "@/lib/i18n";
 import { AgentHeader } from "@/components/agent-header";
 import { AgentSchedule } from "@/components/agent-schedule";
 import { AgentDigests } from "@/components/agent-digests";
+import { PublishAgentButton } from "@/components/publish-agent-button";
 
 export default async function AgentChatPage({
   params,
@@ -37,6 +38,16 @@ export default async function AgentChatPage({
     .order("created_at", { ascending: false })
     .limit(10);
 
+  // Only owner/manager of the user's primary org can publish as a team skill
+  const { data: membership } = await sb
+    .from("org_members")
+    .select("role")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  const canPublish =
+    membership?.role === "owner" || membership?.role === "manager";
+
   const dict = await getDict();
 
   // Strip the hardened wrapper so user sees just their role description.
@@ -51,13 +62,27 @@ export default async function AgentChatPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 pb-12">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3">
         <Link
           href="/agents"
           className="text-xs text-slate-500 hover:text-slate-900"
         >
           ← Agents
         </Link>
+        {canPublish && (
+          <PublishAgentButton
+            slug={agent.slug}
+            agentName={agent.name}
+            label={dict.skills.publishBtn}
+            confirmTitle={dict.skills.publishConfirmTitle}
+            confirmBody={dict.skills.publishConfirmBody}
+            successText={dict.skills.publishSuccess}
+            updatedText={dict.skills.publishUpdated}
+            errorText={dict.skills.publishError}
+            cancelText={dict.skills.cancel}
+            publishText={dict.skills.publishAction}
+          />
+        )}
       </div>
       <AgentHeader
         name={agent.name}

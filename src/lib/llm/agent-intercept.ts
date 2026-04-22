@@ -1,7 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import crypto from "crypto";
 import { generateText } from "ai";
-import { getGroq, DEFAULT_MODEL } from "./client";
+import { getLLMForUser } from "./providers";
+import { loadPrimaryOrgContext, renderOrgContextBlock } from "@/lib/org-context";
 
 /**
  * Conversational agent builder. Instead of one-shot extraction, we run a
@@ -23,10 +24,13 @@ const BUILDER_TAG = "🤖 Agent Builder:";
 
 // Matches anything that looks like the user wants a new agent. Intentionally
 // broad — the LLM planner can still bail out if the intent is off.
+// Handles Indonesian verb suffixes (buat → buatkan/buatin, bikin → bikinin),
+// English plurals (agent → agents, employee → employees), and the common
+// "ai employee" phrasing.
 const CREATE_PATTERN =
-  /\b(bikin|buat|create|make|generate|mau|pengen|pengin|punya|butuh|need|want|new|setup|add)\b[^.?!]{0,80}\b(agent|agen|employee|sub[- ]?agent|asisten|assistant)\b/i;
+  /\b(bikin(?:in|kan|an)?|buat(?:kan|in)?|bantuin|create|make|generate|mau|pengen|pengin|punya|butuh|need|want|new|setup|add)\b[^.?!]{0,100}\b(ai\s+employees?|agents?|agen|employees?|sub[- ]?agents?|asisten(?:nya)?|assistants?)\b/i;
 
-const ALL_TOOL_SLUGS = [
+export const ALL_TOOL_SLUGS = [
   "get_today_schedule",
   "get_week_schedule",
   "find_meeting_slots",
@@ -46,6 +50,9 @@ const ALL_TOOL_SLUGS = [
   "send_email",
   "web_search",
   "generate_image",
+  "generate_carousel_html",
+  "create_artifact",
+  "create_google_doc",
   "save_note",
   "assign_task_to_member",
   "broadcast_to_team",
@@ -63,7 +70,7 @@ const ALL_TOOL_SLUGS = [
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-function slugify(name: string): string {
+export function slugify(name: string): string {
   return (
     name
       .toLowerCase()
@@ -138,7 +145,7 @@ const BOUNDARIES: Record<"id" | "en", string[]> = {
  * language, so the agent doesn't drift to English when the user writes
  * in Indonesian.
  */
-function hardenSystemPrompt(raw: string): string {
+export function hardenSystemPrompt(raw: string): string {
   const userBlock = raw.trim().slice(0, 2000);
   const lang = detectLang(userBlock);
   return [
@@ -163,10 +170,10 @@ function isInBuilderMode(history: Msg[]): boolean {
   return false;
 }
 
-const MAX_AGENTS_PER_USER = 20;
-const CREATE_COOLDOWN_SEC = 10;
+export const MAX_AGENTS_PER_USER = 20;
+export const CREATE_COOLDOWN_SEC = 10;
 
-async function checkCreateLimits(
+export async function checkCreateLimits(
   userId: string,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   const sb = supabaseAdmin();
@@ -209,8 +216,11 @@ export async function tryInterceptAgentCreate(
   const continueBuilder = isInBuilderMode(history);
   if (!isNewRequest && !continueBuilder) return null;
 
-  const groq = getGroq();
+  const llm = await getLLMForUser(userId);
   const toolOptions = ALL_TOOL_SLUGS.join(", ");
+  const orgContextBlock = renderOrgContextBlock(
+    await loadPrimaryOrgContext(userId),
+  );
 
   const systemPrompt = `You are Sigap's Agent Builder. The user wants to build a sub-agent (an AI employee with a focused role). Through conversation, gather 4 things IN ORDER:
 
@@ -245,7 +255,8 @@ If ready to create:
 Rules:
 - enabled_tools: only slugs from the list above, pick subset relevant to the role.
 - Minimum 1 tool.
-- Ask at most 3-4 questions total before creating.`;
+- Ask at most 3-4 questions total before creating.
+- When you write system_prompt, tailor role/tasks/tone to the user's company (see block below). Don't copy the company block verbatim — use it to phrase the agent's purpose in a company-relevant way.${orgContextBlock}`;
 
   const llmMessages: Msg[] = [
     ...history.slice(-8).filter((m) => m.role === "user" || m.role === "assistant"),
@@ -256,7 +267,7 @@ Rules:
   let rawText = "";
   try {
     const result = await generateText({
-      model: groq(DEFAULT_MODEL),
+      model: llm.model,
       system: systemPrompt,
       messages: llmMessages,
     });
@@ -449,7 +460,7 @@ export async function tryInterceptAgentEdit(
     return `Agent mana yang mau diubah? Kamu punya: ${options}. Coba: "edit agent <nama>: <perubahan>".`;
   }
 
-  const groq = getGroq();
+  const llm = await getLLMForUser(userId);
   const toolOptions = ALL_TOOL_SLUGS.join(", ");
   const systemPrompt = `You are the agent editor for Sigap. The user wants to modify an existing sub-agent. Read the current spec, apply their change, and return the UPDATED spec as JSON.
 
@@ -486,7 +497,7 @@ If the user asked for something impossible (tool not in allowed list), keep the 
   };
   try {
     const result = await generateText({
-      model: groq(DEFAULT_MODEL),
+      model: llm.model,
       system: systemPrompt,
       messages: [{ role: "user", content: message }],
     });

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendTelegramMessage } from "@/lib/telegram/client";
 import { generateText, stepCountIs } from "ai";
-import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
+import { getLLMForUser, estimateCost } from "@/lib/llm/providers";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
@@ -143,8 +143,7 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
   }
 
   try {
-    const groq = getGroq(settings?.groq_key ?? undefined);
-    const model = DEFAULT_MODEL;
+    const llm = await getLLMForUser(userId);
     const tools = await buildToolsForUser(userId);
 
     // Indicate typing
@@ -192,7 +191,7 @@ Current date/time: ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
 7. Use plain text formatting — Telegram supports limited markdown. Bullet with •, not *.`;
 
     const result = await generateText({
-      model: groq(model),
+      model: llm.model,
       system: systemPrompt,
       messages: [...history, { role: "user", content: text }],
       tools,
@@ -202,7 +201,13 @@ Current date/time: ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
     const tokensIn = result.usage?.inputTokens ?? 0;
     const tokensOut = result.usage?.outputTokens ?? 0;
     if (!userHasOwnKey) {
-      await logUsage(userId, tokensIn, tokensOut, estimateCost(tokensIn, tokensOut), model);
+      await logUsage(
+        userId,
+        tokensIn,
+        tokensOut,
+        estimateCost(llm.provider, tokensIn, tokensOut),
+        llm.modelId,
+      );
     }
 
     await sb.from("chat_messages").insert([
@@ -213,10 +218,12 @@ Current date/time: ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
     await sendTelegramMessage(chatId, result.text || "(no response)");
     return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error("telegram ai error:", e);
+    const errMsg = e instanceof Error ? e.message : String(e);
+    const errStack = e instanceof Error ? e.stack : undefined;
+    console.error("telegram ai error:", errMsg, "\nstack:", errStack);
     await sendTelegramMessage(
       chatId,
-      "⚠️ Something went wrong. Try again in a moment.",
+      `⚠️ Error: ${errMsg.slice(0, 300)}\n\nCoba lagi atau hubungi admin kalau keterusan.`,
     );
     return NextResponse.json({ ok: true });
   }

@@ -23,6 +23,12 @@ export async function checkRateLimit(userId: string, userHasOwnKey: boolean): Pr
   const hourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
+  // Resolve the effective daily cap: org policy (if set) takes precedence
+  // over the platform default. Org owners set this via /team/admin to
+  // enforce per-seat governance separate from the free-tier budget.
+  const orgDailyCap = await loadOrgDailyQuota(userId);
+  const effectiveDailyLimit = orgDailyCap ?? DAILY_LIMIT;
+
   const [{ count: dayCount }, { count: hourCount }, { data: spend }] = await Promise.all([
     sb
       .from("usage_log")
@@ -40,14 +46,17 @@ export async function checkRateLimit(userId: string, userHasOwnKey: boolean): Pr
       .gte("created_at", monthStart),
   ]);
 
-  if ((dayCount ?? 0) >= DAILY_LIMIT) {
+  if ((dayCount ?? 0) >= effectiveDailyLimit) {
     const reset = new Date(now);
     reset.setDate(reset.getDate() + 1);
     reset.setHours(0, 0, 0, 0);
+    const byOrg = orgDailyCap != null;
     return {
       ok: false,
       reason: "daily",
-      message: `Daily limit reached (${DAILY_LIMIT} messages/day on free tier). Add your own Groq API key in Settings for unlimited usage, or try again tomorrow.`,
+      message: byOrg
+        ? `Daily limit reached (${effectiveDailyLimit} messages/day — set by your org admin). Ask your admin to raise the cap or add your own Groq key in Settings.`
+        : `Daily limit reached (${effectiveDailyLimit} messages/day on free tier). Add your own Groq API key in Settings for unlimited usage, or try again tomorrow.`,
       resetsAt: reset.toISOString(),
     };
   }
@@ -89,4 +98,35 @@ export async function logUsage(
     cost_usd: cost,
     model,
   });
+}
+
+/**
+ * Returns the org-level daily message cap for this user's primary org, or
+ * null if no cap is set (falls back to platform default). 0 means "freeze
+ * usage" — honored as a hard cap of 0 so no messages get through.
+ */
+async function loadOrgDailyQuota(userId: string): Promise<number | null> {
+  try {
+    const sb = supabaseAdmin();
+    const { data: membership } = await sb
+      .from("org_members")
+      .select("org_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+    if (!membership?.org_id) return null;
+    const { data: org } = await sb
+      .from("organizations")
+      .select("daily_quota_per_member")
+      .eq("id", membership.org_id)
+      .maybeSingle();
+    const cap = org?.daily_quota_per_member;
+    return typeof cap === "number" ? cap : null;
+  } catch (e) {
+    console.error(
+      "[ratelimit] org quota lookup failed:",
+      e instanceof Error ? e.message : e,
+    );
+    return null;
+  }
 }

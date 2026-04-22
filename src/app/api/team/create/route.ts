@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { seedStarterSkills } from "@/lib/starter-kit";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -40,6 +41,18 @@ export async function POST(req: Request) {
     role: "owner",
     share_with_manager: true,
   });
+
+  // Seed the Skill Hub with 4 starter templates so the new team sees a live
+  // catalog from day 1 instead of an empty state. Best-effort — org
+  // creation succeeds even if seeding fails.
+  try {
+    await seedStarterSkills(org.id);
+  } catch (e) {
+    console.error(
+      "[team/create] starter-kit seed failed:",
+      e instanceof Error ? e.message : e,
+    );
+  }
 
   return NextResponse.json({ ok: true, org_id: org.id });
 }

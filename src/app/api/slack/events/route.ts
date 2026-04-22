@@ -3,11 +3,10 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { generateText, stepCountIs } from "ai";
-import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
+import { getLLMForUser, estimateCost } from "@/lib/llm/providers";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
-import { tryInterceptAgentCreate, tryInterceptAgentEdit, tryInterceptAgentDelete } from "@/lib/llm/agent-intercept";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 
 export const runtime = "nodejs";
@@ -183,52 +182,9 @@ async function processSlackMessage(args: {
 
   // Pull last few assistant/user messages so the multi-turn agent builder
   // can track whether it's mid-conversation.
-  const { data: recentChat } = await sb
-    .from("chat_messages")
-    .select("role, content")
-    .eq("user_id", sigapUser.id)
-    .is("agent_id", null)
-    .in("role", ["user", "assistant"])
-    .order("created_at", { ascending: false })
-    .limit(8);
-  const historyForBuilder = ((recentChat ?? []).reverse()) as Array<{
-    role: "user" | "assistant";
-    content: string;
-  }>;
-
-  const deleteMsg = await tryInterceptAgentDelete(sigapUser.id, cleanText);
-  if (deleteMsg) {
-    await sb.from("chat_messages").insert([
-      { user_id: sigapUser.id, role: "user", content: cleanText },
-      { user_id: sigapUser.id, role: "assistant", content: deleteMsg },
-    ]);
-    await postSlack(connector.access_token, channel, deleteMsg);
-    return;
-  }
-
-  const editMsg = await tryInterceptAgentEdit(sigapUser.id, cleanText);
-  if (editMsg) {
-    await sb.from("chat_messages").insert([
-      { user_id: sigapUser.id, role: "user", content: cleanText },
-      { user_id: sigapUser.id, role: "assistant", content: editMsg },
-    ]);
-    await postSlack(connector.access_token, channel, editMsg);
-    return;
-  }
-
-  const agentMsg = await tryInterceptAgentCreate(
-    sigapUser.id,
-    cleanText,
-    historyForBuilder,
-  );
-  if (agentMsg) {
-    await sb.from("chat_messages").insert([
-      { user_id: sigapUser.id, role: "user", content: cleanText },
-      { user_id: sigapUser.id, role: "assistant", content: agentMsg },
-    ]);
-    await postSlack(connector.access_token, channel, agentMsg);
-    return;
-  }
+  // Agent create/edit/delete are now LLM tools (create_ai_employee /
+  // edit_ai_employee / delete_agent) — see chat route for rationale. The
+  // main LLM below handles any phrasing naturally via those tools.
 
   const summaryMsg = await tryInterceptMeetingSummary(sigapUser.id, cleanText);
   if (summaryMsg) {
@@ -261,7 +217,7 @@ async function processSlackMessage(args: {
   }
 
   try {
-    const groq = getGroq(settings?.groq_key ?? undefined);
+    const llm = await getLLMForUser(sigapUser.id);
     const tools = await buildToolsForUser(sigapUser.id);
 
     const { data: prior } = await sb
@@ -277,7 +233,7 @@ async function processSlackMessage(args: {
     }[];
 
     const result = await generateText({
-      model: groq(DEFAULT_MODEL),
+      model: llm.model,
       system: `You are Sigap, replying inside Slack. Keep replies under 400 chars when possible. ALWAYS call tools for real Google/notes/team data. Default timezone: Asia/Jakarta. Reply in same language the user wrote. When generate_image returns a URL, put the URL on its own line with no surrounding markdown so Slack auto-unfurls it into a preview.`,
       messages: [...history, { role: "user", content: cleanText }],
       tools,
@@ -294,8 +250,8 @@ async function processSlackMessage(args: {
         sigapUser.id,
         tokensIn,
         tokensOut,
-        estimateCost(tokensIn, tokensOut),
-        DEFAULT_MODEL,
+        estimateCost(llm.provider, tokensIn, tokensOut),
+        llm.modelId,
       );
     }
 

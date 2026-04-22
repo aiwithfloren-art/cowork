@@ -1,8 +1,9 @@
 import { generateText, stepCountIs } from "ai";
-import { getGroq, DEFAULT_MODEL } from "@/lib/llm/client";
+import { getLLMForUser } from "@/lib/llm/providers";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
+import { loadPrimaryOrgContext, renderOrgContextBlock } from "@/lib/org-context";
 
 export type RunResult =
   | { ok: true; digestId: string; summary: string }
@@ -67,7 +68,11 @@ export async function runAgent(agentId: string): Promise<RunResult> {
       ? (agent.objectives as string[]).map((o) => `- ${o}`).join("\n")
       : "- (no standing objectives — infer reasonable daily check-ins from the role)";
 
-  const runnerSystem = `${agent.system_prompt}
+  const orgContextBlock = renderOrgContextBlock(
+    await loadPrimaryOrgContext(agent.user_id),
+  );
+
+  const runnerSystem = `${agent.system_prompt}${orgContextBlock}
 
 ## Autonomous digest run
 
@@ -89,8 +94,9 @@ ${context}`;
 
   let text = "";
   try {
+    const llm = await getLLMForUser(agent.user_id);
     const result = await generateText({
-      model: getGroq()(DEFAULT_MODEL),
+      model: llm.model,
       system: runnerSystem,
       messages: [
         {

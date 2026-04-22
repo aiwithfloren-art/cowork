@@ -92,8 +92,57 @@ create table if not exists public.organizations (
   name text not null,
   slug text unique not null,
   owner_id uuid references public.users(id) on delete set null,
+  description text,
+  brand_tone text,
+  websites text[] default '{}'::text[],
   created_at timestamptz default now()
 );
+
+alter table public.organizations add column if not exists description text;
+alter table public.organizations add column if not exists brand_tone text;
+alter table public.organizations add column if not exists websites text[] default '{}'::text[];
+alter table public.organizations add column if not exists llm_provider text default 'groq';
+alter table public.organizations add column if not exists llm_model text;
+alter table public.organizations add column if not exists llm_api_key text;
+alter table public.organizations add column if not exists daily_quota_per_member int;
+alter table public.organizations add column if not exists allowed_tools text[] default '{}'::text[];
+alter table public.organizations add column if not exists tier text default 'solo';
+
+-- ============ SKILL HUB (Enterprise) ============
+create table if not exists public.org_agent_templates (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid references public.organizations(id) on delete cascade not null,
+  published_by uuid references public.users(id) on delete set null,
+  source_slug text,
+  name text not null,
+  emoji text,
+  description text,
+  system_prompt text not null,
+  enabled_tools text[] not null default '{}'::text[],
+  objectives text[] default '{}'::text[],
+  install_count int default 0,
+  published_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create index if not exists org_agent_templates_org_idx on public.org_agent_templates(org_id);
+alter table public.org_agent_templates add column if not exists share_token text unique;
+alter table public.org_agent_templates add column if not exists visibility text default 'all';
+alter table public.org_agent_templates add column if not exists auto_deploy boolean default false;
+alter table public.org_agent_templates add column if not exists allowed_tools text[] default '{}'::text[];
+
+-- ============ ENTERPRISE LEADS (inbound contact form) ============
+create table if not exists public.enterprise_leads (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  email text not null,
+  company_website text,
+  use_case text,
+  team_size text,
+  deployment_preference text,
+  created_at timestamptz default now(),
+  status text default 'new'
+);
+create index if not exists enterprise_leads_created_at_idx on public.enterprise_leads(created_at desc);
 
 create table if not exists public.org_members (
   org_id uuid references public.organizations(id) on delete cascade,

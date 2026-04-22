@@ -13,22 +13,31 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const userId = (session.user as { id?: string }).id;
 
   let agentCount = 0;
+  let artifactCount = 0;
   if (userId) {
     const sb = supabaseAdmin();
-    const { count } = await sb
-      .from("custom_agents")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-    agentCount = count ?? 0;
+    const [{ count: ac }, { count: arc }] = await Promise.all([
+      sb
+        .from("custom_agents")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId),
+      sb
+        .from("artifacts")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .neq("status", "archived"),
+    ]);
+    agentCount = ac ?? 0;
+    artifactCount = arc ?? 0;
   }
 
+  // 5 primary nav items — Notes/History/Audit accessible via Settings tabs
+  // or direct URLs, but not cluttering the header.
   const navItems = [
-    { href: "/dashboard", label: dict.nav.dashboard },
-    { href: "/agents", label: "Agents", badge: agentCount },
+    { href: "/dashboard", label: "Home" },
+    { href: "/agents", label: "AI Employees", badge: agentCount },
+    { href: "/artifacts", label: "Artifacts", badge: artifactCount },
     { href: "/team", label: dict.nav.team },
-    { href: "/notes", label: dict.nav.notes },
-    { href: "/history", label: dict.nav.history },
-    { href: "/audit", label: dict.nav.audit },
     { href: "/settings", label: dict.nav.settings },
   ];
 

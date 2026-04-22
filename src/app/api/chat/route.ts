@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { generateText, stepCountIs } from "ai";
-import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
+import { getLLMForUser, estimateCost } from "@/lib/llm/providers";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -12,7 +12,8 @@ export const maxDuration = 60;
 
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
-import { tryInterceptAgentCreate, tryInterceptAgentEdit, tryInterceptAgentDelete } from "@/lib/llm/agent-intercept";
+import { tryInterceptCompanyContext } from "@/lib/llm/company-context-intercept";
+import { loadPrimaryOrgContext, renderOrgContextBlock } from "@/lib/org-context";
 
 const SYSTEM_PROMPT = `You are Sigap, a personal AI Chief of Staff.
 
@@ -43,6 +44,8 @@ Correct behavior:
 
 3. You have access to the user's Google Calendar, Google Tasks, Gmail, Drive files, notes, and team data — you MUST call tools to get real data or cause real side effects. Never make up results.
 
+4. **If you're missing context to do a task WELL, ASK before generating.** Examples: user asks for a PPT / proposal / pitch deck / landing page / marketing copy / caption / email to a client, and you don't know who the company is, their brand tone, or their target customer. Don't invent a generic brand voice. Ask 1-3 short clarifying questions, then do the task. The same rule applies to any other task where a missing piece of user-specific context would make the output generic — ask for the missing piece, THEN do the task. (Note: a separate system handles saving company-level context to the user's org profile when it's genuinely shared across sessions — see the "About the user's company" block if present. Don't re-ask for anything already there.)
+
 ## When to call which tool
 
 - Schedule / meetings today → call get_today_schedule
@@ -68,6 +71,12 @@ Correct behavior:
 - User asks to **edit/update** task → call update_task
 - User asks to **delete/remove** task → call delete_task
 - User asks to **bikin gambar / buatin ilustrasi / generate image / create image** → call generate_image. After it returns a url, embed it in your reply as a markdown image: ![caption](that_url) — the chat UI will render it with a Download button. Keep your surrounding text short (one line before the image is enough).
+- User asks to **bikin / buatkan / create / make / need / mau / butuh AI employee / agent / agen / asisten / assistant** (ANY phrasing, ANY typo, Indonesian suffixes like "buatkan"/"bikinin"/"bantuin", English plurals like "agents"/"employees", mixed language like "bikin 1 ai employees") → call **create_ai_employee**. NEVER refuse with "saya tidak punya kemampuan" — this tool IS the capability. If the user packed role + tasks + tone + name into one message, call it immediately with all args. If anything is unclear, ask ONE short clarifying question first, then call. Pick enabled_tools based on the agent's role (e.g. Content Drafter gets generate_carousel_html + web_search; Sales gets send_email + list_team_members).
+- User asks to **edit / ubah / update / ganti / rename / tambahin tool ke** existing agent → call **edit_ai_employee** with target (name/slug) + only the fields being changed.
+- User asks to **hapus / buang / delete / remove / fire** an agent → call **delete_agent** with target (name/slug, fuzzy match).
+- User asks to **bikin carousel / PPT post / slide IG / slide LinkedIn / thread visual / carousel Instagram** → call **generate_carousel_html**. NEVER refuse with "I can't render images" — this tool produces real PNG images server-side. Generate 3-7 slides with hook → body → CTA structure, pick a palette (indigo / emerald / amber / rose / slate) and aspect_ratio (1:1 / 4:5 / 9:16). Tool returns \`png_urls\` array. Reply format: 1 short intro line + each slide as a markdown image \`![Slide 1](png_url_1)\`, one per line. Chat UI auto-renders with a Download button beside each PNG. No "open in new tab" needed — PNGs are ready-to-post.
+- User asks to **bikin Google Doc / save as Google Doc / masukkan ke Google Docs / create a Google Doc** → call **create_google_doc** with title + full content_markdown. Tool returns url. In your reply, link to it with \`[📄 title](url)\`. If user also asked to email the link, call send_email AFTER with the URL embedded. NEVER claim "Doc created" without actually calling this tool — if the tool errors, include the exact error in your reply and suggest re-authorizing Google.
+- User asks to **draft a post / caption / email / proposal / content piece** (any language: "buatin post IG", "draftin email ke klien", "bikin caption", "tulisin proposal untuk X", "bikin copy buat landing page") → call **create_artifact** with the full drafted body. The artifact lives at its own URL with Copy/Edit/Delete buttons — MUCH better UX than dumping long text in chat. In your chat reply, keep it SHORT (1-2 sentences) and link to the artifact: \`[📄 title](/artifacts/id)\`. Never paste the body_markdown in chat if you've already saved it as an artifact — that's duplication.
 
 ## Multi-step / chained workflows
 
@@ -100,6 +109,7 @@ When chaining tools, do all the calls THEN write a single coherent response that
 5. When the user asks "what should I focus on?", call get_today_schedule AND list_tasks first, then prioritize based on real data.
 6. Default timezone for creating events: Asia/Jakarta (+07:00).
 7. Reply in the same language the user wrote in (Indonesian → Indonesian, English → English).
+8. **NO HEDGING after you did the work.** If you called web_search and got a concrete answer (email, URL, phone, address), state it as fact. Do NOT add "please verify via official website", "pastikan double-check", "disarankan konfirmasi ulang", or similar disclaimers. You are a Chief of Staff, not a legal review — if you already fetched the data, trust it. Only add a verification note when search results are genuinely conflicting across sources, AND in that case cite the conflict specifically (e.g. "source A said X, source B said Y — worth confirming which is current"). If you feel uncertain, call web_search AGAIN with a different query; don't push the verification work back to the user. Same rule for read_connected_file, read_email, list_team_members — trust tool output, don't tell the user to "cek ulang" what you just fetched.
 
 ## Silent memory capture (IMPORTANT)
 
@@ -190,8 +200,7 @@ export async function POST(req: Request) {
   }
 
   const lastUser = body.messages[body.messages.length - 1];
-  const groq = getGroq(settings?.groq_key ?? undefined);
-  const model = DEFAULT_MODEL;
+  const llm = await getLLMForUser(userId);
   const allTools = await buildToolsForUser(userId);
 
   // If caller is chatting with a specific custom agent, narrow the tool
@@ -218,11 +227,40 @@ export async function POST(req: Request) {
     agentRecord = data;
   }
 
+  // Per-employee tool restriction — if there's an org template matching this
+  // agent's name with allowed_tools set, those override agent.enabled_tools
+  // as an admin-policy-level cap. Empty allowed_tools = no restriction from
+  // the template layer (fall through to agent's own enabled_tools).
+  let templateAllowedTools: string[] = [];
+  if (agentRecord) {
+    const { data: member } = await sb
+      .from("org_members")
+      .select("org_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+    if (member?.org_id) {
+      const { data: tmpl } = await sb
+        .from("org_agent_templates")
+        .select("allowed_tools")
+        .eq("org_id", member.org_id)
+        .eq("name", agentRecord.name)
+        .maybeSingle();
+      templateAllowedTools =
+        ((tmpl?.allowed_tools as string[] | null) ?? []).slice();
+    }
+  }
+
   const tools = agentRecord
     ? Object.fromEntries(
-        Object.entries(allTools).filter(([k]) =>
-          agentRecord!.enabled_tools.includes(k),
-        ),
+        Object.entries(allTools).filter(([k]) => {
+          if (!agentRecord!.enabled_tools.includes(k)) return false;
+          // If template has a whitelist, intersect with it.
+          if (templateAllowedTools.length > 0) {
+            return templateAllowedTools.includes(k);
+          }
+          return true;
+        }),
       )
     : allTools;
 
@@ -259,118 +297,95 @@ export async function POST(req: Request) {
     }
   }
 
-  const systemWithTime = `${baseSystem}${agentsContext}
+  const orgContextBlock = renderOrgContextBlock(
+    await loadPrimaryOrgContext(userId),
+  );
+
+  const systemWithTime = `${baseSystem}${agentsContext}${orgContextBlock}
 
 ## Current date & time
 Right now it is ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
 
 When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomorrow 3pm"), resolve it relative to THIS moment. If no date is mentioned, assume today in Asia/Jakarta. Always pass ISO datetimes with the +07:00 offset to calendar tools. Never guess a year — use the current year shown above.`;
 
-  // Hard bypass: Kimi K2 fabricates responses for delegation prompts.
-  // Intercept the pattern and execute the tool logic directly.
-  // Intercepts only run for main Sigap chat — inside a sub-agent thread
-  // we stay focused on that agent's job and never spawn new agents or
-  // meeting bots mid-conversation.
-  const deleteReply = !agentRecord
-    ? await tryInterceptAgentDelete(userId, lastUser.content)
-    : null;
-  if (deleteReply) {
+  // Intercepts only run for main Sigap chat — inside a sub-agent thread we
+  // stay focused on that agent's job and never spawn new agents or meeting
+  // bots mid-conversation. Each intercept is wrapped so a throw inside one
+  // pattern (bad regex, LLM error, DB hiccup) falls through to the main LLM
+  // instead of 500-ing the whole request.
+  const history = body.messages.slice(0, -1) as Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
+
+  async function runIntercept(
+    name: string,
+    fn: () => Promise<string | null>,
+  ): Promise<string | null> {
+    if (agentRecord) return null;
+    const t0 = Date.now();
+    try {
+      const reply = await fn();
+      const ms = Date.now() - t0;
+      if (ms > 5000) {
+        console.warn(`[chat] intercept '${name}' took ${ms}ms`);
+      }
+      return reply;
+    } catch (e) {
+      console.error(
+        `[chat] intercept '${name}' threw (falling through to main LLM):`,
+        e instanceof Error ? `${e.message}\n${e.stack}` : e,
+      );
+      return null;
+    }
+  }
+
+  async function respondIntercepted(reply: string) {
     const sb2 = supabaseAdmin();
     await sb2.from("chat_messages").insert([
       { user_id: userId, role: "user", content: lastUser.content, agent_id: null },
-      { user_id: userId, role: "assistant", content: deleteReply, agent_id: null },
+      { user_id: userId, role: "assistant", content: reply, agent_id: null },
     ]);
-    return new Response(deleteReply, {
+    return new Response(reply, {
       status: 200,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   }
 
-  const editReply = !agentRecord
-    ? await tryInterceptAgentEdit(userId, lastUser.content)
-    : null;
-  if (editReply) {
-    const sb2 = supabaseAdmin();
-    await sb2.from("chat_messages").insert([
-      { user_id: userId, role: "user", content: lastUser.content, agent_id: null },
-      { user_id: userId, role: "assistant", content: editReply, agent_id: null },
-    ]);
-    return new Response(editReply, {
-      status: 200,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
-  }
+  // Agent create/edit/delete used to be regex intercepts that bypassed the
+  // LLM entirely. Problem: regex couldn't parse Indonesian suffixes
+  // ("buatkan"), English plurals ("employees"), typos, or any phrasing the
+  // author didn't list in the pattern. We now expose them as real LLM tools
+  // (create_ai_employee / edit_ai_employee / delete_agent) so the main
+  // model handles the natural-language understanding — any phrasing works.
+  // See commit history for the old implementations.
 
-  const agentReply = !agentRecord
-    ? await tryInterceptAgentCreate(
-        userId,
-        lastUser.content,
-        body.messages.slice(0, -1) as Array<{
-          role: "user" | "assistant";
-          content: string;
-        }>,
-      )
-    : null;
-  if (agentReply) {
-    const sb2 = supabaseAdmin();
-    await sb2.from("chat_messages").insert([
-      { user_id: userId, role: "user", content: lastUser.content, agent_id: null },
-      { user_id: userId, role: "assistant", content: agentReply, agent_id: null },
-    ]);
-    return new Response(agentReply, {
-      status: 200,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
-  }
+  const summaryReply = await runIntercept("meeting-summary", () =>
+    tryInterceptMeetingSummary(userId, lastUser.content),
+  );
+  if (summaryReply) return respondIntercepted(summaryReply);
 
-  const summaryReply = !agentRecord
-    ? await tryInterceptMeetingSummary(userId, lastUser.content)
-    : null;
-  if (summaryReply) {
-    const sb2 = supabaseAdmin();
-    await sb2.from("chat_messages").insert([
-      { user_id: userId, role: "user", content: lastUser.content },
-      { user_id: userId, role: "assistant", content: summaryReply },
-    ]);
-    return new Response(summaryReply, {
-      status: 200,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
-  }
+  const meetingReply = await runIntercept("meeting-record", () =>
+    tryInterceptMeetingRecord(userId, lastUser.content),
+  );
+  if (meetingReply) return respondIntercepted(meetingReply);
 
-  const meetingReply = !agentRecord
-    ? await tryInterceptMeetingRecord(userId, lastUser.content)
-    : null;
-  if (meetingReply) {
-    const sb2 = supabaseAdmin();
-    await sb2.from("chat_messages").insert([
-      { user_id: userId, role: "user", content: lastUser.content },
-      { user_id: userId, role: "assistant", content: meetingReply },
-    ]);
-    return new Response(meetingReply, {
-      status: 200,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
-  }
+  const delegationReply = await runIntercept("delegation", () =>
+    tryInterceptDelegation(userId, lastUser.content),
+  );
+  if (delegationReply) return respondIntercepted(delegationReply);
 
-  const delegationReply = !agentRecord
-    ? await tryInterceptDelegation(userId, lastUser.content)
-    : null;
-  if (delegationReply) {
-    const sb2 = supabaseAdmin();
-    await sb2.from("chat_messages").insert([
-      { user_id: userId, role: "user", content: lastUser.content },
-      { user_id: userId, role: "assistant", content: delegationReply },
-    ]);
-    return new Response(delegationReply, {
-      status: 200,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
-  }
+  // Just-in-time Company Context setup. Fires when the user asks for a
+  // brand-sensitive deliverable (PPT, proposal, pitch, client email, etc.)
+  // and the org profile is thin — or mid-flow while we're still Q&A-ing.
+  const contextReply = await runIntercept("company-context", () =>
+    tryInterceptCompanyContext(userId, lastUser.content, history),
+  );
+  if (contextReply) return respondIntercepted(contextReply);
 
   try {
     const result = await generateText({
-      model: groq(model),
+      model: llm.model,
       system: systemWithTime,
       messages: body.messages,
       tools,
@@ -412,10 +427,10 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
 
     const tokensIn = result.usage?.inputTokens ?? 0;
     const tokensOut = result.usage?.outputTokens ?? 0;
-    const cost = estimateCost(tokensIn, tokensOut);
+    const cost = estimateCost(llm.provider, tokensIn, tokensOut);
 
     if (!userHasOwnKey) {
-      await logUsage(userId, tokensIn, tokensOut, cost, model);
+      await logUsage(userId, tokensIn, tokensOut, cost, llm.modelId);
     }
 
     await sb.from("chat_messages").insert([
@@ -456,8 +471,15 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch (e) {
-    console.error("chat error:", e);
     const message = e instanceof Error ? e.message : "LLM request failed";
+    const stack = e instanceof Error ? e.stack : undefined;
+    console.error("[chat] main LLM flow error:", {
+      message,
+      stack,
+      userId,
+      lastUserMsg: lastUser.content.slice(0, 200),
+      agentSlug: agentRecord?.name ?? null,
+    });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

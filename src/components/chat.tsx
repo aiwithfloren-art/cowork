@@ -5,8 +5,27 @@ import { useRouter } from "next/navigation";
 import { Markdown } from "./markdown";
 import type { Dict } from "@/lib/i18n/dictionaries";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+  // Set on assistant messages when the chat was routed to a specific
+  // AI employee via @mention, so we can label the bubble.
+  agent?: { slug: string; name: string; emoji: string };
+};
 type T = Dict["chat"];
+type MyAgent = { slug: string; name: string; emoji: string; description: string };
+
+// Parses "@amore rest of message" → { slug: "amore", rest: "rest of message" }.
+// Slug matches agent slugs we allow: lowercase alnum + dash. Returns null if
+// the message doesn't start with a valid @mention.
+function parseMention(text: string): { slug: string; rest: string } | null {
+  const trimmed = text.trimStart();
+  // Match `@slug <rest>` — slug is lowercase alnum + dash, rest is anything
+  // up to end of string (including newlines, via [\s\S]).
+  const m = trimmed.match(/^@([a-z0-9][a-z0-9-]{0,50})\s+([\s\S]+)$/i);
+  if (!m) return null;
+  return { slug: m[1].toLowerCase(), rest: m[2].trim() };
+}
 
 // Keywords in the user's message that suggest the AI will mutate
 // calendar/tasks state — when the response finishes we trigger a
@@ -54,6 +73,9 @@ export function Chat({
   const [error, setError] = useState<string | null>(null);
   const [rateLimitResetAt, setRateLimitResetAt] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [myAgents, setMyAgents] = useState<MyAgent[]>([]);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -88,6 +110,53 @@ export function Chat({
       }
     } catch {}
   }, [agentSlug]);
+
+  // Load user's activated AI employees for @mention autocomplete + send-
+  // time routing. Scoped to main chat only — inside a sub-agent thread we
+  // stay focused on that agent and don't do cross-routing.
+  useEffect(() => {
+    if (agentSlug) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/agents/mine");
+        if (!res.ok) return;
+        const data = (await res.json()) as { agents?: MyAgent[] };
+        if (Array.isArray(data.agents)) setMyAgents(data.agents);
+      } catch {}
+    })();
+  }, [agentSlug]);
+
+  // Track @mention in progress — detect "@partial" as last token while user
+  // types, show dropdown with matching activated agents.
+  function handleInputChange(value: string) {
+    setInput(value);
+    if (agentSlug) return; // @mention UX disabled inside sub-agent threads
+    const m = value.match(/(?:^|\s)@([a-z0-9-]*)$/i);
+    if (m) {
+      setMentionQuery(m[1].toLowerCase());
+      setMentionOpen(true);
+    } else {
+      setMentionOpen(false);
+    }
+  }
+
+  function selectMention(slug: string) {
+    // Replace the in-progress "@partial" with "@slug " at the end.
+    const updated = input.replace(/(?:^|\s)@([a-z0-9-]*)$/i, (match) => {
+      const hasLeadingSpace = match.startsWith(" ");
+      return `${hasLeadingSpace ? " " : ""}@${slug} `;
+    });
+    setInput(updated);
+    setMentionOpen(false);
+    setTimeout(() => inputRef.current?.focus(), 10);
+  }
+
+  const filteredMentions = myAgents
+    .filter((a) =>
+      a.slug.startsWith(mentionQuery) ||
+      a.name.toLowerCase().includes(mentionQuery),
+    )
+    .slice(0, 6);
 
   // Load prior session messages — explicit resumeId from /history, or on
   // fresh dashboard mount, the latest session (so navigating away and back
@@ -176,9 +245,42 @@ export function Chat({
   async function send(text: string) {
     if (!text.trim() || loading) return;
     setError(null);
+
+    // @mention routing — if main chat user starts with @<slug>, route to
+    // that AI employee's chat endpoint instead of main Sigap. We keep the
+    // full original text (with @mention) in the displayed bubble so the
+    // user sees what they typed, but strip the mention before sending to
+    // the agent so its system prompt doesn't get confused by the prefix.
+    let routedAgentSlug = agentSlug;
+    let routedAgent: Msg["agent"] | undefined;
+    let serverText = text;
+    if (!agentSlug) {
+      const parsed = parseMention(text);
+      if (parsed) {
+        const match = myAgents.find((a) => a.slug === parsed.slug);
+        if (match) {
+          routedAgentSlug = match.slug;
+          routedAgent = {
+            slug: match.slug,
+            name: match.name,
+            emoji: match.emoji,
+          };
+          serverText = parsed.rest;
+        }
+      }
+    }
+
     const newMessages: Msg[] = [...messages, { role: "user", content: text }];
-    setMessages([...newMessages, { role: "assistant", content: "" }]);
+    const serverMessages: Msg[] = [
+      ...messages,
+      { role: "user", content: serverText },
+    ];
+    setMessages([
+      ...newMessages,
+      { role: "assistant", content: "", agent: routedAgent },
+    ]);
     setInput("");
+    setMentionOpen(false);
     setLoading(true);
 
     try {
@@ -186,14 +288,35 @@ export function Chat({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: newMessages,
-          ...(agentSlug ? { agent_slug: agentSlug } : {}),
+          messages: serverMessages,
+          ...(routedAgentSlug ? { agent_slug: routedAgentSlug } : {}),
         }),
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Request failed" }));
-        setError(err.error || "Something went wrong");
+        // Try JSON first (our own error shape), fall back to text preview so
+        // a Vercel 504 HTML page or bare stack trace still surfaces useful
+        // info instead of a generic "Request failed".
+        const raw = await res.text().catch(() => "");
+        let err: { error?: string; resetsAt?: string | null } = {};
+        try {
+          err = raw ? JSON.parse(raw) : {};
+        } catch {
+          const preview = raw
+            .replace(/<[^>]+>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 200);
+          err = {
+            error: `${res.status} ${res.statusText}${preview ? ` — ${preview}` : ""}`,
+          };
+        }
+        console.error("[chat] request failed", {
+          status: res.status,
+          statusText: res.statusText,
+          body: raw.slice(0, 500),
+        });
+        setError(err.error || `Request failed (${res.status})`);
         if (err.resetsAt) setRateLimitResetAt(err.resetsAt);
         setMessages(newMessages);
         setLoading(false);
@@ -318,22 +441,33 @@ export function Chat({
             const isLast = i === messages.length - 1;
             const isStreaming = loading && isLast && m.role === "assistant";
             return (
-              <div
-                key={i}
-                className={
-                  m.role === "user"
-                    ? "ml-6 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white whitespace-pre-wrap"
-                    : "mr-6 rounded-lg bg-slate-100 px-3 py-2 text-slate-900"
-                }
-              >
-                {m.role === "assistant" && m.content ? (
-                  <Markdown>{m.content}</Markdown>
-                ) : (
-                  m.content || (isStreaming ? "…" : "")
+              <div key={i} className="space-y-1">
+                {m.role === "assistant" && m.agent && (
+                  <p className="ml-1 text-[11px] font-medium text-indigo-700">
+                    {m.agent.emoji} @{m.agent.slug}{" "}
+                    <span className="font-normal text-slate-500">
+                      · {m.agent.name}
+                    </span>
+                  </p>
                 )}
-                {isStreaming && m.content && (
-                  <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-slate-400 align-middle" />
-                )}
+                <div
+                  className={
+                    m.role === "user"
+                      ? "ml-6 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white whitespace-pre-wrap"
+                      : m.agent
+                        ? "mr-6 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-slate-900"
+                        : "mr-6 rounded-lg bg-slate-100 px-3 py-2 text-slate-900"
+                  }
+                >
+                  {m.role === "assistant" && m.content ? (
+                    <Markdown>{m.content}</Markdown>
+                  ) : (
+                    m.content || (isStreaming ? "…" : "")
+                  )}
+                  {isStreaming && m.content && (
+                    <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-slate-400 align-middle" />
+                  )}
+                </div>
               </div>
             );
           })}
@@ -361,17 +495,54 @@ export function Chat({
         }}
         className="border-t border-slate-200 p-3 bg-white"
       >
-        <div className="flex items-end gap-2">
+        <div className="relative flex items-end gap-2">
+          {mentionOpen && filteredMentions.length > 0 && (
+            <div className="absolute bottom-full left-0 right-14 mb-2 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+              <p className="border-b border-slate-100 px-3 py-2 text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                Your AI employees — pick one to @mention
+              </p>
+              {filteredMentions.map((a) => (
+                <button
+                  key={a.slug}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    selectMention(a.slug);
+                  }}
+                  className="flex w-full items-center gap-3 border-b border-slate-50 px-3 py-2 text-left text-sm hover:bg-indigo-50"
+                >
+                  <span className="text-lg">{a.emoji}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-slate-900">
+                      @{a.slug}{" "}
+                      <span className="text-xs font-normal text-slate-500">
+                        {a.name}
+                      </span>
+                    </p>
+                    {a.description && (
+                      <p className="truncate text-xs text-slate-500">
+                        {a.description}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => {
-              setInput(e.target.value);
+              handleInputChange(e.target.value);
               const el = e.currentTarget;
               el.style.height = "auto";
               el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
             }}
             onKeyDown={(e) => {
+              if (e.key === "Escape" && mentionOpen) {
+                setMentionOpen(false);
+                return;
+              }
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 send(input);

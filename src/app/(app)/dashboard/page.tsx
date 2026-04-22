@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getTodayEvents, getWeekEvents } from "@/lib/google/calendar";
 import { listTasks } from "@/lib/google/tasks";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -63,6 +64,36 @@ export default async function DashboardPage({
     .eq("user_id", userId)
     .eq("status", "pending");
   const pendingDigestCount = pendingDigestCountRaw ?? 0;
+
+  // Widget counts — these drive the 4-card quick-access grid at top
+  const { count: employeeCount } = await sb
+    .from("custom_agents")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  const primaryOrgId = await (async () => {
+    const { data } = await sb
+      .from("org_members")
+      .select("org_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+    return (data?.org_id as string | null) ?? null;
+  })();
+
+  const { count: skillCount } = primaryOrgId
+    ? await sb
+        .from("org_agent_templates")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", primaryOrgId)
+    : { count: 0 };
+
+  const { count: memberCount } = primaryOrgId
+    ? await sb
+        .from("org_members")
+        .select("user_id", { count: "exact", head: true })
+        .eq("org_id", primaryOrgId)
+    : { count: 0 };
 
   const { data: myMemberships } = await sb
     .from("org_members")
@@ -135,6 +166,43 @@ export default async function DashboardPage({
           {t.googleError}
         </div>
       )}
+
+      {/* Quick-access widget grid — OpenWork-style home. Links to the main
+          surfaces so users don't have to hunt through the nav. */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <WidgetCard
+          emoji="👥"
+          label="AI Employees"
+          count={employeeCount ?? 0}
+          hint="Active in your workspace"
+          href="/agents"
+          accent="indigo"
+        />
+        <WidgetCard
+          emoji="📚"
+          label="Skill Hub"
+          count={skillCount ?? 0}
+          hint="Published by your team"
+          href="/team/skills"
+          accent="emerald"
+        />
+        <WidgetCard
+          emoji="👤"
+          label="Team"
+          count={memberCount ?? 0}
+          hint="Members in workspace"
+          href="/team"
+          accent="amber"
+        />
+        <WidgetCard
+          emoji="⚙️"
+          label="Settings"
+          count={null}
+          hint={isManager ? "Admin & policy" : "Your preferences"}
+          href={isManager ? "/team/admin" : "/settings"}
+          accent="slate"
+        />
+      </div>
 
       <DashboardInsights
         pills={[
@@ -257,4 +325,42 @@ function getGreeting(t: {
 function pluralEvents(n: number, locale: string): string {
   if (locale === "id") return n === 0 ? "jadwal" : "jadwal";
   return n === 1 ? "event" : "events";
+}
+
+function WidgetCard({
+  emoji,
+  label,
+  count,
+  hint,
+  href,
+  accent,
+}: {
+  emoji: string;
+  label: string;
+  count: number | null;
+  hint: string;
+  href: string;
+  accent: "indigo" | "emerald" | "amber" | "slate";
+}) {
+  const accentMap: Record<typeof accent, string> = {
+    indigo: "border-indigo-200 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100",
+    emerald: "border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100",
+    amber: "border-amber-200 bg-amber-50 hover:border-amber-300 hover:bg-amber-100",
+    slate: "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100",
+  };
+  return (
+    <Link
+      href={href}
+      className={`flex flex-col rounded-xl border p-4 transition ${accentMap[accent]}`}
+    >
+      <span className="text-2xl">{emoji}</span>
+      <p className="mt-2 text-sm font-semibold text-slate-900">{label}</p>
+      {count !== null && (
+        <p className="mt-0.5 text-xs font-medium text-slate-700">
+          {count} {count === 1 ? "item" : "items"}
+        </p>
+      )}
+      <p className="mt-0.5 text-[11px] text-slate-500">{hint}</p>
+    </Link>
+  );
 }

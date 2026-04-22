@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { generateText, stepCountIs } from "ai";
-import { getGroq, DEFAULT_MODEL } from "./client";
+import { getLLMForUser } from "./providers";
 import { buildToolsForUser } from "./build-tools";
 import { stripReasoningFromMessages } from "./strip-reasoning";
 
@@ -149,10 +149,10 @@ export async function tryInterceptMeetingSummary(
       .update({ status: "done", transcript: plain.slice(0, 50000) })
       .eq("bot_id", latest.bot_id);
 
-    const groq = getGroq();
+    const llm = await getLLMForUser(userId);
     const tools = await buildToolsForUser(userId);
     const result = await generateText({
-      model: groq(DEFAULT_MODEL),
+      model: llm.model,
       system: `You are Sigap. You just received a meeting transcript. Your job:
 1) Write a concise summary in the user's language (2-4 bullet points: key decisions, topics, mood).
 2) Extract action items and CALL tools for each:

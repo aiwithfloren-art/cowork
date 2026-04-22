@@ -21,13 +21,12 @@ export default async function AgentsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Agents</h1>
+        <h1 className="text-2xl font-bold text-slate-900">AI Employees</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Sub-agents you&apos;ve built. Each one has a focused role and a
-          subset of tools. To create a new one, just tell Sigap in the main
-          chat:{" "}
+          Your activated AI employees — each one has a focused role and a
+          subset of tools. To create a new one, tell Sigap in the main chat:{" "}
           <span className="font-mono text-indigo-700">
-            &quot;bikin agent Siska buat HR…&quot;
+            &quot;bikin AI employee Siska buat HR…&quot;
           </span>
         </p>
       </div>

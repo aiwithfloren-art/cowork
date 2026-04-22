@@ -114,6 +114,58 @@ export default async function MemberPage({
 
   const overdue = tasks.filter((t) => t.due && new Date(t.due) < new Date()).length;
 
+  // Project notes + AI employee usage (14-day) — parallel, non-blocking
+  const [projectsRes, agentUsageRes] = await Promise.all([
+    sb
+      .from("notes")
+      .select("content, created_at")
+      .eq("user_id", memberId)
+      .eq("type", "project")
+      .order("created_at", { ascending: false })
+      .limit(10),
+    sb
+      .from("chat_messages")
+      .select("agent_id, created_at")
+      .eq("user_id", memberId)
+      .not("agent_id", "is", null)
+      .gte(
+        "created_at",
+        new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+      ),
+  ]);
+
+  const projects = (projectsRes.data ?? []).map((n) => {
+    const content = (n.content as string | null) ?? "";
+    const [first, ...rest] = content.split(/\r?\n/).filter(Boolean);
+    return {
+      title: (first ?? "Untitled project").slice(0, 80),
+      snippet: rest.join(" ").slice(0, 200),
+      created_at: n.created_at as string,
+    };
+  });
+
+  const usageMap = new Map<string, number>();
+  for (const row of agentUsageRes.data ?? []) {
+    const aid = row.agent_id as string | null;
+    if (!aid) continue;
+    usageMap.set(aid, (usageMap.get(aid) ?? 0) + 1);
+  }
+  const agentIds = Array.from(usageMap.keys());
+  const { data: agentsMeta } = agentIds.length
+    ? await sb
+        .from("custom_agents")
+        .select("id, name, slug, emoji")
+        .in("id", agentIds)
+    : { data: [] };
+  const aiEmployees = (agentsMeta ?? [])
+    .map((a) => ({
+      slug: a.slug as string,
+      name: a.name as string,
+      emoji: (a.emoji as string | null) ?? "🤖",
+      chats_14d: usageMap.get(a.id as string) ?? 0,
+    }))
+    .sort((a, b) => b.chats_14d - a.chats_14d);
+
   return (
     <div className="space-y-6">
       <Link
@@ -199,13 +251,85 @@ export default async function MemberPage({
         </Card>
       </div>
 
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Active projects</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {projects.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No project notes yet. Projects appear here when{" "}
+                {targetUser.name?.split(" ")[0] ?? "this member"} saves notes
+                with type=&quot;project&quot;.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {projects.map((p, i) => (
+                  <li
+                    key={i}
+                    className="rounded-md border border-slate-100 bg-slate-50 p-3"
+                  >
+                    <p className="text-sm font-medium text-slate-900">
+                      {p.title}
+                    </p>
+                    {p.snippet && (
+                      <p className="mt-1 text-xs text-slate-600">{p.snippet}</p>
+                    )}
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      Added {new Date(p.created_at).toLocaleDateString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>AI employees used (last 14 days)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {aiEmployees.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No AI employee chats in the last 14 days.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {aiEmployees.slice(0, 8).map((a) => (
+                  <li
+                    key={a.slug}
+                    className="flex items-center gap-3 text-sm"
+                  >
+                    <span className="text-xl">{a.emoji}</span>
+                    <span className="flex-1 truncate font-medium text-slate-900">
+                      @{a.slug}{" "}
+                      <span className="text-xs font-normal text-slate-500">
+                        {a.name}
+                      </span>
+                    </span>
+                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 font-mono text-[11px] text-indigo-700">
+                      {a.chats_14d} chats
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Ask AI about this member</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="mb-3 text-xs text-slate-500">
-            Every question you ask is logged and visible to the member in their audit log.
+            Try: &quot;apa project {targetUser.name?.split(" ")[0] ?? "X"}{" "}
+            pegang?&quot; · &quot;task mana yang overdue?&quot; · &quot;berapa
+            sering dia pake @amore minggu ini?&quot; · Every question is
+            logged + visible in the member&apos;s audit log.
           </p>
           <AskMember
             memberId={memberId}

@@ -3,6 +3,12 @@ import { z } from "zod";
 import crypto from "crypto";
 import { sendHtmlEmail } from "@/lib/google/gmail";
 import {
+  slugify,
+  hardenSystemPrompt,
+  checkCreateLimits,
+  ALL_TOOL_SLUGS as AGENT_ALL_TOOL_SLUGS,
+} from "./agent-intercept";
+import {
   getTodayEvents,
   getWeekEvents,
   addCalendarEvent,
@@ -19,7 +25,7 @@ import {
   deleteTask,
 } from "@/lib/google/tasks";
 import { findCommonSlots } from "@/lib/google/freebusy";
-import { readDoc } from "@/lib/google/docs";
+import { readDoc, createDoc } from "@/lib/google/docs";
 import { shareFile, type DriveRole } from "@/lib/google/drive";
 import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
@@ -871,6 +877,259 @@ export function buildTools(userId: string) {
       },
     }),
 
+    generate_carousel_html: tool({
+      description:
+        "Generate a visually polished Instagram/LinkedIn carousel as an HTML artifact. Use when the user asks for 'bikin carousel', 'PPT style post', 'bikin slide IG', 'carousel content', etc. Each slide is code-rendered (gradient background + typography + layout), NOT AI-generated photos — cheap and brand-consistent. Returns a public URL the user can open in a new tab to preview all slides side-by-side, then screenshot each one for posting. Always pass 3-7 slides. Ideal for hook/problem/solution/CTA style content, tips threads, before-after comparisons. For photo-heavy content use generate_image instead.",
+      inputSchema: z.object({
+        title: z
+          .string()
+          .describe(
+            "Short title of the carousel (used in the HTML <title> and as filename hint). Example: 'Resume Rehab Carousel'",
+          ),
+        slides: z
+          .array(
+            z.object({
+              headline: z.string().describe(
+                "Big bold text at top of the slide — the hook or punchline of this slide. Keep under 80 chars for readability.",
+              ),
+              body: z
+                .string()
+                .describe(
+                  "Supporting text — 1-3 sentences, max ~200 chars. Use \\n for line breaks.",
+                ),
+              cta: z
+                .string()
+                .nullable()
+                .optional()
+                .describe(
+                  "Optional small text at bottom (e.g. 'Swipe →', '2/5', 'acme.co.id'). Leave null for no CTA.",
+                ),
+            }),
+          )
+          .min(2)
+          .max(10)
+          .describe("Array of 2-10 slides."),
+        palette: z
+          .enum(["indigo", "emerald", "amber", "rose", "slate"])
+          .nullable()
+          .optional()
+          .describe(
+            "Color palette — pick based on vibe. 'indigo' (professional, trust), 'emerald' (growth, money), 'amber' (bold, energy), 'rose' (creative, personal), 'slate' (minimalist). Default 'indigo'.",
+          ),
+        aspect_ratio: z
+          .enum(["1:1", "4:5", "9:16"])
+          .nullable()
+          .optional()
+          .describe(
+            "Slide dimension. '1:1' = Instagram feed default, '4:5' = Instagram portrait, '9:16' = Story/Reels. Default '1:1'.",
+          ),
+      }),
+      execute: async ({ title, slides, palette, aspect_ratio }) => {
+        try {
+          const finalPalette = palette ?? "indigo";
+          const finalAspect = aspect_ratio ?? "1:1";
+
+          // Persist the slide manifest as JSON — the /api/carousel/[id]/slide/[idx]
+          // PNG endpoint reads this to render each slide on demand.
+          const manifestId = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+          const manifest = {
+            title,
+            palette: finalPalette,
+            aspect_ratio: finalAspect,
+            slides,
+          };
+          const sb = supabaseAdmin();
+          const BUCKET = "sigap-images";
+          const manifestPath = `carousel-manifests/${manifestId}.json`;
+
+          const uploadManifest = async () =>
+            sb.storage.from(BUCKET).upload(
+              manifestPath,
+              Buffer.from(JSON.stringify(manifest), "utf-8"),
+              {
+                contentType: "application/json",
+                cacheControl: "31536000",
+                upsert: false,
+              },
+            );
+          let up = await uploadManifest();
+          if (up.error && /Bucket not found/i.test(up.error.message)) {
+            await sb.storage.createBucket(BUCKET, { public: true });
+            up = await uploadManifest();
+          }
+          if (up.error) {
+            return { error: `Manifest upload failed: ${up.error.message}` };
+          }
+
+          // Build absolute PNG URLs. NEXTAUTH_URL is set in every deployment,
+          // safe fallback to localhost for dev runs.
+          const host =
+            process.env.NEXTAUTH_URL?.replace(/\/$/, "") ??
+            "http://localhost:3000";
+          const pngUrls = slides.map(
+            (_, i) => `${host}/api/carousel/${manifestId}/slide/${i}.png`,
+          );
+
+          return {
+            manifest_id: manifestId,
+            slide_count: slides.length,
+            palette: finalPalette,
+            aspect_ratio: finalAspect,
+            png_urls: pngUrls,
+            note: "Slides rendered on-demand as real PNG images via next/og. Embed each URL as a markdown image in your reply: ![Slide 1](url). The chat UI renders them with a Download button. Each PNG is cached immutable so Instagram re-uploads don't re-render.",
+          };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Carousel generation failed",
+          };
+        }
+      },
+    }),
+
+    create_artifact: tool({
+      description:
+        "Save a drafted deliverable as its own artifact with a permanent URL. ALWAYS use this instead of sending long-form drafts in chat when the user asks for: a social-media post/caption, a draft email, a proposal, any content piece they'll want to copy/edit/share later. Returns an artifact URL; in your chat reply, just link to it with a 1-line summary — do NOT paste the body again. Types: 'post' (social media content), 'email' (draft email with subject+body), 'proposal' (client pitch/scope doc), 'caption' (short caption or copy snippet), 'document' (generic long-form fallback).",
+      inputSchema: z.object({
+        type: z
+          .enum(["post", "email", "proposal", "caption", "document"])
+          .describe("Kind of deliverable — picks the rendering template."),
+        title: z
+          .string()
+          .describe(
+            "Short human-readable title. Used as filename/header. Example: 'Promo Ramadhan IG post', 'Follow-up email ke Budi'.",
+          ),
+        body_markdown: z
+          .string()
+          .describe(
+            "Full body of the deliverable in markdown. For posts: the caption text. For emails: the email body. For proposals: the full proposal text. Include line breaks and formatting as needed.",
+          ),
+        platform: z
+          .enum([
+            "instagram",
+            "linkedin",
+            "twitter",
+            "whatsapp",
+            "facebook",
+            "tiktok",
+            "email",
+          ])
+          .nullable()
+          .optional()
+          .describe(
+            "Target platform, if applicable. Helps pick preview style (e.g. IG post shows square preview, LinkedIn shows feed-style).",
+          ),
+        subject: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Email subject line. Required for type='email'."),
+        recipient: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Email recipient hint (name or email). Used in email preview header.",
+          ),
+        hashtags: z
+          .array(z.string())
+          .nullable()
+          .optional()
+          .describe(
+            "Hashtags for social posts. Pass without '#' — UI will render them.",
+          ),
+        cta: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Call-to-action text. Example: 'DM us to order', 'Link in bio', 'Reply to this email'.",
+          ),
+        client: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Client name for proposals. Shows in proposal header."),
+      }),
+      execute: async ({
+        type,
+        title,
+        body_markdown,
+        platform,
+        subject,
+        recipient,
+        hashtags,
+        cta,
+        client,
+      }) => {
+        const sb = supabaseAdmin();
+        const meta: Record<string, unknown> = {};
+        if (subject) meta.subject = subject;
+        if (recipient) meta.recipient = recipient;
+        if (hashtags && hashtags.length > 0) meta.hashtags = hashtags;
+        if (cta) meta.cta = cta;
+        if (client) meta.client = client;
+
+        const { data, error } = await sb
+          .from("artifacts")
+          .insert({
+            user_id: userId,
+            type,
+            title: title.slice(0, 200),
+            body_markdown,
+            platform: platform ?? null,
+            meta,
+          })
+          .select("id")
+          .single();
+        if (error) return { error: error.message };
+
+        const host =
+          process.env.NEXTAUTH_URL?.replace(/\/$/, "") ??
+          "http://localhost:3000";
+        const url = `${host}/artifacts/${data.id}`;
+        return {
+          artifact_id: data.id,
+          url,
+          type,
+          title,
+          note: `Artifact saved. In your chat reply, send ONLY a 1-2 sentence summary + the link [📄 ${title}](/artifacts/${data.id}). Do NOT paste the body_markdown again — the artifact page shows it. Example reply: "✅ Sudah gue draftin postnya: [📄 ${title}](/artifacts/${data.id}) — lo bisa Copy/Edit/regenerate dari sana."`,
+        };
+      },
+    }),
+
+    create_google_doc: tool({
+      description:
+        "Create a NEW Google Doc in the user's Drive with the given title and content. Use when the user says 'bikin Google Doc', 'masukkan ke Google Docs', 'save as Google Doc', 'bikin doc buat X'. Content is markdown (headings, bullets, bold, italic, links all preserved after Drive auto-converts HTML→Doc). Returns the Doc URL — you can chain with send_email to deliver the link. After calling this tool, confirm with the doc URL; do NOT claim 'doc created' without calling it.",
+      inputSchema: z.object({
+        title: z
+          .string()
+          .describe(
+            "Title of the Doc. Used as filename in Drive. Keep under 200 chars.",
+          ),
+        content_markdown: z
+          .string()
+          .describe(
+            "Full content of the doc in markdown. Supports # headings, **bold**, *italic*, bullet lists (- item), numbered lists (1. item), [links](url), inline `code`. Structure properly — don't dump one giant paragraph.",
+          ),
+      }),
+      execute: async ({ title, content_markdown }) => {
+        try {
+          const { id, url } = await createDoc(userId, title, content_markdown);
+          return {
+            ok: true,
+            doc_id: id,
+            url,
+            title,
+            note: `Google Doc created. In your reply, link the doc directly: "[📄 ${title}](${url})". If the user asked for the link to be emailed, call send_email NEXT with the doc URL.`,
+          };
+        } catch (e) {
+          return {
+            error: `Gagal bikin Google Doc: ${e instanceof Error ? e.message : "unknown"}. User mungkin perlu re-authorize Google OAuth kalau token-nya expired.`,
+          };
+        }
+      },
+    }),
+
     save_note: tool({
       description:
         "Save a typed memory. Types: 'user' (who the user is), 'feedback' (how to work with them), 'project' (current work/deals/metrics/people), 'reference' (external pointers), 'general' (fallback). Visibility: 'private' (default, only the user), 'team' (whole organization can read — use for shared knowledge like pricing, OKRs, client info that the whole team needs). Only use 'team' when the user is in an org AND the info is clearly team-relevant.",
@@ -1327,6 +1586,173 @@ export function buildTools(userId: string) {
       },
     }),
 
+    get_member_project_brief: tool({
+      description:
+        "Rich brief of a teammate's project-level activity. Extends get_member_workload with: projects (notes type='project'), AI employee usage, task backlog with overdue/upcoming bucketing. Use when the user asks 'apa project Aninda pegang?', 'Shella masih ada deadline ga?', 'berapa banyak @amore dipake sama tim?', or similar project/member-spanning questions. Requires: viewer is owner/manager AND target has enabled share_with_manager. Every call audits the reason.",
+      inputSchema: z.object({
+        member_email: z.string().describe("The teammate's email address."),
+        reason: z
+          .string()
+          .describe(
+            "Short paraphrase of what the user actually wanted to know — shown in the teammate's audit log.",
+          ),
+      }),
+      execute: async ({ member_email, reason }) => {
+        const sb = supabaseAdmin();
+        const cleanEmail = member_email.trim().toLowerCase();
+        const cleanReason =
+          (reason ?? "").trim().slice(0, 400) ||
+          "project brief query (no reason provided)";
+
+        // Permissioning — mirrors get_member_workload exactly.
+        const { data: target } = await sb
+          .from("users")
+          .select("id, name, email")
+          .eq("email", cleanEmail)
+          .maybeSingle();
+        if (!target) {
+          return { error: `No Sigap user with email ${cleanEmail}.` };
+        }
+        if (target.id === userId) {
+          return {
+            error:
+              "That's your own account — just check your own projects/tasks directly.",
+          };
+        }
+
+        const { data: viewerMems } = await sb
+          .from("org_members")
+          .select("org_id, role")
+          .eq("user_id", userId)
+          .in("role", ["owner", "manager"]);
+        const orgIds = (viewerMems ?? []).map((m) => m.org_id);
+        if (orgIds.length === 0) {
+          return {
+            error: "You're not owner/manager in any org — project brief is manager-only.",
+          };
+        }
+        const { data: targetMems } = await sb
+          .from("org_members")
+          .select("org_id, share_with_manager")
+          .eq("user_id", target.id)
+          .in("org_id", orgIds);
+        if (!targetMems || targetMems.length === 0) {
+          return {
+            error: `${target.name ?? cleanEmail} isn't a member of any of your orgs.`,
+          };
+        }
+        const targetMem =
+          targetMems.find((m) => m.share_with_manager) ?? targetMems[0];
+        if (!targetMem.share_with_manager) {
+          return {
+            error: `${target.name ?? cleanEmail} hasn't opted into share_with_manager — ask them to toggle it in /team. Privacy-by-default.`,
+          };
+        }
+
+        const orgId = targetMem.org_id;
+
+        // Parallel fetch — keep wall-clock small
+        const [weekRes, tasksRes, projectNotesRes, agentUsageRes] =
+          await Promise.all([
+            getWeekEvents(target.id).catch(() => []),
+            listTasks(target.id).catch(() => []),
+            sb
+              .from("notes")
+              .select("id, content, created_at")
+              .eq("user_id", target.id)
+              .eq("type", "project")
+              .order("created_at", { ascending: false })
+              .limit(20),
+            sb
+              .from("chat_messages")
+              .select("agent_id, created_at")
+              .eq("user_id", target.id)
+              .not("agent_id", "is", null)
+              .gte(
+                "created_at",
+                new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+              ),
+          ]);
+
+        // Task bucketing
+        const now = Date.now();
+        const weekMs = 7 * 24 * 60 * 60 * 1000;
+        type TaskRow = (typeof tasksRes)[number];
+        const overdue: TaskRow[] = [];
+        const thisWeek: TaskRow[] = [];
+        const later: TaskRow[] = [];
+        for (const t of tasksRes) {
+          if (!t.due) {
+            later.push(t);
+            continue;
+          }
+          const dueMs = new Date(t.due).getTime();
+          if (dueMs < now) overdue.push(t);
+          else if (dueMs - now <= weekMs) thisWeek.push(t);
+          else later.push(t);
+        }
+
+        // AI employee usage — group chat_messages by agent_id, resolve agent names
+        const usageMap = new Map<string, number>();
+        for (const row of agentUsageRes.data ?? []) {
+          const aid = row.agent_id as string | null;
+          if (!aid) continue;
+          usageMap.set(aid, (usageMap.get(aid) ?? 0) + 1);
+        }
+        const agentIds = Array.from(usageMap.keys());
+        const { data: agents } = agentIds.length
+          ? await sb
+              .from("custom_agents")
+              .select("id, name, emoji, slug")
+              .in("id", agentIds)
+          : { data: [] };
+        const agentUsage = (agents ?? []).map((a) => ({
+          slug: a.slug as string,
+          name: a.name as string,
+          emoji: (a.emoji as string | null) ?? "🤖",
+          chats_14d: usageMap.get(a.id as string) ?? 0,
+        }));
+        agentUsage.sort((a, b) => b.chats_14d - a.chats_14d);
+
+        // Project notes — trim each to a short snippet so LLM gets a headline
+        const projects = (projectNotesRes.data ?? []).map((n) => {
+          const content = (n.content as string | null) ?? "";
+          const firstLine = content.split(/\r?\n/)[0] ?? "";
+          return {
+            snippet: firstLine.slice(0, 200),
+            created_at: n.created_at as string,
+          };
+        });
+
+        // Audit
+        await sb.from("audit_log").insert({
+          org_id: orgId,
+          actor_id: userId,
+          target_id: target.id,
+          action: "get_member_project_brief",
+          question: cleanReason,
+          answer: JSON.stringify({
+            overdue_count: overdue.length,
+            week_count: thisWeek.length,
+            project_count: projects.length,
+            agents_used: agentUsage.length,
+          }),
+        });
+
+        return {
+          member: { name: target.name, email: target.email },
+          projects,
+          tasks: {
+            overdue: overdue.map((t) => ({ title: t.title, due: t.due })),
+            this_week: thisWeek.map((t) => ({ title: t.title, due: t.due })),
+            later_total: later.length,
+          },
+          meetings_this_week: weekRes.length,
+          ai_employees_used_14d: agentUsage,
+        };
+      },
+    }),
+
     list_team_members: tool({
       description:
         "List members of the user's organization (name, email, role). Use whenever the user says 'email tim', 'kirim ke tim', 'bcc semua member', 'siapa aja di tim gue', or similar — you need this to know the recipient email addresses. Returns empty list if the user is not in any organization; in that case tell the user they need to create/join an org first at /team.",
@@ -1603,6 +2029,214 @@ export function buildTools(userId: string) {
       },
     }),
 
+    create_ai_employee: tool({
+      description:
+        "Create a new AI employee (sub-agent) for the user. Call this WHENEVER the user expresses intent to add an AI agent, AI employee, assistant, asisten, or agen — handles ALL phrasings including typos and Indonesian suffixes (buatkan, bikinin, bantuin, create, make, mau agent, butuh asisten, new AI employee, etc.). You must supply ALL required fields from the user's context. If the user hasn't given enough info (e.g. no clear role, no tasks), ASK first — don't call with placeholders. If they already packed everything in one message, call directly. You decide the tool subset based on tasks — pick from the allowed list below.",
+      inputSchema: z.object({
+        name: z
+          .string()
+          .describe(
+            "Short 1-2 word human name. Invent one if user didn't name (e.g. 'Siska', 'Budi Sales', 'HR Luna').",
+          ),
+        emoji: z.string().describe("ONE emoji that fits the role."),
+        description: z
+          .string()
+          .describe(
+            "One-sentence summary of what this agent does, in user's language, <120 chars.",
+          ),
+        role_description: z
+          .string()
+          .describe(
+            "3-6 sentence instruction to the agent: its role, main tasks, tone, boundaries. User's language. This becomes the agent's system prompt (we'll add the hardening wrapper automatically).",
+          ),
+        enabled_tools: z
+          .array(z.string())
+          .describe(
+            `Subset of allowed tool slugs relevant to the role. Pick 3-10 that match tasks. Allowed slugs: ${AGENT_ALL_TOOL_SLUGS.join(", ")}`,
+          ),
+      }),
+      execute: async ({ name, emoji, description, role_description, enabled_tools }) => {
+        const limit = await checkCreateLimits(userId);
+        if (!limit.ok) return { error: limit.reason };
+
+        const allowedSet = new Set(AGENT_ALL_TOOL_SLUGS as readonly string[]);
+        const tools = (enabled_tools ?? []).filter((t) => allowedSet.has(t));
+        if (tools.length === 0) {
+          // Safe default for agents whose tool set wasn't specified
+          tools.push("save_note", "web_search");
+        }
+
+        const sb = supabaseAdmin();
+        const baseSlug = slugify(name);
+        let slug = baseSlug;
+        for (let i = 0; i < 5; i++) {
+          const { data: existing } = await sb
+            .from("custom_agents")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("slug", slug)
+            .maybeSingle();
+          if (!existing) break;
+          slug = `${baseSlug}-${crypto.randomBytes(2).toString("hex")}`;
+        }
+
+        const { data: created, error } = await sb
+          .from("custom_agents")
+          .insert({
+            user_id: userId,
+            slug,
+            name,
+            emoji: emoji || "🤖",
+            description,
+            system_prompt: hardenSystemPrompt(role_description),
+            enabled_tools: tools,
+          })
+          .select("slug, name, emoji")
+          .single();
+        if (error || !created) {
+          return { error: error?.message ?? "Failed to create AI employee" };
+        }
+        return {
+          ok: true,
+          slug: created.slug,
+          name: created.name,
+          emoji: created.emoji,
+          tools_count: tools.length,
+          link: `/agents/${created.slug}`,
+          note: "AI employee created. In your reply, confirm briefly and link the user to /agents/<slug> so they can start chatting.",
+        };
+      },
+    }),
+
+    edit_ai_employee: tool({
+      description:
+        "Edit an existing AI employee's spec — name, emoji, description, role_description, or enabled_tools. Target by name OR slug (fuzzy, case-insensitive). Pass ONLY the fields being changed — omitted fields stay as-is. For 'tambahin X tool' (add a tool without removing existing), use add_tools. For 'ganti tool-nya jadi A, B, C' (replace whole list), use enabled_tools. Do NOT call list_agents first just to preserve tools — use add_tools.",
+      inputSchema: z.object({
+        target: z
+          .string()
+          .describe(
+            "Name or slug of the agent to edit. Fuzzy substring match, case-insensitive. Only call list_agents first if target is ambiguous.",
+          ),
+        name: z.string().nullable().optional().describe("New name (optional)"),
+        emoji: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
+        role_description: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("If provided, replaces the full role description."),
+        enabled_tools: z
+          .array(z.string())
+          .nullable()
+          .optional()
+          .describe(
+            "REPLACES the full tool list. Only use if user explicitly wants to reset the tools. Otherwise use add_tools.",
+          ),
+        add_tools: z
+          .array(z.string())
+          .nullable()
+          .optional()
+          .describe(
+            "Tool slugs to ADD to the existing list (merged, deduplicated). Use for 'tambahin X'.",
+          ),
+        remove_tools: z
+          .array(z.string())
+          .nullable()
+          .optional()
+          .describe("Tool slugs to REMOVE from the existing list."),
+      }),
+      execute: async ({
+        target,
+        name,
+        emoji,
+        description,
+        role_description,
+        enabled_tools,
+        add_tools,
+        remove_tools,
+      }) => {
+        const sb = supabaseAdmin();
+        const { data: all } = await sb
+          .from("custom_agents")
+          .select("id, slug, name, enabled_tools")
+          .eq("user_id", userId);
+        if (!all || all.length === 0) {
+          return {
+            error:
+              "User has no AI employees yet. Create one first with create_ai_employee.",
+          };
+        }
+        const lower = target.toLowerCase();
+        const match = all.find(
+          (a) =>
+            (a.name as string).toLowerCase().includes(lower) ||
+            (a.slug as string).toLowerCase().includes(lower),
+        );
+        if (!match) {
+          return {
+            error: `No AI employee matches '${target}'. Available: ${all.map((a) => a.name).join(", ")}`,
+          };
+        }
+
+        const update: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
+        if (typeof name === "string" && name.trim()) update.name = name.trim();
+        if (typeof emoji === "string" && emoji.trim()) update.emoji = emoji.trim();
+        if (typeof description === "string") update.description = description;
+        if (typeof role_description === "string" && role_description.trim()) {
+          update.system_prompt = hardenSystemPrompt(role_description);
+        }
+
+        const allowedSet = new Set(AGENT_ALL_TOOL_SLUGS as readonly string[]);
+        const current = new Set(
+          ((match.enabled_tools as string[] | null) ?? []).filter((t) =>
+            allowedSet.has(t),
+          ),
+        );
+
+        // Handle tool mutations. Priority: enabled_tools (full replace),
+        // then additive add/remove on top of current.
+        if (Array.isArray(enabled_tools)) {
+          const cleaned = enabled_tools.filter((t) => allowedSet.has(t));
+          if (cleaned.length > 0) {
+            // Full replace
+            const next = new Set(cleaned);
+            for (const t of add_tools ?? []) {
+              if (allowedSet.has(t)) next.add(t);
+            }
+            for (const t of remove_tools ?? []) next.delete(t);
+            update.enabled_tools = Array.from(next);
+          }
+        } else if (
+          Array.isArray(add_tools) ||
+          Array.isArray(remove_tools)
+        ) {
+          // Additive on existing
+          for (const t of add_tools ?? []) {
+            if (allowedSet.has(t)) current.add(t);
+          }
+          for (const t of remove_tools ?? []) current.delete(t);
+          update.enabled_tools = Array.from(current);
+        }
+
+        const { error } = await sb
+          .from("custom_agents")
+          .update(update)
+          .eq("id", match.id);
+        if (error) return { error: error.message };
+
+        return {
+          ok: true,
+          slug: match.slug,
+          name: update.name ?? match.name,
+          link: `/agents/${match.slug}`,
+          tools_after: update.enabled_tools ?? Array.from(current),
+          note: "AI employee updated. Mention what specifically changed in your reply.",
+        };
+      },
+    }),
+
     list_agents: tool({
       description:
         "List the user's custom agents (sub-assistants they've built). Use when user says 'agent aku apa aja', 'list agent', 'siapa aja employee aku'. Returns each agent's name, emoji, description, and slug for linking.",
@@ -1621,19 +2255,45 @@ export function buildTools(userId: string) {
 
     delete_agent: tool({
       description:
-        "Delete one of the user's custom agents. Use when user says 'hapus agent X', 'buang Siska', 'delete agent'.",
+        "Delete one of the user's AI employees. Accepts name OR slug (fuzzy). Handles ALL phrasings: 'hapus agent X', 'buang Siska', 'hapusin asistennya', 'delete the hr bot', 'remove ai employee Sarah'.",
       inputSchema: z.object({
-        slug: z.string().describe("Agent slug (from list_agents)"),
+        target: z
+          .string()
+          .describe(
+            "Name or slug of the AI employee to delete. Fuzzy substring match, case-insensitive.",
+          ),
       }),
-      execute: async ({ slug }) => {
+      execute: async ({ target }) => {
         const sb = supabaseAdmin();
+        const { data: all } = await sb
+          .from("custom_agents")
+          .select("id, slug, name, emoji")
+          .eq("user_id", userId);
+        if (!all || all.length === 0) {
+          return { error: "User has no AI employees to delete." };
+        }
+        const lower = target.toLowerCase();
+        const match = all.find(
+          (a) =>
+            (a.name as string).toLowerCase().includes(lower) ||
+            (a.slug as string).toLowerCase().includes(lower),
+        );
+        if (!match) {
+          return {
+            error: `No AI employee matches '${target}'. Available: ${all.map((a) => `${a.emoji ?? "🤖"} ${a.name}`).join(", ")}`,
+          };
+        }
         const { error } = await sb
           .from("custom_agents")
           .delete()
-          .eq("user_id", userId)
-          .eq("slug", slug);
+          .eq("id", match.id);
         if (error) return { error: error.message };
-        return { ok: true, deleted: slug };
+        return {
+          ok: true,
+          deleted_name: match.name,
+          deleted_slug: match.slug,
+          note: "AI employee + all its chat history permanently removed.",
+        };
       },
     }),
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AiRolePolisher } from "./ai-role-polisher";
 
 export function AgentHeader({
   name,
@@ -25,6 +26,7 @@ export function AgentHeader({
   const [draft, setDraft] = useState(roleDescription);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   async function saveRole() {
     if (!draft.trim() || draft.trim() === roleDescription.trim()) {
@@ -152,6 +154,14 @@ export function AgentHeader({
               ) : (
                 <div className="flex gap-1.5">
                   <button
+                    onClick={() => setAiOpen(true)}
+                    disabled={saving}
+                    className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                    title="Minta AI refine role description"
+                  >
+                    ✨ Ask AI
+                  </button>
+                  <button
                     onClick={() => {
                       setEditing(false);
                       setDraft(roleDescription);
@@ -247,6 +257,14 @@ export function AgentHeader({
             </div>
           </div>
         </div>
+      )}
+      {aiOpen && (
+        <AiRolePolisher
+          agentName={name}
+          currentRole={draft}
+          onApply={(newRole) => setDraft(newRole)}
+          onClose={() => setAiOpen(false)}
+        />
       )}
     </div>
   );

@@ -1,0 +1,199 @@
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import type { LanguageModel } from "ai";
+import { loadPrimaryOrgContext } from "@/lib/org-context";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { DEFAULT_MODEL as DEFAULT_GROQ_MODEL } from "./client";
+
+/**
+ * LLM provider abstraction. Pick the provider + model based on (in order):
+ *   1. User's BYO key (personal Groq key from user_settings, Groq-only)
+ *   2. Org-level policy: organizations.llm_provider + llm_model + llm_api_key
+ *   3. Platform default (Groq via GROQ_API_KEY env)
+ *
+ * This layer exists so future admin console + self-host deployments can
+ * swap to OpenAI, Anthropic, or any OpenAI-compatible endpoint
+ * (OpenRouter, Azure, local) without touching every call site.
+ */
+
+export type LLMProvider = "groq" | "openai" | "anthropic" | "openrouter";
+
+export const SUPPORTED_PROVIDERS: LLMProvider[] = [
+  "groq",
+  "openai",
+  "anthropic",
+  "openrouter",
+];
+
+// Sensible defaults per provider — model IDs that support tool-calling well.
+const DEFAULT_MODELS: Record<LLMProvider, string> = {
+  groq: DEFAULT_GROQ_MODEL,
+  openai: "gpt-4o-mini",
+  anthropic: "claude-sonnet-4-5-20250929",
+  openrouter: "anthropic/claude-sonnet-4.5",
+};
+
+// Very rough $/1M tokens for usage estimation. SaaS tier metering stays
+// Groq-centric; orgs on other providers pay via their BYO key so billing
+// is their problem.
+const COST_TABLE: Record<LLMProvider, { in: number; out: number }> = {
+  groq: { in: 0.15, out: 0.6 },
+  openai: { in: 0.15, out: 0.6 },
+  anthropic: { in: 3.0, out: 15.0 },
+  openrouter: { in: 3.0, out: 15.0 },
+};
+
+export function estimateCost(
+  provider: LLMProvider,
+  tokensIn: number,
+  tokensOut: number,
+): number {
+  const p = COST_TABLE[provider] ?? COST_TABLE.groq;
+  return (tokensIn / 1_000_000) * p.in + (tokensOut / 1_000_000) * p.out;
+}
+
+/**
+ * Resolve which provider + model + key to use for a given user, looking
+ * up their org's policy. Returns the values needed to build a model
+ * handle. Safe to call on every request — the DB hops are tiny lookups.
+ */
+export async function resolveLLMFor(userId: string): Promise<{
+  provider: LLMProvider;
+  model: string;
+  apiKey: string | undefined;
+}> {
+  const sb = supabaseAdmin();
+
+  // User's personal Groq key short-circuits everything — same semantics as
+  // before the abstraction landed.
+  const { data: settings } = await sb
+    .from("user_settings")
+    .select("groq_key")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (settings?.groq_key) {
+    return {
+      provider: "groq",
+      model: DEFAULT_GROQ_MODEL,
+      apiKey: settings.groq_key as string,
+    };
+  }
+
+  const org = await loadPrimaryOrgPolicy(userId);
+  if (org && isSupportedProvider(org.provider)) {
+    return {
+      provider: org.provider,
+      model: org.model ?? DEFAULT_MODELS[org.provider],
+      apiKey: org.apiKey ?? platformKeyFor(org.provider),
+    };
+  }
+
+  return {
+    provider: "groq",
+    model: DEFAULT_GROQ_MODEL,
+    apiKey: process.env.GROQ_API_KEY,
+  };
+}
+
+function isSupportedProvider(p: string | null | undefined): p is LLMProvider {
+  return (
+    p === "groq" || p === "openai" || p === "anthropic" || p === "openrouter"
+  );
+}
+
+function platformKeyFor(provider: LLMProvider): string | undefined {
+  switch (provider) {
+    case "groq":
+      return process.env.GROQ_API_KEY;
+    case "openai":
+      return process.env.OPENAI_API_KEY;
+    case "anthropic":
+      return process.env.ANTHROPIC_API_KEY;
+    case "openrouter":
+      return process.env.OPENROUTER_API_KEY;
+  }
+}
+
+async function loadPrimaryOrgPolicy(userId: string): Promise<{
+  provider: string | null;
+  model: string | null;
+  apiKey: string | null;
+} | null> {
+  try {
+    const sb = supabaseAdmin();
+    const { data: membership } = await sb
+      .from("org_members")
+      .select("org_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+    if (!membership?.org_id) return null;
+    const { data: org } = await sb
+      .from("organizations")
+      .select("llm_provider, llm_model, llm_api_key")
+      .eq("id", membership.org_id)
+      .maybeSingle();
+    if (!org) return null;
+    return {
+      provider: (org.llm_provider as string | null) ?? null,
+      model: (org.llm_model as string | null) ?? null,
+      apiKey: (org.llm_api_key as string | null) ?? null,
+    };
+  } catch (e) {
+    console.error(
+      "[llm-providers] policy lookup failed:",
+      e instanceof Error ? e.message : e,
+    );
+    return null;
+  }
+}
+
+/**
+ * Build the actual AI-SDK model handle for a given provider + model + key.
+ * Call sites pass the returned value straight into `generateText({model: ...})`.
+ */
+export function buildModel(
+  provider: LLMProvider,
+  modelId: string,
+  apiKey: string | undefined,
+): LanguageModel {
+  switch (provider) {
+    case "groq":
+      return createOpenAICompatible({
+        name: "groq",
+        apiKey: apiKey ?? "",
+        baseURL: "https://api.groq.com/openai/v1",
+      })(modelId);
+    case "openai":
+      return createOpenAI({ apiKey: apiKey ?? "" })(modelId);
+    case "anthropic":
+      return createAnthropic({ apiKey: apiKey ?? "" })(modelId);
+    case "openrouter":
+      return createOpenAICompatible({
+        name: "openrouter",
+        apiKey: apiKey ?? "",
+        baseURL: "https://openrouter.ai/api/v1",
+      })(modelId);
+  }
+}
+
+/**
+ * Convenience wrapper — resolve policy + build model in one call. Returns
+ * the model plus metadata callers need for usage logging (provider slug
+ * for the cost table, model id for the audit record).
+ */
+export async function getLLMForUser(userId: string): Promise<{
+  model: LanguageModel;
+  provider: LLMProvider;
+  modelId: string;
+}> {
+  const resolved = await resolveLLMFor(userId);
+  return {
+    model: buildModel(resolved.provider, resolved.model, resolved.apiKey),
+    provider: resolved.provider,
+    modelId: resolved.model,
+  };
+}
+
+export { DEFAULT_MODELS };

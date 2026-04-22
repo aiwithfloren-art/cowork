@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { generateText, stepCountIs } from "ai";
-import { getGroq, DEFAULT_MODEL, estimateCost } from "@/lib/llm/client";
+import { getLLMForUser, estimateCost } from "@/lib/llm/providers";
 import { buildMemberTools } from "@/lib/llm/member-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -79,13 +79,12 @@ export async function POST(req: Request) {
   const rl = await checkRateLimit(viewerId, Boolean(viewerSettings?.groq_key));
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
 
-  const groq = getGroq(viewerSettings?.groq_key ?? undefined);
-  const model = DEFAULT_MODEL;
+  const llm = await getLLMForUser(viewerId);
   const tools = buildMemberTools({ viewerId, targetId: memberId, orgId });
 
   try {
     const result = await generateText({
-      model: groq(model),
+      model: llm.model,
       system: MEMBER_SYSTEM_PROMPT,
       messages: [
         {
@@ -105,7 +104,13 @@ export async function POST(req: Request) {
     const tokensIn = result.usage?.inputTokens ?? 0;
     const tokensOut = result.usage?.outputTokens ?? 0;
     if (!viewerSettings?.groq_key) {
-      await logUsage(viewerId, tokensIn, tokensOut, estimateCost(tokensIn, tokensOut), model);
+      await logUsage(
+        viewerId,
+        tokensIn,
+        tokensOut,
+        estimateCost(llm.provider, tokensIn, tokensOut),
+        llm.modelId,
+      );
     }
 
     // Audit log — general query record (read_member_file also logs individually)
