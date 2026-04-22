@@ -53,19 +53,51 @@ export async function GET(req: Request) {
   }
 
   const sb = supabaseAdmin();
-  await sb.from("connectors").upsert(
-    {
-      user_id: userId,
-      provider: "slack",
-      access_token: data.access_token,
-      scope: data.scope ?? null,
-      external_account_id: data.team?.id ?? null,
-      external_account_label: data.team?.name ?? null,
-      metadata: { authed_user: data.authed_user?.id ?? null },
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,provider" },
-  );
+
+  // Partial unique index (user_id, provider) WHERE org_id IS NULL doesn't play
+  // nicely with PostgREST upsert. Do explicit select → update/insert so the
+  // row is actually written — the previous upsert was failing silently, which
+  // looked to the user like "OAuth loops without connecting".
+  const { data: existing, error: selectErr } = await sb
+    .from("connectors")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("provider", "slack")
+    .is("org_id", null)
+    .maybeSingle();
+  if (selectErr) {
+    console.error("slack callback select failed:", selectErr);
+    return NextResponse.redirect(
+      new URL(
+        `/settings/connectors?error=${encodeURIComponent(selectErr.message)}`,
+        req.url,
+      ),
+    );
+  }
+
+  const payload = {
+    user_id: userId,
+    provider: "slack",
+    access_token: data.access_token,
+    scope: data.scope ?? null,
+    external_account_id: data.team?.id ?? null,
+    external_account_label: data.team?.name ?? null,
+    metadata: { authed_user: data.authed_user?.id ?? null },
+    updated_at: new Date().toISOString(),
+  };
+
+  const writeErr = existing
+    ? (await sb.from("connectors").update(payload).eq("id", existing.id)).error
+    : (await sb.from("connectors").insert(payload)).error;
+  if (writeErr) {
+    console.error("slack callback write failed:", writeErr);
+    return NextResponse.redirect(
+      new URL(
+        `/settings/connectors?error=${encodeURIComponent(writeErr.message)}`,
+        req.url,
+      ),
+    );
+  }
 
   return NextResponse.redirect(new URL("/settings/connectors?connected=slack", req.url));
 }

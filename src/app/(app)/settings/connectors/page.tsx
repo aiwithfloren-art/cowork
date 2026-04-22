@@ -6,10 +6,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ComposioConnectors } from "@/components/composio-connectors";
 import Link from "next/link";
 
-export default async function ConnectorsPage() {
+export default async function ConnectorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ connected?: string; error?: string }>;
+}) {
   const session = await auth();
   const userId = (session?.user as { id?: string } | undefined)?.id;
   if (!userId) redirect("/");
+
+  const { connected, error } = await searchParams;
 
   const sb = supabaseAdmin();
 
@@ -54,6 +60,17 @@ export default async function ConnectorsPage() {
           kamu sendiri — disconnect kapan pun di sini.
         </p>
       </div>
+
+      {connected && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          ✅ <strong>{connected}</strong> berhasil di-connect.
+        </div>
+      )}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          ⚠️ Gagal connect: <span className="font-mono text-xs">{error}</span>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         {CONNECTORS.map((c) => {
