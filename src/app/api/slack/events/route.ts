@@ -279,19 +279,19 @@ async function processSlackMessage(args: {
     };
     let agent: AgentRec | null = null;
     let userText = cleanText;
-    // Accept multiple prefix styles so users don't have to fight Slack's
-    // built-in @-autocomplete (which lists Slack users, not our agents):
-    //   "@coder bikin X"  — classic, needs Escape to dismiss Slack popup
-    //   "/coder bikin X"  — slash prefix, same feel as slash command
-    //   "coder: bikin X"  — colon suffix (no autocomplete trigger)
-    //   "coder, bikin X"  — comma suffix (no autocomplete trigger)
-    // Require a punctuation trigger so plain greetings like "halo" don't
-    // cause a pointless DB lookup.
-    const prefixed = cleanText.match(/^(?:@|\/)([a-z0-9][a-z0-9-]{0,39})\b\s*/i);
-    const suffixed = cleanText.match(
-      /^([a-z0-9][a-z0-9-]{0,39})\s*[:,]\s+/i,
-    );
-    const mention = prefixed ?? suffixed;
+    // Accept ANY prefix style the user types — goal is zero friction on
+    // Slack/Telegram where @-autocomplete might interfere:
+    //   "@coder bikin X"   — @ prefix (needs Escape to dismiss Slack popup)
+    //   "/coder bikin X"   — slash prefix
+    //   "coder: bikin X"   — colon suffix
+    //   "coder, bikin X"   — comma suffix
+    //   "coder bikin X"    — plain first-word, no punctuation
+    // Fallback case does an extra DB lookup per non-command message —
+    // acceptable cost for solo-founder scale and dramatically better UX.
+    const mention =
+      cleanText.match(/^(?:@|\/)([a-z][a-z0-9-]{1,39})\b\s*/i) ??
+      cleanText.match(/^([a-z][a-z0-9-]{1,39})\s*[:,]\s+/i) ??
+      cleanText.match(/^([a-z][a-z0-9-]{1,39})\s+\S/i);
     if (mention) {
       const slug = mention[1].toLowerCase();
       const { data: found } = await sb
@@ -374,13 +374,16 @@ async function processSlackMessage(args: {
       { user_id: sigapUser.id, role: "assistant", content: redactedAssistant, agent_id: agent?.id ?? null },
     ]);
 
-    const personaPrefix = agent
-      ? `${agent.emoji ?? "🤖"} *${agent.name}* · `
-      : "";
+    // Make routing explicit — user asked "how do I know it's Coder or
+    // default Sigap". Put the persona badge on its own line so it's
+    // obvious, followed by a visual separator.
+    const personaHeader = agent
+      ? `${agent.emoji ?? "🤖"} *${agent.name}* _(@${agent.slug})_\n───────\n`
+      : "_💬 Sigap (default)_\n───────\n";
     await postSlack(
       connector.access_token,
       channel,
-      personaPrefix + (result.text || "(no response)"),
+      personaHeader + (result.text || "(no response)"),
     );
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);

@@ -162,10 +162,13 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
     };
     let agent: AgentRec | null = null;
     let userText = text;
-    // Same multi-prefix pattern as Slack — @slug, /slug, slug:, slug,
-    const prefixed = text.match(/^(?:@|\/)([a-z0-9][a-z0-9-]{0,39})\b\s*/i);
-    const suffixed = text.match(/^([a-z0-9][a-z0-9-]{0,39})\s*[:,]\s+/i);
-    const mention = prefixed ?? suffixed;
+    // Same flexible routing as Slack — any prefix style works, including
+    // plain first-word (e.g. "coder bikin X"). Fallback DB lookup is OK
+    // at solo-founder scale.
+    const mention =
+      text.match(/^(?:@|\/)([a-z][a-z0-9-]{1,39})\b\s*/i) ??
+      text.match(/^([a-z][a-z0-9-]{1,39})\s*[:,]\s+/i) ??
+      text.match(/^([a-z][a-z0-9-]{1,39})\s+\S/i);
     if (mention) {
       const slug = mention[1].toLowerCase();
       const { data: found } = await sb
@@ -269,12 +272,12 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
       { user_id: userId, role: "assistant", content: redactedAssistant, agent_id: agent?.id ?? null },
     ]);
 
-    const personaPrefix = agent
-      ? `${agent.emoji ?? "🤖"} ${agent.name}\n\n`
-      : "";
+    const personaHeader = agent
+      ? `${agent.emoji ?? "🤖"} *${agent.name}* (\`@${agent.slug}\`)\n───────\n`
+      : "💬 _Sigap (default)_\n───────\n";
     await sendTelegramMessage(
       chatId,
-      personaPrefix + (result.text || "(no response)"),
+      personaHeader + (result.text || "(no response)"),
     );
     return NextResponse.json({ ok: true });
   } catch (e) {
