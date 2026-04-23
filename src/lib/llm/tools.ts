@@ -31,6 +31,7 @@ import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkApproval, pendingApprovalResult } from "./approvals";
+import { safeFetch } from "@/lib/http/safe-fetch";
 import {
   listRepos as ghListRepos,
   createRepo as ghCreateRepo,
@@ -1413,6 +1414,114 @@ export function buildTools(userId: string) {
         } catch (e) {
           return {
             error: e instanceof Error ? e.message : "Failed to post PR comment",
+          };
+        }
+      },
+    }),
+
+    get_credential: tool({
+      description:
+        "Fetch an API token or credential the user previously saved for a third-party service. Use BEFORE calling http_request against a service that needs auth. Returns the raw token string — include it in the next http_request's Authorization header. Common services: 'vercel', 'linear', 'notion', 'stripe', 'openai', 'anthropic'. Service names are case-insensitive and user-chosen — if first lookup fails, list_credentials to see what's actually available.",
+      inputSchema: z.object({
+        service: z
+          .string()
+          .describe(
+            "Service slug (e.g. 'vercel', 'linear', 'notion'). Must match what the user saved in /settings/connectors.",
+          ),
+      }),
+      execute: async ({ service }) => {
+        const sb = supabaseAdmin();
+        const { data } = await sb
+          .from("connectors")
+          .select("access_token, external_account_label, metadata")
+          .eq("user_id", userId)
+          .eq("provider", service.toLowerCase())
+          .is("org_id", null)
+          .maybeSingle();
+        if (!data?.access_token) {
+          return {
+            error: `No token saved for '${service}'. Tell the user to open /settings/connectors → "Add API Token" → paste their ${service} token.`,
+          };
+        }
+        return {
+          ok: true,
+          service: service.toLowerCase(),
+          token: data.access_token as string,
+          label: (data.external_account_label as string | null) ?? null,
+          note: "Include this token in the next http_request. Typical header: Authorization: Bearer <token>. Never echo the token back to the user in your reply.",
+        };
+      },
+    }),
+
+    list_credentials: tool({
+      description:
+        "List all API tokens the user has saved (service names only — tokens never returned). Use when you don't know what services the user has configured, or to tell the user what's available.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const sb = supabaseAdmin();
+        const { data } = await sb
+          .from("connectors")
+          .select("provider, external_account_label, created_at")
+          .eq("user_id", userId)
+          .is("org_id", null);
+        const services = (data ?? []).map((r) => ({
+          service: r.provider as string,
+          label: (r.external_account_label as string | null) ?? null,
+        }));
+        return { ok: true, count: services.length, services };
+      },
+    }),
+
+    http_request: tool({
+      description:
+        "Universal HTTP client for any REST/HTTPS API. Use when there's no dedicated tool for the service the user is asking about (Vercel, Linear, Notion, Stripe, Airtable, Twilio, etc). You compose the URL + method + headers yourself based on the service's API docs. For authenticated endpoints, call get_credential first to fetch the user's token, then pass it in the Authorization header. DO NOT echo the token in your reply. SSRF-guarded: localhost and private IPs blocked. Response capped at 2MB and 20s.",
+      inputSchema: z.object({
+        method: z
+          .enum(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"])
+          .describe("HTTP method"),
+        url: z.string().describe("Full URL including scheme. Only http/https."),
+        headers: z
+          .record(z.string(), z.string())
+          .nullable()
+          .optional()
+          .describe(
+            "Request headers. Typical: {'Authorization': 'Bearer <token>', 'Content-Type': 'application/json'}",
+          ),
+        body: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Request body as a string. For JSON, pass JSON.stringify(...) and set Content-Type: application/json.",
+          ),
+      }),
+      execute: async ({ method, url, headers, body }) => {
+        try {
+          const res = await safeFetch({
+            method,
+            url,
+            headers: headers ?? {},
+            body: body ?? undefined,
+          });
+          // Trim the body for the LLM — responses bigger than ~20KB are
+          // rarely useful and eat context. Full body available in logs if needed.
+          const maxReply = 20_000;
+          const replyBody =
+            res.body.length > maxReply
+              ? res.body.slice(0, maxReply) + "\n\n[...truncated]"
+              : res.body;
+          return {
+            ok: res.status >= 200 && res.status < 300,
+            status: res.status,
+            status_text: res.status_text,
+            final_url: res.final_url,
+            headers: res.headers,
+            body: replyBody,
+            body_truncated: res.truncated || res.body.length > maxReply,
+          };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "http_request failed",
           };
         }
       },

@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CONNECTORS } from "@/lib/connectors/registry";
 import { Card, CardContent } from "@/components/ui/card";
 import { ComposioConnectors } from "@/components/composio-connectors";
+import { CustomTokenForm } from "@/components/custom-token-form";
 import Link from "next/link";
 
 export default async function ConnectorsPage({
@@ -29,8 +30,9 @@ export default async function ConnectorsPage({
 
   const { data: thirdPartyConnections } = await sb
     .from("connectors")
-    .select("provider, external_account_label, created_at")
-    .eq("user_id", userId);
+    .select("provider, external_account_label, created_at, metadata")
+    .eq("user_id", userId)
+    .is("org_id", null);
 
   const connectedMap = new Map<string, { label: string | null; since: string }>();
   if (hasGoogle) {
@@ -142,6 +144,24 @@ export default async function ConnectorsPage({
       </div>
 
       <ComposioConnectors />
+
+      {/* Custom API tokens — for services without dedicated OAuth. Filters
+          out rows that belong to the OAuth connectors above so the list
+          shows only user-pasted tokens. */}
+      <CustomTokenForm
+        initial={(thirdPartyConnections ?? [])
+          .filter(
+            (c) =>
+              !["slack", "github"].includes(c.provider as string) &&
+              (c.metadata as { source?: string } | null)?.source ===
+                "user_paste",
+          )
+          .map((c) => ({
+            service: c.provider as string,
+            label: (c.external_account_label as string | null) ?? null,
+            created_at: (c.created_at as string | null) ?? "",
+          }))}
+      />
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
         <p className="font-medium text-slate-700">Privacy</p>
