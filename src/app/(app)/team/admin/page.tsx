@@ -58,6 +58,8 @@ const ALL_TOOL_SLUGS = [
   "list_team_members",
   "get_member_workload",
   "get_member_project_brief",
+  "create_ai_employee",
+  "edit_ai_employee",
   "get_notes",
   "create_team",
   "invite_to_team",
