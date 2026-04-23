@@ -144,7 +144,44 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
 
   try {
     const llm = await getLLMForUser(userId);
-    const tools = await buildToolsForUser(userId);
+    const allTools = await buildToolsForUser(userId);
+
+    // @mention routing — same pattern as Slack. If the message starts with
+    // "@agentslug", look up the custom_agent owned by this user and swap in
+    // their persona + tool subset for this turn. Falls through to default
+    // Sigap if the slug doesn't match an owned agent.
+    type AgentRec = {
+      id: string;
+      slug: string;
+      name: string;
+      emoji: string | null;
+      system_prompt: string;
+      enabled_tools: string[];
+    };
+    let agent: AgentRec | null = null;
+    let userText = text;
+    const mention = text.match(/^@([a-z0-9][a-z0-9-]{0,39})\b\s*/i);
+    if (mention) {
+      const slug = mention[1].toLowerCase();
+      const { data: found } = await sb
+        .from("custom_agents")
+        .select("id, slug, name, emoji, system_prompt, enabled_tools")
+        .eq("user_id", userId)
+        .eq("slug", slug)
+        .maybeSingle();
+      if (found) {
+        agent = found as unknown as AgentRec;
+        userText = text.slice(mention[0].length).trim();
+      }
+    }
+
+    const tools = agent
+      ? Object.fromEntries(
+          Object.entries(allTools).filter(([k]) =>
+            agent!.enabled_tools.includes(k),
+          ),
+        )
+      : allTools;
 
     // Indicate typing
     fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendChatAction`, {
@@ -177,11 +214,7 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
       hour12: false,
     }).format(new Date());
 
-    const systemPrompt = `You are Sigap, a personal AI Chief of Staff replying via Telegram.
-
-Current date/time: ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
-
-## Rules
+    const telegramRules = `## Rules
 1. Keep replies concise — Telegram messages should be 1-3 short paragraphs, not long essays.
 2. ALWAYS call tools to get real Google Calendar/Tasks/Gmail/Drive/notes data. Never invent.
 3. When user says "kasih task ke [email]" — delegation is handled before you see the message; if you're seeing it, the pattern didn't match.
@@ -190,10 +223,14 @@ Current date/time: ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
 6. If no date is mentioned but time is (e.g. "jam 22:00"), assume today in Asia/Jakarta.
 7. Use plain text formatting — Telegram supports limited markdown. Bullet with •, not *.`;
 
+    const systemPrompt = agent
+      ? `${agent.system_prompt}\n\n## Telegram-specific rules\nKeep replies 1-3 short paragraphs. Plain text with • bullets (Telegram markdown is limited). Reply in same language the user wrote. Current time: ${nowJakarta} Asia/Jakarta.`
+      : `You are Sigap, a personal AI Chief of Staff replying via Telegram.\n\nCurrent date/time: ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).\n\n${telegramRules}`;
+
     const result = await generateText({
       model: llm.model,
       system: systemPrompt,
-      messages: [...history, { role: "user", content: text }],
+      messages: [...history, { role: "user", content: userText }],
       tools,
       stopWhen: stepCountIs(8),
     });
@@ -211,11 +248,17 @@ Current date/time: ${nowJakarta} Asia/Jakarta (WIB, UTC+07:00).
     }
 
     await sb.from("chat_messages").insert([
-      { user_id: userId, role: "user", content: text },
-      { user_id: userId, role: "assistant", content: result.text },
+      { user_id: userId, role: "user", content: text, agent_id: agent?.id ?? null },
+      { user_id: userId, role: "assistant", content: result.text, agent_id: agent?.id ?? null },
     ]);
 
-    await sendTelegramMessage(chatId, result.text || "(no response)");
+    const personaPrefix = agent
+      ? `${agent.emoji ?? "🤖"} ${agent.name}\n\n`
+      : "";
+    await sendTelegramMessage(
+      chatId,
+      personaPrefix + (result.text || "(no response)"),
+    );
     return NextResponse.json({ ok: true });
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
