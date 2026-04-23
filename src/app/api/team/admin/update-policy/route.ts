@@ -64,6 +64,7 @@ export async function POST(req: Request) {
     llm_api_key?: string | null;
     daily_quota_per_member?: number | null;
     allowed_tools?: string[] | null;
+    require_approval_for?: string[] | null;
   };
   if (!body.org_id) {
     return NextResponse.json({ error: "org_id required" }, { status: 400 });
@@ -139,6 +140,24 @@ export async function POST(req: Request) {
       update.allowed_tools = body.allowed_tools
         .filter((t): t is string => typeof t === "string")
         .filter((t) => ALL_TOOL_SLUGS.has(t));
+    }
+  }
+
+  if (body.require_approval_for !== undefined) {
+    if (body.require_approval_for === null) {
+      update.require_approval_for = [];
+    } else if (Array.isArray(body.require_approval_for)) {
+      // Only allow gating tools that we actually wrapped with checkApproval.
+      // Gating an unwrapped tool is silently ignored — the UI only exposes
+      // the wrapped ones anyway.
+      const GATABLE = new Set([
+        "send_email",
+        "broadcast_to_team",
+        "assign_task_to_member",
+      ]);
+      update.require_approval_for = body.require_approval_for
+        .filter((t): t is string => typeof t === "string")
+        .filter((t) => GATABLE.has(t));
     }
   }
 

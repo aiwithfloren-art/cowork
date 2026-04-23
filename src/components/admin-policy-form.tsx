@@ -6,7 +6,22 @@ import { useRouter } from "next/navigation";
 export type AdminPolicyInitial = {
   dailyQuota: number | null;
   allowedTools: string[];
+  requireApprovalFor: string[];
 };
+
+// Tools that support approval gating — listed here so the UI can render
+// toggles only for the ones where it actually makes sense (external side
+// effects / mass communications / resource spend). Other tools read-only
+// or trivially reversible — approval adds friction without safety value.
+const APPROVAL_GATABLE_TOOLS: {
+  slug: string;
+  label: string;
+  emoji: string;
+}[] = [
+  { slug: "send_email", emoji: "✉️", label: "Send Email" },
+  { slug: "broadcast_to_team", emoji: "📢", label: "Broadcast ke tim" },
+  { slug: "assign_task_to_member", emoji: "📋", label: "Assign task ke anggota" },
+];
 
 export function AdminPolicyForm({
   orgId,
@@ -35,12 +50,24 @@ export function AdminPolicyForm({
   const [allowedTools, setAllowedTools] = useState<Set<string>>(
     new Set(initial.allowedTools),
   );
+  const [requireApproval, setRequireApproval] = useState<Set<string>>(
+    new Set(initial.requireApprovalFor),
+  );
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function toggleTool(slug: string) {
     setAllowedTools((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  }
+
+  function toggleApproval(slug: string) {
+    setRequireApproval((prev) => {
       const next = new Set(prev);
       if (next.has(slug)) next.delete(slug);
       else next.add(slug);
@@ -61,6 +88,7 @@ export function AdminPolicyForm({
           daily_quota_per_member: quotaNum,
           // Empty set means "all tools allowed" — send [] to clear.
           allowed_tools: Array.from(allowedTools),
+          require_approval_for: Array.from(requireApproval),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -149,6 +177,42 @@ export function AdminPolicyForm({
         >
           Clear whitelist (allow all tools)
         </button>
+      </div>
+
+      {/* Approval gating */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="text-sm font-semibold text-slate-900">
+          Human approval required
+        </h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Pilih tool yang WAJIB nunggu tap Approve dari owner/manager sebelum
+          jalan. AI yang panggil tool ini akan pause, bukan langsung execute.
+          Cocok buat kontrol ketat ke komunikasi eksternal dan assignment.
+        </p>
+        <div className="mt-3 space-y-2">
+          {APPROVAL_GATABLE_TOOLS.map((t) => {
+            const on = requireApproval.has(t.slug);
+            return (
+              <label
+                key={t.slug}
+                className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => toggleApproval(t.slug)}
+                  disabled={saving}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-lg">{t.emoji}</span>
+                <span className="flex-1 text-sm text-slate-700">{t.label}</span>
+                <code className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] text-slate-500">
+                  {t.slug}
+                </code>
+              </label>
+            );
+          })}
+        </div>
       </div>
 
       {error && (

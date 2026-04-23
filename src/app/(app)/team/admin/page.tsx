@@ -101,13 +101,14 @@ export default async function AdminPage() {
 
   const { data: org } = await sb
     .from("organizations")
-    .select("daily_quota_per_member, allowed_tools")
+    .select("daily_quota_per_member, allowed_tools, require_approval_for")
     .eq("id", orgId)
     .maybeSingle();
 
   const initial: AdminPolicyInitial = {
     dailyQuota: (org?.daily_quota_per_member as number | null) ?? null,
     allowedTools: (org?.allowed_tools as string[] | null) ?? [],
+    requireApprovalFor: (org?.require_approval_for as string[] | null) ?? [],
   };
 
   // Load aggregated usage for the past 7 days so the owner sees cost trend

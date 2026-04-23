@@ -14,9 +14,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   let agentCount = 0;
   let artifactCount = 0;
+  let pendingApprovals = 0;
+  let showApprovals = false;
   if (userId) {
     const sb = supabaseAdmin();
-    const [{ count: ac }, { count: arc }] = await Promise.all([
+    const [{ count: ac }, { count: arc }, membership] = await Promise.all([
       sb
         .from("custom_agents")
         .select("id", { count: "exact", head: true })
@@ -26,17 +28,36 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
         .neq("status", "archived"),
+      sb
+        .from("org_members")
+        .select("org_id, role")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle(),
     ]);
     agentCount = ac ?? 0;
     artifactCount = arc ?? 0;
+    const role = (membership.data?.role as string | null) ?? null;
+    const orgId = (membership.data?.org_id as string | null) ?? null;
+    if (orgId && (role === "owner" || role === "manager")) {
+      showApprovals = true;
+      const { count: pc } = await sb
+        .from("pending_approvals")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("status", "pending");
+      pendingApprovals = pc ?? 0;
+    }
   }
 
-  // 5 primary nav items — Notes/History/Audit accessible via Settings tabs
-  // or direct URLs, but not cluttering the header.
+  // 5-6 primary nav items — Approvals only visible to owner/manager.
   const navItems = [
     { href: "/dashboard", label: "Home" },
     { href: "/agents", label: "AI Employees", badge: agentCount },
     { href: "/artifacts", label: "Artifacts", badge: artifactCount },
+    ...(showApprovals
+      ? [{ href: "/approvals", label: "Approvals", badge: pendingApprovals }]
+      : []),
     { href: "/team", label: dict.nav.team },
     { href: "/settings", label: dict.nav.settings },
   ];

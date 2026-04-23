@@ -30,6 +30,7 @@ import { shareFile, type DriveRole } from "@/lib/google/drive";
 import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { checkApproval, pendingApprovalResult } from "./approvals";
 
 function escapeHtml(s: string): string {
   return s
@@ -573,6 +574,18 @@ export function buildTools(userId: string) {
         bcc: z.string().nullable().optional(),
       }),
       execute: async ({ to, subject, body, cc, bcc }) => {
+        const gate = await checkApproval({
+          userId,
+          toolName: "send_email",
+          toolArgs: { to, subject, body, cc, bcc },
+          summary: `Kirim email ke ${to} — "${subject}"`,
+        });
+        if (gate.gated) {
+          return pendingApprovalResult(
+            gate.approvalId,
+            `kirim email ke ${to}`,
+          );
+        }
         try {
           const res = await sendEmail(userId, {
             to,
@@ -1192,6 +1205,18 @@ export function buildTools(userId: string) {
       }),
       execute: async ({ member_email, title, due, notes }) => {
         console.log("[assign_task_to_member] called", { member_email, title, due, by: userId });
+        const gate = await checkApproval({
+          userId,
+          toolName: "assign_task_to_member",
+          toolArgs: { member_email, title, due, notes },
+          summary: `Kasih task "${title}" ke ${member_email}${due ? ` deadline ${due}` : ""}`,
+        });
+        if (gate.gated) {
+          return pendingApprovalResult(
+            gate.approvalId,
+            `kasih task "${title}" ke ${member_email}`,
+          );
+        }
         const sb = supabaseAdmin();
         const { data: target } = await sb
           .from("users")
@@ -1306,6 +1331,18 @@ export function buildTools(userId: string) {
           .describe("Also send an email to every member via the caller's Gmail."),
       }),
       execute: async (args) => {
+        const gate = await checkApproval({
+          userId,
+          toolName: "broadcast_to_team",
+          toolArgs: args as Record<string, unknown>,
+          summary: `Broadcast ke tim — "${args.title}"`,
+        });
+        if (gate.gated) {
+          return pendingApprovalResult(
+            gate.approvalId,
+            `broadcast "${args.title}" ke tim`,
+          );
+        }
         const sb = supabaseAdmin();
         const { data: myMembership } = await sb
           .from("org_members")
