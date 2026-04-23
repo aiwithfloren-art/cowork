@@ -218,7 +218,49 @@ async function processSlackMessage(args: {
 
   try {
     const llm = await getLLMForUser(sigapUser.id);
-    const tools = await buildToolsForUser(sigapUser.id);
+    const allTools = await buildToolsForUser(sigapUser.id);
+
+    // @mention routing — if the user typed "@riko do X" at the start, swap in
+    // Riko's role + tool subset so Slack behaves as a multi-persona bot.
+    // Pattern: first word begins with @ AND matches a custom_agent slug owned
+    // by this user. Gracefully falls through to default Sigap otherwise.
+    type AgentRec = {
+      id: string;
+      slug: string;
+      name: string;
+      emoji: string | null;
+      system_prompt: string;
+      enabled_tools: string[];
+    };
+    let agent: AgentRec | null = null;
+    let userText = cleanText;
+    const mention = cleanText.match(/^@([a-z0-9][a-z0-9-]{0,39})\b\s*/i);
+    if (mention) {
+      const slug = mention[1].toLowerCase();
+      const { data: found } = await sb
+        .from("custom_agents")
+        .select("id, slug, name, emoji, system_prompt, enabled_tools")
+        .eq("user_id", sigapUser.id)
+        .eq("slug", slug)
+        .maybeSingle();
+      if (found) {
+        agent = found as unknown as AgentRec;
+        userText = cleanText.slice(mention[0].length).trim();
+      }
+    }
+
+    const tools = agent
+      ? Object.fromEntries(
+          Object.entries(allTools).filter(([k]) =>
+            agent!.enabled_tools.includes(k),
+          ),
+        )
+      : allTools;
+
+    const defaultSystem = `You are Sigap, replying inside Slack. Keep replies under 400 chars when possible. ALWAYS call tools for real Google/notes/team data. Default timezone: Asia/Jakarta. Reply in same language the user wrote. When generate_image returns a URL, put the URL on its own line with no surrounding markdown so Slack auto-unfurls it into a preview.`;
+    const systemPrompt = agent
+      ? `${agent.system_prompt}\n\n## Slack-specific rules\nKeep replies under 400 chars when possible. Reply in same language the user wrote. When generate_image returns a URL, put the URL on its own line with no markdown so Slack auto-unfurls it.`
+      : defaultSystem;
 
     const { data: prior } = await sb
       .from("chat_messages")
@@ -234,8 +276,8 @@ async function processSlackMessage(args: {
 
     const result = await generateText({
       model: llm.model,
-      system: `You are Sigap, replying inside Slack. Keep replies under 400 chars when possible. ALWAYS call tools for real Google/notes/team data. Default timezone: Asia/Jakarta. Reply in same language the user wrote. When generate_image returns a URL, put the URL on its own line with no surrounding markdown so Slack auto-unfurls it into a preview.`,
-      messages: [...history, { role: "user", content: cleanText }],
+      system: systemPrompt,
+      messages: [...history, { role: "user", content: userText }],
       tools,
       stopWhen: stepCountIs(6),
       prepareStep: async ({ messages }) => ({
@@ -256,21 +298,25 @@ async function processSlackMessage(args: {
     }
 
     await sb.from("chat_messages").insert([
-      { user_id: sigapUser.id, role: "user", content: cleanText },
-      { user_id: sigapUser.id, role: "assistant", content: result.text },
+      { user_id: sigapUser.id, role: "user", content: cleanText, agent_id: agent?.id ?? null },
+      { user_id: sigapUser.id, role: "assistant", content: result.text, agent_id: agent?.id ?? null },
     ]);
 
+    const personaPrefix = agent
+      ? `${agent.emoji ?? "🤖"} *${agent.name}* · `
+      : "";
     await postSlack(
       connector.access_token,
       channel,
-      result.text || "(no response)",
+      personaPrefix + (result.text || "(no response)"),
     );
   } catch (e) {
-    console.error("slack events ai error:", e);
+    const errMsg = e instanceof Error ? e.message : String(e);
+    console.error("slack events ai error:", errMsg, e);
     await postSlack(
       connector.access_token,
       channel,
-      "⚠️ Something went wrong. Try again in a moment.",
+      `⚠️ Error: ${errMsg.slice(0, 300)}`,
     );
   }
 }
