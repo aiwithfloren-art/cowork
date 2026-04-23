@@ -8,6 +8,7 @@ import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
+import { redactSecrets, extractSavedTokens } from "@/lib/security/redact-secrets";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -303,9 +304,16 @@ async function processSlackMessage(args: {
       );
     }
 
+    // Scrub tokens before persisting (see redact-secrets for rationale).
+    const savedTokens = extractSavedTokens(
+      result.steps as Parameters<typeof extractSavedTokens>[0],
+    );
+    const redactedUser = redactSecrets(cleanText, savedTokens).redacted;
+    const redactedAssistant = redactSecrets(result.text, savedTokens).redacted;
+
     await sb.from("chat_messages").insert([
-      { user_id: sigapUser.id, role: "user", content: cleanText, agent_id: agent?.id ?? null },
-      { user_id: sigapUser.id, role: "assistant", content: result.text, agent_id: agent?.id ?? null },
+      { user_id: sigapUser.id, role: "user", content: redactedUser, agent_id: agent?.id ?? null },
+      { user_id: sigapUser.id, role: "assistant", content: redactedAssistant, agent_id: agent?.id ?? null },
     ]);
 
     const personaPrefix = agent

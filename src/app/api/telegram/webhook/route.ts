@@ -6,6 +6,7 @@ import { getLLMForAgent, estimateCost } from "@/lib/llm/providers";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
+import { redactSecrets, extractSavedTokens } from "@/lib/security/redact-secrets";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -253,9 +254,16 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
       );
     }
 
+    // Scrub tokens before persisting.
+    const savedTokens = extractSavedTokens(
+      result.steps as Parameters<typeof extractSavedTokens>[0],
+    );
+    const redactedUser = redactSecrets(text, savedTokens).redacted;
+    const redactedAssistant = redactSecrets(result.text, savedTokens).redacted;
+
     await sb.from("chat_messages").insert([
-      { user_id: userId, role: "user", content: text, agent_id: agent?.id ?? null },
-      { user_id: userId, role: "assistant", content: result.text, agent_id: agent?.id ?? null },
+      { user_id: userId, role: "user", content: redactedUser, agent_id: agent?.id ?? null },
+      { user_id: userId, role: "assistant", content: redactedAssistant, agent_id: agent?.id ?? null },
     ]);
 
     const personaPrefix = agent

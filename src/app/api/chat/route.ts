@@ -6,6 +6,7 @@ import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
+import { redactSecrets, extractSavedTokens } from "@/lib/security/redact-secrets";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -451,17 +452,26 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
       await logUsage(userId, tokensIn, tokensOut, cost, llm.modelId);
     }
 
+    // Scrub pasted/echoed API tokens before persisting the turn. Pattern
+    // pass catches well-known prefixes (sk-…, ghp_…, etc); exact-match
+    // pass catches prefix-less tokens we saw go into save_credential.
+    const savedTokens = extractSavedTokens(
+      result.steps as Parameters<typeof extractSavedTokens>[0],
+    );
+    const redactedUser = redactSecrets(lastUser.content, savedTokens).redacted;
+    const redactedAssistant = redactSecrets(text, savedTokens).redacted;
+
     await sb.from("chat_messages").insert([
       {
         user_id: userId,
         role: "user",
-        content: lastUser.content,
+        content: redactedUser,
         agent_id: agentRecord?.id ?? null,
       },
       {
         user_id: userId,
         role: "assistant",
-        content: text,
+        content: redactedAssistant,
         agent_id: agentRecord?.id ?? null,
       },
     ]);
