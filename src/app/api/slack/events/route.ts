@@ -279,7 +279,19 @@ async function processSlackMessage(args: {
     };
     let agent: AgentRec | null = null;
     let userText = cleanText;
-    const mention = cleanText.match(/^@([a-z0-9][a-z0-9-]{0,39})\b\s*/i);
+    // Accept multiple prefix styles so users don't have to fight Slack's
+    // built-in @-autocomplete (which lists Slack users, not our agents):
+    //   "@coder bikin X"  — classic, needs Escape to dismiss Slack popup
+    //   "/coder bikin X"  — slash prefix, same feel as slash command
+    //   "coder: bikin X"  — colon suffix (no autocomplete trigger)
+    //   "coder, bikin X"  — comma suffix (no autocomplete trigger)
+    // Require a punctuation trigger so plain greetings like "halo" don't
+    // cause a pointless DB lookup.
+    const prefixed = cleanText.match(/^(?:@|\/)([a-z0-9][a-z0-9-]{0,39})\b\s*/i);
+    const suffixed = cleanText.match(
+      /^([a-z0-9][a-z0-9-]{0,39})\s*[:,]\s+/i,
+    );
+    const mention = prefixed ?? suffixed;
     if (mention) {
       const slug = mention[1].toLowerCase();
       const { data: found } = await sb

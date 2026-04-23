@@ -162,7 +162,10 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
     };
     let agent: AgentRec | null = null;
     let userText = text;
-    const mention = text.match(/^@([a-z0-9][a-z0-9-]{0,39})\b\s*/i);
+    // Same multi-prefix pattern as Slack — @slug, /slug, slug:, slug,
+    const prefixed = text.match(/^(?:@|\/)([a-z0-9][a-z0-9-]{0,39})\b\s*/i);
+    const suffixed = text.match(/^([a-z0-9][a-z0-9-]{0,39})\s*[:,]\s+/i);
+    const mention = prefixed ?? suffixed;
     if (mention) {
       const slug = mention[1].toLowerCase();
       const { data: found } = await sb
