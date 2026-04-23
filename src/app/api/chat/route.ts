@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { generateText, stepCountIs } from "ai";
-import { getLLMForUser, estimateCost } from "@/lib/llm/providers";
+import { getLLMForAgent, estimateCost } from "@/lib/llm/providers";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -200,21 +200,25 @@ export async function POST(req: Request) {
   }
 
   const lastUser = body.messages[body.messages.length - 1];
-  const llm = await getLLMForUser(userId);
   const allTools = await buildToolsForUser(userId);
 
   // If caller is chatting with a specific custom agent, narrow the tool
   // set + swap in the agent's system prompt.
-  let agentRecord: {
+  type AgentRecord = {
     id: string;
     name: string;
     system_prompt: string;
     enabled_tools: string[];
-  } | null = null;
+    llm_override_provider: string | null;
+    llm_override_model: string | null;
+  };
+  let agentRecord: AgentRecord | null = null;
   if (body.agent_slug) {
     const { data } = await sb
       .from("custom_agents")
-      .select("id, name, system_prompt, enabled_tools")
+      .select(
+        "id, name, system_prompt, enabled_tools, llm_override_provider, llm_override_model",
+      )
       .eq("user_id", userId)
       .eq("slug", body.agent_slug)
       .maybeSingle();
@@ -224,8 +228,11 @@ export async function POST(req: Request) {
         { status: 404 },
       );
     }
-    agentRecord = data;
+    agentRecord = data as unknown as AgentRecord;
   }
+
+  // Resolve LLM AFTER agent lookup so per-agent override takes effect.
+  const llm = await getLLMForAgent(userId, agentRecord);
 
   // Per-employee tool restriction — if there's an org template matching this
   // agent's name with allowed_tools set, those override agent.enabled_tools

@@ -37,7 +37,7 @@ export async function POST(
   const { data: template } = await sb
     .from("org_agent_templates")
     .select(
-      "id, org_id, name, emoji, description, system_prompt, enabled_tools, objectives, install_count",
+      "id, org_id, name, emoji, description, system_prompt, enabled_tools, objectives, install_count, llm_override_provider, llm_override_model",
     )
     .eq("id", id)
     .maybeSingle();
@@ -98,6 +98,8 @@ export async function POST(
       system_prompt: template.system_prompt,
       enabled_tools: template.enabled_tools ?? [],
       objectives: template.objectives ?? [],
+      llm_override_provider: template.llm_override_provider ?? null,
+      llm_override_model: template.llm_override_model ?? null,
     })
     .select("slug, name, emoji")
     .single();

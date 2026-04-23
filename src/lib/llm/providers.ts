@@ -196,4 +196,46 @@ export async function getLLMForUser(userId: string): Promise<{
   };
 }
 
+/**
+ * Agent-aware LLM resolution. If the agent has per-agent override fields
+ * set (e.g. Coder pinned to DeepSeek V3.2), use those; otherwise fall
+ * through to the standard user/org resolution. Override keeps the API key
+ * lookup — we need to find a key for the override provider, either from
+ * env var or org.llm_api_key if the org was already on that provider.
+ */
+export async function getLLMForAgent(
+  userId: string,
+  agent: {
+    llm_override_provider?: string | null;
+    llm_override_model?: string | null;
+  } | null | undefined,
+): Promise<{ model: LanguageModel; provider: LLMProvider; modelId: string }> {
+  if (
+    agent?.llm_override_provider &&
+    agent?.llm_override_model &&
+    isSupportedProvider(agent.llm_override_provider)
+  ) {
+    const overrideProvider = agent.llm_override_provider;
+    const overrideModel = agent.llm_override_model;
+
+    // Prefer platform env var key for the override provider. Falls back to
+    // the org's stored llm_api_key ONLY if the org happens to use the same
+    // provider — otherwise the key belongs to a different service.
+    let apiKey = platformKeyFor(overrideProvider);
+    if (!apiKey) {
+      const org = await loadPrimaryOrgPolicy(userId);
+      if (org?.provider === overrideProvider && org?.apiKey) {
+        apiKey = org.apiKey;
+      }
+    }
+
+    return {
+      model: buildModel(overrideProvider, overrideModel, apiKey),
+      provider: overrideProvider,
+      modelId: overrideModel,
+    };
+  }
+  return getLLMForUser(userId);
+}
+
 export { DEFAULT_MODELS };

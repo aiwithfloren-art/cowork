@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendTelegramMessage } from "@/lib/telegram/client";
 import { generateText, stepCountIs } from "ai";
-import { getLLMForUser, estimateCost } from "@/lib/llm/providers";
+import { getLLMForAgent, estimateCost } from "@/lib/llm/providers";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
@@ -143,7 +143,6 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
   }
 
   try {
-    const llm = await getLLMForUser(userId);
     const allTools = await buildToolsForUser(userId);
 
     // @mention routing — same pattern as Slack. If the message starts with
@@ -157,6 +156,8 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
       emoji: string | null;
       system_prompt: string;
       enabled_tools: string[];
+      llm_override_provider: string | null;
+      llm_override_model: string | null;
     };
     let agent: AgentRec | null = null;
     let userText = text;
@@ -165,7 +166,9 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
       const slug = mention[1].toLowerCase();
       const { data: found } = await sb
         .from("custom_agents")
-        .select("id, slug, name, emoji, system_prompt, enabled_tools")
+        .select(
+          "id, slug, name, emoji, system_prompt, enabled_tools, llm_override_provider, llm_override_model",
+        )
         .eq("user_id", userId)
         .eq("slug", slug)
         .maybeSingle();
@@ -174,6 +177,9 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
         userText = text.slice(mention[0].length).trim();
       }
     }
+
+    // Resolve LLM AFTER agent lookup so override takes effect.
+    const llm = await getLLMForAgent(userId, agent);
 
     const tools = agent
       ? Object.fromEntries(

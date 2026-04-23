@@ -38,6 +38,11 @@ type StarterTemplate = {
   role: string;
   enabled_tools: string[];
   objectives: string[];
+  // Optional per-agent model override — use for agents where the org-wide
+  // default model isn't ideal (e.g. Coder + Reviewer want DeepSeek V3.2
+  // for coding even when org defaults to Qwen3 for natural Bahasa chat).
+  llm_override_provider?: string;
+  llm_override_model?: string;
 };
 
 const STARTER_TEMPLATES: StarterTemplate[] = [
@@ -209,6 +214,8 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Cek commit 24 jam terakhir di repo user — ada yang belum di-push ke main / masih di feature branch?",
       "Scan notes type=project yang mention 'TODO' atau 'pending' — kasih update kalau udah selesai.",
     ],
+    llm_override_provider: "openrouter",
+    llm_override_model: "deepseek/deepseek-v3.2",
   },
   {
     name: "Code Reviewer",
@@ -256,6 +263,8 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Scan commit 24 jam terakhir di tiap repo aktif. Flag bug/security/test gap. Post comment di PR kalau ada.",
       "Kalau ada PR open > 3 hari belum review, post reminder gentle ke author.",
     ],
+    llm_override_provider: "openrouter",
+    llm_override_model: "deepseek/deepseek-v3.2",
   },
   {
     name: "Data Extractor",
@@ -317,6 +326,8 @@ export async function seedStarterSkills(orgId: string): Promise<void> {
       system_prompt: wrap(tmpl.role),
       enabled_tools: tmpl.enabled_tools,
       objectives: tmpl.objectives,
+      llm_override_provider: tmpl.llm_override_provider ?? null,
+      llm_override_model: tmpl.llm_override_model ?? null,
     });
   }
 }

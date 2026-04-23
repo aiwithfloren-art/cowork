@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { generateText, stepCountIs } from "ai";
-import { getLLMForUser, estimateCost } from "@/lib/llm/providers";
+import { getLLMForAgent, estimateCost } from "@/lib/llm/providers";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
@@ -217,7 +217,6 @@ async function processSlackMessage(args: {
   }
 
   try {
-    const llm = await getLLMForUser(sigapUser.id);
     const allTools = await buildToolsForUser(sigapUser.id);
 
     // @mention routing — if the user typed "@riko do X" at the start, swap in
@@ -231,6 +230,8 @@ async function processSlackMessage(args: {
       emoji: string | null;
       system_prompt: string;
       enabled_tools: string[];
+      llm_override_provider: string | null;
+      llm_override_model: string | null;
     };
     let agent: AgentRec | null = null;
     let userText = cleanText;
@@ -239,7 +240,9 @@ async function processSlackMessage(args: {
       const slug = mention[1].toLowerCase();
       const { data: found } = await sb
         .from("custom_agents")
-        .select("id, slug, name, emoji, system_prompt, enabled_tools")
+        .select(
+          "id, slug, name, emoji, system_prompt, enabled_tools, llm_override_provider, llm_override_model",
+        )
         .eq("user_id", sigapUser.id)
         .eq("slug", slug)
         .maybeSingle();
@@ -248,6 +251,9 @@ async function processSlackMessage(args: {
         userText = cleanText.slice(mention[0].length).trim();
       }
     }
+
+    // Resolve LLM AFTER agent lookup so override takes effect.
+    const llm = await getLLMForAgent(sigapUser.id, agent);
 
     const tools = agent
       ? Object.fromEntries(
