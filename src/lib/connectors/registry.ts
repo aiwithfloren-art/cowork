@@ -107,16 +107,17 @@ export const CONNECTORS: ConnectorSpec[] = [
   {
     slug: "github",
     name: "GitHub",
-    description: "Open PRs, issues, and repo context for devs.",
+    description:
+      "Native GitHub integration — create repos, push code, open PRs, review commits. Core path for Coder/Reviewer agents.",
     icon: "⚫",
     category: "project",
-    scopes: ["repo", "read:org"],
+    scopes: ["repo", "read:org", "user:email"],
     capabilities: [
-      "PR apa yang nungguin review",
-      "Issue yang gue assign",
-      "Summary activity repo",
+      "Bikin repo baru + push code full project",
+      "Review commit 24 jam terakhir + post PR comment",
+      "Baca file + diff dari repo manapun",
     ],
-    status: "coming-soon",
+    status: "available",
     installUrl: "/api/connectors/github/install",
   },
 ];

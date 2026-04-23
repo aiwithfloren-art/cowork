@@ -31,6 +31,18 @@ import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkApproval, pendingApprovalResult } from "./approvals";
+import {
+  listRepos as ghListRepos,
+  createRepo as ghCreateRepo,
+  readFile as ghReadFile,
+  writeFile as ghWriteFile,
+  listCommits as ghListCommits,
+  getCommitDiff as ghGetCommitDiff,
+  createPullRequest as ghCreatePR,
+  listOpenPRs as ghListOpenPRs,
+  commentOnPR as ghCommentOnPR,
+  getGithubLogin,
+} from "@/lib/github/tools";
 
 function escapeHtml(s: string): string {
   return s
@@ -1138,6 +1150,269 @@ export function buildTools(userId: string) {
         } catch (e) {
           return {
             error: `Gagal bikin Google Doc: ${e instanceof Error ? e.message : "unknown"}. User mungkin perlu re-authorize Google OAuth kalau token-nya expired.`,
+          };
+        }
+      },
+    }),
+
+    github_list_repos: tool({
+      description:
+        "List the user's GitHub repositories. Use when the user asks 'list my repos', 'apa aja repo gw', 'show my projects'. Returns full_name (owner/repo), URL, default branch.",
+      inputSchema: z.object({
+        include_private: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe("Include private repos. Default true."),
+        limit: z
+          .number()
+          .nullable()
+          .optional()
+          .describe("Max repos to return (1-100). Default 30."),
+      }),
+      execute: async ({ include_private, limit }) => {
+        try {
+          const repos = await ghListRepos(userId, {
+            include_private: include_private ?? true,
+            limit: limit ?? 30,
+          });
+          return { ok: true, count: repos.length, repos };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Failed to list repos",
+          };
+        }
+      },
+    }),
+
+    github_create_repo: tool({
+      description:
+        "Create a new GitHub repository. Use when the user says 'bikin repo X', 'create repo', 'new project on GitHub'. Returns the full_name + URL. Defaults to private + auto-init (README).",
+      inputSchema: z.object({
+        name: z
+          .string()
+          .describe("Repo name (no spaces — use hyphens). Example 'landing-v1'."),
+        description: z
+          .string()
+          .nullable()
+          .optional(),
+        private: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe("Default true. Set false for public."),
+        gitignore_template: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Language template for initial .gitignore. Example 'Node', 'Python', 'Go'.",
+          ),
+      }),
+      execute: async ({ name, description, private: isPrivate, gitignore_template }) => {
+        try {
+          const r = await ghCreateRepo(userId, {
+            name,
+            description: description ?? undefined,
+            private: isPrivate ?? true,
+            gitignore_template: gitignore_template ?? undefined,
+          });
+          return {
+            ok: true,
+            full_name: r.full_name,
+            html_url: r.html_url,
+            default_branch: r.default_branch,
+            note: `Repo created. Next: use github_write_file to add code. owner = full_name.split('/')[0], repo = full_name.split('/')[1].`,
+          };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Failed to create repo",
+          };
+        }
+      },
+    }),
+
+    github_read_file: tool({
+      description:
+        "Read a file from a GitHub repo. Use when the user says 'baca file X di repo Y', 'show me the contents of src/app.ts', 'review code at ...'.",
+      inputSchema: z.object({
+        owner: z.string().describe("Repo owner (username or org)"),
+        repo: z.string().describe("Repo name"),
+        path: z.string().describe("File path, e.g. 'src/index.ts'"),
+        ref: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Branch/tag/sha. Default = default branch."),
+      }),
+      execute: async ({ owner, repo, path, ref }) => {
+        try {
+          const f = await ghReadFile(userId, {
+            owner,
+            repo,
+            path,
+            ref: ref ?? undefined,
+          });
+          return {
+            ok: true,
+            path: f.path,
+            size: f.size,
+            content: f.content.slice(0, 20000),
+            truncated: f.content.length > 20000,
+          };
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : "Failed to read file" };
+        }
+      },
+    }),
+
+    github_write_file: tool({
+      description:
+        "Create or update a file in a GitHub repo. Use for 'bikin file X', 'tambah feature Y', 'push code Z'. If updating, this tool auto-fetches the current SHA. Keep commit messages short + meaningful. To bootstrap a new project, call this multiple times — once per file.",
+      inputSchema: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        path: z.string().describe("File path, e.g. 'package.json' or 'src/app.ts'"),
+        content: z.string().describe("Full file content (UTF-8)"),
+        message: z
+          .string()
+          .describe("Commit message. Conventional commit style preferred."),
+        branch: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Branch to commit to. Default = default branch."),
+      }),
+      execute: async ({ owner, repo, path, content, message, branch }) => {
+        try {
+          const r = await ghWriteFile(userId, {
+            owner,
+            repo,
+            path,
+            content,
+            message,
+            branch: branch ?? undefined,
+          });
+          return { ok: true, commit_sha: r.commit_sha, html_url: r.html_url };
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : "Failed to write file" };
+        }
+      },
+    }),
+
+    github_list_commits: tool({
+      description:
+        "List recent commits on a repo. Use for daily reviewer: 'commit apa aja hari ini di repo X', 'what was pushed in the last 24h'. Pass since='YYYY-MM-DDTHH:MM:SSZ' to filter.",
+      inputSchema: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        since: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("ISO datetime cutoff. Example '2026-04-22T00:00:00Z'"),
+        branch: z.string().nullable().optional(),
+        author: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("GitHub login to filter by"),
+        limit: z.number().nullable().optional(),
+      }),
+      execute: async (args) => {
+        try {
+          const commits = await ghListCommits(userId, {
+            owner: args.owner,
+            repo: args.repo,
+            since: args.since ?? undefined,
+            branch: args.branch ?? undefined,
+            author: args.author ?? undefined,
+            limit: args.limit ?? 20,
+          });
+          return { ok: true, count: commits.length, commits };
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : "Failed to list commits" };
+        }
+      },
+    }),
+
+    github_get_commit_diff: tool({
+      description:
+        "Get the file-level diff for a single commit. Use as reviewer to inspect WHAT changed. Returns per-file patches (capped 4KB each). Combine with github_list_commits to walk recent commits.",
+      inputSchema: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        sha: z.string().describe("Full or short commit SHA"),
+      }),
+      execute: async (args) => {
+        try {
+          const diff = await ghGetCommitDiff(userId, args);
+          return { ok: true, ...diff };
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : "Failed to get diff" };
+        }
+      },
+    }),
+
+    github_create_pr: tool({
+      description:
+        "Open a pull request from one branch into another. Coder uses this after pushing a feature branch.",
+      inputSchema: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        title: z.string(),
+        body: z.string().describe("Markdown body. Summarize what changed + why."),
+        head: z.string().describe("Source branch, e.g. 'feat/dark-mode'"),
+        base: z.string().describe("Target branch, usually 'main'"),
+      }),
+      execute: async (args) => {
+        try {
+          const pr = await ghCreatePR(userId, args);
+          return { ok: true, number: pr.number, html_url: pr.html_url };
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : "Failed to create PR" };
+        }
+      },
+    }),
+
+    github_list_open_prs: tool({
+      description:
+        "List open pull requests on a repo. Use as reviewer to check what's pending.",
+      inputSchema: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        limit: z.number().nullable().optional(),
+      }),
+      execute: async ({ owner, repo, limit }) => {
+        try {
+          const prs = await ghListOpenPRs(userId, {
+            owner,
+            repo,
+            limit: limit ?? 20,
+          });
+          return { ok: true, count: prs.length, prs };
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : "Failed to list PRs" };
+        }
+      },
+    }),
+
+    github_comment_on_pr: tool({
+      description:
+        "Post a review comment on a PR. Use as reviewer to deliver findings. Markdown supported.",
+      inputSchema: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        pr_number: z.number(),
+        body: z.string().describe("Markdown comment body"),
+      }),
+      execute: async (args) => {
+        try {
+          const c = await ghCommentOnPR(userId, args);
+          return { ok: true, html_url: c.html_url };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Failed to post PR comment",
           };
         }
       },
