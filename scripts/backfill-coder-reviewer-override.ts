@@ -16,29 +16,49 @@ async function main() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  const override = {
+  const base = {
     llm_override_provider: "openrouter",
     llm_override_model: "deepseek/deepseek-v3.2",
   };
-  const names = ["Coder", "Code Reviewer"];
 
-  for (const name of names) {
+  // Coder: DeepSeek override, NO schedule (on-demand only)
+  {
     const tmplRes = await sb
       .from("org_agent_templates")
-      .update(override)
-      .eq("name", name)
-      .select("id, org_id");
-    console.log(
-      `  template "${name}" → updated ${tmplRes.data?.length ?? 0} row(s)`,
-    );
-
+      .update(base)
+      .eq("name", "Coder")
+      .select("id");
     const agentRes = await sb
       .from("custom_agents")
-      .update(override)
-      .eq("name", name)
-      .select("id, slug, user_id");
+      .update(base)
+      .eq("name", "Coder")
+      .select("id");
     console.log(
-      `  custom_agent "${name}" → updated ${agentRes.data?.length ?? 0} row(s)`,
+      `  Coder: ${tmplRes.data?.length ?? 0} template / ${agentRes.data?.length ?? 0} installed`,
+    );
+  }
+
+  // Reviewer: DeepSeek + daily 09:00 WIB autonomous schedule
+  {
+    const reviewerUpdate = {
+      ...base,
+      default_schedule: "0 2 * * *",
+    };
+    const tmplRes = await sb
+      .from("org_agent_templates")
+      .update(reviewerUpdate)
+      .eq("name", "Code Reviewer")
+      .select("id");
+
+    // Installed Reviewer agents: set schedule_cron (not default_schedule —
+    // that field only lives on templates). Use same DeepSeek override.
+    const agentRes = await sb
+      .from("custom_agents")
+      .update({ ...base, schedule_cron: "0 2 * * *" })
+      .eq("name", "Code Reviewer")
+      .select("id");
+    console.log(
+      `  Code Reviewer: ${tmplRes.data?.length ?? 0} template / ${agentRes.data?.length ?? 0} installed`,
     );
   }
   console.log("🎉 done");

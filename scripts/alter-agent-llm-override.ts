@@ -40,7 +40,10 @@ async function main() {
   await client.query(
     `alter table public.org_agent_templates add column if not exists llm_override_model text;`,
   );
-  console.log("✓ org_agent_templates.llm_override_{provider,model}");
+  await client.query(
+    `alter table public.org_agent_templates add column if not exists default_schedule text;`,
+  );
+  console.log("✓ org_agent_templates.llm_override_{provider,model} + default_schedule");
 
   await client.end();
   console.log("🎉 done");

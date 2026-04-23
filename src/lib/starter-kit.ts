@@ -43,6 +43,10 @@ type StarterTemplate = {
   // for coding even when org defaults to Qwen3 for natural Bahasa chat).
   llm_override_provider?: string;
   llm_override_model?: string;
+  // Optional default cron schedule for autonomous runs. 5-field cron, UTC.
+  // Example '0 2 * * *' = daily 02:00 UTC = 09:00 WIB. Users can edit or
+  // clear after install via the agent detail page.
+  default_schedule?: string;
 };
 
 const STARTER_TEMPLATES: StarterTemplate[] = [
@@ -265,6 +269,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
     ],
     llm_override_provider: "openrouter",
     llm_override_model: "deepseek/deepseek-v3.2",
+    default_schedule: "0 2 * * *", // 09:00 WIB daily
   },
   {
     name: "Data Extractor",
@@ -328,6 +333,7 @@ export async function seedStarterSkills(orgId: string): Promise<void> {
       objectives: tmpl.objectives,
       llm_override_provider: tmpl.llm_override_provider ?? null,
       llm_override_model: tmpl.llm_override_model ?? null,
+      default_schedule: tmpl.default_schedule ?? null,
     });
   }
 }

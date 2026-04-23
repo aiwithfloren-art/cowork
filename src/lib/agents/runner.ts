@@ -1,5 +1,5 @@
 import { generateText, stepCountIs } from "ai";
-import { getLLMForUser } from "@/lib/llm/providers";
+import { getLLMForAgent } from "@/lib/llm/providers";
 import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
@@ -24,7 +24,7 @@ export async function runAgent(agentId: string): Promise<RunResult> {
   const { data: agent, error: agentErr } = await sb
     .from("custom_agents")
     .select(
-      "id, user_id, slug, name, emoji, system_prompt, enabled_tools, objectives, last_run_at",
+      "id, user_id, slug, name, emoji, system_prompt, enabled_tools, objectives, last_run_at, llm_override_provider, llm_override_model",
     )
     .eq("id", agentId)
     .maybeSingle();
@@ -39,9 +39,15 @@ export async function runAgent(agentId: string): Promise<RunResult> {
   const context = await gatherRecentContext(agent.user_id, since);
 
   const allTools = await buildToolsForUser(agent.user_id);
-  // Runner is read-only for now — strip any mutation tools so the agent
-  // can't surprise-send emails or delete things during autonomous runs.
-  const READ_ONLY = new Set([
+  // Autonomous runs get a curated tool surface:
+  //   - All read-only tools (safe)
+  //   - A few low-stakes writes that the user can undo/delete (PR comments,
+  //     artifacts, personal notes, Google Docs they own)
+  // Blocked: send_email, broadcast, assign_task, github_write_file,
+  // github_create_repo, github_create_pr, delete_*, update_calendar_event,
+  // etc — anything with external blast-radius or irreversible effects.
+  const AUTONOMOUS_SAFE = new Set([
+    // Reads
     "get_today_schedule",
     "get_week_schedule",
     "find_meeting_slots",
@@ -55,11 +61,23 @@ export async function runAgent(agentId: string): Promise<RunResult> {
     "list_notifications",
     "list_team_members",
     "get_member_workload",
+    "get_member_project_brief",
     "list_agents",
+    "github_list_repos",
+    "github_read_file",
+    "github_list_commits",
+    "github_get_commit_diff",
+    "github_list_open_prs",
+    // Safe writes (reversible, user-owned)
+    "save_note",
+    "create_artifact",
+    "create_google_doc",
+    "github_comment_on_pr",
   ]);
   const tools = Object.fromEntries(
     Object.entries(allTools).filter(
-      ([k]) => (agent.enabled_tools as string[]).includes(k) && READ_ONLY.has(k),
+      ([k]) =>
+        (agent.enabled_tools as string[]).includes(k) && AUTONOMOUS_SAFE.has(k),
     ),
   ) as typeof allTools;
 
@@ -82,7 +100,12 @@ You are running in scheduled background mode — nobody is waiting on you live. 
 3) Draft a digest: 3-6 bullet points, each with a concrete recommendation.
 4) For each action item, suggest ONE concrete follow-up the user could take (e.g. "Reply to client X", "Reschedule meeting Y").
 
-Do NOT call any tools that mutate state (send email, add task, delete, broadcast). Those are banned for autonomous runs.
+You MAY call these tools if your role needs them:
+  - Read tools: schedule, tasks, inbox, files, notes, team, GitHub repos/commits/diffs/PRs.
+  - Low-stakes writes: save_note, create_artifact, create_google_doc, github_comment_on_pr.
+You may NOT call: send_email, broadcast_to_team, assign_task_to_member, github_write_file,
+github_create_repo, github_create_pr, anything that deletes or updates external state.
+Those are banned for autonomous runs — too risky without a human in the loop.
 
 Reply in the user's likely language. Keep the digest compact.
 
@@ -94,7 +117,10 @@ ${context}`;
 
   let text = "";
   try {
-    const llm = await getLLMForUser(agent.user_id);
+    const llm = await getLLMForAgent(agent.user_id, agent as {
+      llm_override_provider: string | null;
+      llm_override_model: string | null;
+    });
     const result = await generateText({
       model: llm.model,
       system: runnerSystem,
