@@ -257,7 +257,11 @@ async function processSlackMessage(args: {
   }
 
   try {
+    console.log(
+      `[slack] user=${sigapUser.email} text="${cleanText.slice(0, 100)}"`,
+    );
     const allTools = await buildToolsForUser(sigapUser.id);
+    console.log(`[slack] tools loaded: ${Object.keys(allTools).length}`);
 
     // @mention routing — if the user typed "@riko do X" at the start, swap in
     // Riko's role + tool subset so Slack behaves as a multi-persona bot.
@@ -294,6 +298,9 @@ async function processSlackMessage(args: {
 
     // Resolve LLM AFTER agent lookup so override takes effect.
     const llm = await getLLMForAgent(sigapUser.id, agent);
+    console.log(
+      `[slack] llm=${llm.provider}/${llm.modelId} agent=${agent?.slug ?? "(default)"}`,
+    );
 
     const tools = agent
       ? Object.fromEntries(
@@ -365,11 +372,15 @@ async function processSlackMessage(args: {
     );
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
-    console.error("slack events ai error:", errMsg, e);
+    const errName = e instanceof Error ? e.name : "UnknownError";
+    const errStack = e instanceof Error ? e.stack?.split("\n").slice(0, 5).join("\n") : "";
+    console.error(
+      `[slack error] user=${sigapUser.email} name=${errName} msg="${errMsg}"\nstack: ${errStack}`,
+    );
     await postSlack(
       connector.access_token,
       channel,
-      `⚠️ Error: ${errMsg.slice(0, 300)}`,
+      `⚠️ Error: ${errMsg.slice(0, 300)}\n\n(Log diagnostic — screenshot ini ke admin: ${errName})`,
     );
   }
 }
