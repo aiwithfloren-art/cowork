@@ -141,7 +141,12 @@ async function processSlackMessage(args: {
     .eq("external_account_id", teamId)
     .maybeSingle();
 
-  if (!connector) return;
+  if (!connector) {
+    // Extremely rare — should have been filtered upstream, but handle
+    // defensively so signature + handshake don't break.
+    console.error("slack event: no connector for team_id", teamId);
+    return;
+  }
 
   const profileRes = await fetch(
     `https://slack.com/api/users.info?user=${slackUserId}`,
@@ -149,10 +154,41 @@ async function processSlackMessage(args: {
   );
   const profile = (await profileRes.json()) as {
     ok: boolean;
+    error?: string;
     user?: { profile?: { email?: string } };
   };
+
+  // Failure mode A: Slack API rejected our users.info call (bad token,
+  // missing scope, user revoked, workspace removed). Tell the user what
+  // happened so they can fix it — silent return leaves them confused.
+  if (!profile.ok) {
+    const slackErr = profile.error ?? "unknown_error";
+    const hint =
+      slackErr === "missing_scope"
+        ? "Reconnect Slack — scope 'users:read.email' belum granted. Buka https://cowork-gilt.vercel.app/settings/connectors → disconnect Slack → Connect lagi."
+        : slackErr === "user_not_found"
+          ? "Akun Slack lo ga ke-resolve di workspace ini. Coba reconnect Slack."
+          : "Slack API error — kemungkinan token kadaluarsa. Reconnect Slack di /settings/connectors.";
+    await postSlack(
+      connector.access_token,
+      channel,
+      `⚠️ Slack auth issue (${slackErr}). ${hint}`,
+    );
+    return;
+  }
+
   const slackEmail = profile.user?.profile?.email;
-  if (!slackEmail) return;
+  // Failure mode B: call succeeded but email field empty — almost always
+  // means users:read.email scope is missing despite users:read working.
+  // Slack sometimes strips email even on 'ok: true' responses.
+  if (!slackEmail) {
+    await postSlack(
+      connector.access_token,
+      channel,
+      "⚠️ Sigap ga bisa baca email Slack lo. Scope 'users:read.email' perlu di-grant. Reconnect Slack: disconnect di /settings/connectors → Connect lagi → Authorize.",
+    );
+    return;
+  }
 
   const { data: sigapUser } = await sb
     .from("users")
@@ -160,11 +196,14 @@ async function processSlackMessage(args: {
     .eq("email", slackEmail)
     .maybeSingle();
 
+  // Failure mode C: Slack email doesn't match any Sigap account — user
+  // logged into Sigap with a different email than the one on their
+  // Slack workspace.
   if (!sigapUser) {
     await postSlack(
       connector.access_token,
       channel,
-      `Hi! I'd love to help, but I don't see a Sigap account linked to ${slackEmail}. Sign in at https://cowork-gilt.vercel.app first, then talk to me here.`,
+      `Hi! Email Slack lo (${slackEmail}) ga match sama Sigap account. Sign in ke https://cowork-gilt.vercel.app pake email yang sama (${slackEmail}), atau login ke Sigap dulu.`,
     );
     return;
   }

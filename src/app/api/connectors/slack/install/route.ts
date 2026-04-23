@@ -25,10 +25,16 @@ export async function GET(req: Request) {
   const origin = new URL(req.url).origin;
   const redirectUri = `${origin}/api/connectors/slack/callback`;
 
+  // users:read.email is CRITICAL — without it, Slack's users.info API
+  // returns user profile with no `email` field, so we can't map Slack
+  // users to Sigap users. Silent failure mode = bot never responds or
+  // returns "User not found" in error paths. users:read alone gives
+  // name/avatar but not email.
   const scope = [
     "channels:read",
     "chat:write",
     "users:read",
+    "users:read.email",
     "search:read.public",
   ].join(",");
 
