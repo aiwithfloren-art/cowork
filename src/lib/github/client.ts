@@ -35,8 +35,11 @@ export async function getOctokitForUser(userId: string): Promise<Octokit> {
     .is("org_id", null)
     .maybeSingle();
   if (!row?.access_token) {
+    const host =
+      process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+    const installUrl = `${host}/api/connectors/github/install`;
     throw new Error(
-      "GitHub not connected. Tell the user: open /settings/connectors and click Connect GitHub.",
+      `GitHub not connected. Tell the user CLICKABLY in the reply: "Klik link ini buat authorize GitHub (sekali click): ${installUrl} — abis authorize lo bakal auto redirect balik, terus ketik 'done' atau ulang request-nya." Do NOT say "open settings" — paste the direct link.`,
     );
   }
   return new Octokit({ auth: row.access_token as string });
