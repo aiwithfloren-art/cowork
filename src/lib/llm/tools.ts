@@ -1472,6 +1472,262 @@ export function buildTools(userId: string) {
       },
     }),
 
+    save_credential: tool({
+      description:
+        "Save an API token for a third-party service (e.g. Vercel, Linear, Notion, Stripe). Use when the user PASTES a token in chat to authorize Sigap for that service. Do NOT echo the token back in your reply. After saving, warn the user to delete their chat message if they want the token removed from chat history. Reserved slugs that have dedicated OAuth (google, slack, github, notion) must NOT use this — tell the user to use /settings/connectors instead.",
+      inputSchema: z.object({
+        service: z
+          .string()
+          .describe(
+            "Service slug, lowercase (e.g. 'vercel', 'linear', 'stripe')",
+          ),
+        token: z
+          .string()
+          .describe("The API token the user pasted. Passed verbatim."),
+        label: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Optional human label (e.g. 'Personal account'). Defaults to none.",
+          ),
+      }),
+      execute: async ({ service, token, label }) => {
+        const slug = service.toLowerCase().trim();
+        const RESERVED = new Set(["google", "slack", "github", "composio"]);
+        if (RESERVED.has(slug)) {
+          return {
+            error: `'${slug}' uses dedicated OAuth — tell the user to open /settings/connectors and click Connect ${slug} instead of pasting a token.`,
+          };
+        }
+        if (!/^[a-z0-9_-]{2,40}$/.test(slug)) {
+          return {
+            error:
+              "service slug must be 2-40 chars: lowercase, digits, -, _",
+          };
+        }
+        if (!token || token.trim().length < 8) {
+          return { error: "Token too short — valid tokens usually 20+ chars." };
+        }
+
+        const sb = supabaseAdmin();
+        const { data: existing } = await sb
+          .from("connectors")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("provider", slug)
+          .is("org_id", null)
+          .maybeSingle();
+
+        const payload = {
+          user_id: userId,
+          provider: slug,
+          access_token: token.trim(),
+          external_account_label:
+            typeof label === "string" && label.trim()
+              ? label.trim().slice(0, 120)
+              : null,
+          metadata: { source: "chat_paste" },
+          updated_at: new Date().toISOString(),
+        };
+
+        const err = existing
+          ? (await sb.from("connectors").update(payload).eq("id", existing.id))
+              .error
+          : (await sb.from("connectors").insert(payload)).error;
+        if (err) {
+          return { error: err.message };
+        }
+        return {
+          ok: true,
+          service: slug,
+          note: `Token saved for '${slug}'. You may now call http_request with get_credential('${slug}'). IMPORTANT: warn the user that their chat message contained the raw token — they can delete that message from Telegram/Slack if they want it gone from chat history. Do NOT echo the token back.`,
+        };
+      },
+    }),
+
+    install_skill: tool({
+      description:
+        "Install an AI employee template from the org's Skill Hub as a personal agent for the user. Use when the user says 'install <name>', 'aktifin <name>', 'tambahin agent <name>', 'setup <role>'. Fuzzy-matches the template name. After install, user can @mention the new agent in web/Telegram/Slack. If ambiguous, call list_installable_skills first to show options.",
+      inputSchema: z.object({
+        name: z
+          .string()
+          .describe(
+            "Template name or close match. Examples: 'Coder', 'Code Reviewer', 'HR Onboarding', 'sales', 'content'.",
+          ),
+      }),
+      execute: async ({ name }) => {
+        const sb = supabaseAdmin();
+        const { data: membership } = await sb
+          .from("org_members")
+          .select("org_id")
+          .eq("user_id", userId)
+          .limit(1)
+          .maybeSingle();
+        if (!membership?.org_id) {
+          return {
+            error:
+              "User is not in any org. Skill Hub requires an org — tell the user to create/join one at /team first.",
+          };
+        }
+
+        const { data: templates } = await sb
+          .from("org_agent_templates")
+          .select(
+            "id, name, emoji, description, system_prompt, enabled_tools, objectives, llm_override_provider, llm_override_model, default_schedule, install_count",
+          )
+          .eq("org_id", membership.org_id);
+        if (!templates || templates.length === 0) {
+          return { error: "No templates published in this org's Skill Hub." };
+        }
+
+        // Fuzzy match: exact (case-insensitive) → contains → word-start match
+        const lower = name.toLowerCase().trim();
+        let tmpl = templates.find(
+          (t) => (t.name as string).toLowerCase() === lower,
+        );
+        if (!tmpl) {
+          tmpl = templates.find((t) =>
+            (t.name as string).toLowerCase().includes(lower),
+          );
+        }
+        if (!tmpl) {
+          tmpl = templates.find((t) =>
+            lower
+              .split(/\s+/)
+              .some((word) =>
+                (t.name as string).toLowerCase().includes(word),
+              ),
+          );
+        }
+        if (!tmpl) {
+          return {
+            error: `No template matching "${name}". Available: ${templates
+              .map((t) => t.name)
+              .join(", ")}`,
+          };
+        }
+
+        // Anti-duplicate: if user already has an agent with this name, bail
+        const { data: existing } = await sb
+          .from("custom_agents")
+          .select("slug")
+          .eq("user_id", userId)
+          .eq("name", tmpl.name)
+          .maybeSingle();
+        if (existing) {
+          return {
+            ok: true,
+            already_installed: true,
+            slug: existing.slug as string,
+            name: tmpl.name,
+            note: `${tmpl.name} already installed at /agents/${existing.slug}. Use @${existing.slug} in chat.`,
+          };
+        }
+
+        // Agent cap check
+        const { count } = await sb
+          .from("custom_agents")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId);
+        if ((count ?? 0) >= 20) {
+          return {
+            error: `User already has ${count} agents (max 20). Tell them to delete one first.`,
+          };
+        }
+
+        // Generate unique slug under this user
+        const baseSlug = (tmpl.name as string)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 40);
+        let slug = baseSlug;
+        for (let i = 0; i < 5; i++) {
+          const { data: dup } = await sb
+            .from("custom_agents")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("slug", slug)
+            .maybeSingle();
+          if (!dup) break;
+          slug = `${baseSlug}-${crypto.randomBytes(2).toString("hex")}`;
+        }
+
+        const { error: insertErr } = await sb.from("custom_agents").insert({
+          user_id: userId,
+          slug,
+          name: tmpl.name,
+          emoji: tmpl.emoji ?? null,
+          description: tmpl.description ?? null,
+          system_prompt: tmpl.system_prompt,
+          enabled_tools: tmpl.enabled_tools ?? [],
+          objectives: tmpl.objectives ?? [],
+          llm_override_provider: tmpl.llm_override_provider ?? null,
+          llm_override_model: tmpl.llm_override_model ?? null,
+          schedule_cron: tmpl.default_schedule ?? null,
+        });
+        if (insertErr) {
+          return { error: insertErr.message };
+        }
+        await sb
+          .from("org_agent_templates")
+          .update({ install_count: (tmpl.install_count as number | null ?? 0) + 1 })
+          .eq("id", tmpl.id as string);
+
+        return {
+          ok: true,
+          slug,
+          name: tmpl.name,
+          emoji: tmpl.emoji ?? "🤖",
+          note: `Installed! Use @${slug} in chat (web, Telegram, or Slack). Or open /agents/${slug} for dedicated chat.`,
+        };
+      },
+    }),
+
+    list_installable_skills: tool({
+      description:
+        "List all AI employee templates the user can install from their org's Skill Hub. Shows name + description so the user can pick.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const sb = supabaseAdmin();
+        const { data: membership } = await sb
+          .from("org_members")
+          .select("org_id")
+          .eq("user_id", userId)
+          .limit(1)
+          .maybeSingle();
+        if (!membership?.org_id) {
+          return { ok: true, count: 0, templates: [] };
+        }
+        const { data: templates } = await sb
+          .from("org_agent_templates")
+          .select("name, emoji, description")
+          .eq("org_id", membership.org_id)
+          .order("install_count", { ascending: false });
+
+        // Also fetch user's already-installed agents to mark them
+        const { data: installed } = await sb
+          .from("custom_agents")
+          .select("name")
+          .eq("user_id", userId);
+        const installedNames = new Set(
+          (installed ?? []).map((a) => a.name as string),
+        );
+
+        return {
+          ok: true,
+          count: (templates ?? []).length,
+          templates: (templates ?? []).map((t) => ({
+            name: t.name as string,
+            emoji: (t.emoji as string | null) ?? "🤖",
+            description: (t.description as string | null) ?? "",
+            already_installed: installedNames.has(t.name as string),
+          })),
+        };
+      },
+    }),
+
     http_request: tool({
       description:
         "Universal HTTP client for any REST/HTTPS API. Use when there's no dedicated tool for the service the user is asking about (Vercel, Linear, Notion, Stripe, Airtable, Twilio, etc). You compose the URL + method + headers yourself based on the service's API docs. For authenticated endpoints, call get_credential first to fetch the user's token, then pass it in the Authorization header. DO NOT echo the token in your reply. SSRF-guarded: localhost and private IPs blocked. Response capped at 2MB and 20s.",
