@@ -6,6 +6,7 @@ import { generateText, stepCountIs } from "ai";
 import { getLLMForAgent } from "@/lib/llm/providers";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 import { redactSecrets, extractSavedTokens } from "@/lib/security/redact-secrets";
+import { getAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -46,18 +47,20 @@ function verifySignature(
   );
 }
 
-const HELP_TEXT = [
-  "*Sigap slash command:*",
-  "• `/sigap <prompt>` — chat default Sigap",
-  "• `/sigap <agent-slug> <prompt>` — route to specific agent",
-  "",
-  "*Contoh:*",
-  "• `/sigap halo tes`",
-  "• `/sigap coder bikin landing page`",
-  "• `/sigap reviewer cek commit kemarin`",
-  "",
-  "Daftar agent lo ada di web: https://cowork-gilt.vercel.app/agents",
-].join("\n");
+function buildHelpText(appUrl: string): string {
+  return [
+    "*Sigap slash command:*",
+    "• `/sigap <prompt>` — chat default Sigap",
+    "• `/sigap <agent-slug> <prompt>` — route to specific agent",
+    "",
+    "*Contoh:*",
+    "• `/sigap halo tes`",
+    "• `/sigap coder bikin landing page`",
+    "• `/sigap reviewer cek commit kemarin`",
+    "",
+    `Daftar agent lo ada di web: ${appUrl}/agents`,
+  ].join("\n");
+}
 
 export async function POST(req: Request) {
   const rawBody = await req.text();
@@ -82,7 +85,7 @@ export async function POST(req: Request) {
   if (!text) {
     return NextResponse.json({
       response_type: "ephemeral",
-      text: HELP_TEXT,
+      text: buildHelpText(getAppUrl(req)),
       mrkdwn: true,
     });
   }
@@ -155,7 +158,7 @@ async function processSlashCommand(args: SlashArgs): Promise<void> {
   if (!connector) {
     await respondEphemeral(
       responseUrl,
-      "⚠️ Slack workspace belum ter-connect ke Sigap. Buka https://cowork-gilt.vercel.app/settings/connectors → Connect Slack.",
+      `⚠️ Slack workspace belum ter-connect ke Sigap. Buka ${getAppUrl()}/settings/connectors → Connect Slack.`,
     );
     return;
   }
@@ -195,7 +198,7 @@ async function processSlashCommand(args: SlashArgs): Promise<void> {
   if (!sigapUser) {
     await respondEphemeral(
       responseUrl,
-      `Email Slack lo (${slackEmail}) ga match Sigap account. Sign in ke https://cowork-gilt.vercel.app pake email yang sama.`,
+      `Email Slack lo (${slackEmail}) ga match Sigap account. Sign in ke ${getAppUrl()} pake email yang sama.`,
     );
     return;
   }

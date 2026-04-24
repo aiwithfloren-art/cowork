@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { headers } from "next/headers";
 import { generateConnectUrl } from "@/lib/composio/tools";
+import { getAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -25,10 +25,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "toolkit required" }, { status: 400 });
   }
 
-  const h = await headers();
-  const host = h.get("host") ?? "cowork-gilt.vercel.app";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  const callbackUrl = `${proto}://${host}/settings/connectors`;
+  const callbackUrl = `${getAppUrl(req)}/settings/connectors`;
 
   const result = await generateConnectUrl(uid, toolkit, callbackUrl);
   if ("error" in result) {

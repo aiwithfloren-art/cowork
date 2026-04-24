@@ -530,7 +530,7 @@ export function Chat({
           e.preventDefault();
           send(input);
         }}
-        className="border-t border-slate-200 p-3 bg-white"
+        className="border-t border-slate-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white"
       >
         <div className="relative flex items-end gap-2">
           {mentionOpen && filteredMentions.length > 0 && (
@@ -622,7 +622,7 @@ export function Chat({
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-950/60 backdrop-blur-sm">
       <div
-        className="my-4 flex w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl mx-4"
+        className="my-0 flex w-full max-w-5xl flex-col overflow-hidden rounded-none bg-white shadow-2xl sm:my-4 sm:mx-4 sm:rounded-xl"
         role="dialog"
         aria-modal="true"
         aria-label="Chief of Staff — fullscreen chat"

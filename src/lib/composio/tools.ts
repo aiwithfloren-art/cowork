@@ -107,3 +107,35 @@ export async function listConnectedToolkits(userId: string): Promise<string[]> {
     return [];
   }
 }
+
+/**
+ * Revokes a user's connection to a specific toolkit. Looks up the active
+ * connected account ID then deletes it — Composio's `delete` API needs
+ * the account ID, not the toolkit slug.
+ */
+export async function disconnectToolkit(
+  userId: string,
+  toolkit: string,
+): Promise<{ ok: true } | { error: string }> {
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey) return { error: "COMPOSIO_API_KEY not set" };
+  try {
+    const composio = new Composio({ apiKey, provider: new VercelProvider() });
+    const connections = await composio.connectedAccounts.list({
+      userIds: [userId],
+      statuses: ["ACTIVE"],
+    });
+    const items =
+      (connections as {
+        items?: Array<{ id: string; toolkit?: { slug?: string | null } }>;
+      }).items ?? [];
+    const match = items.find((c) => c.toolkit?.slug === toolkit);
+    if (!match) return { error: `No active connection found for ${toolkit}` };
+    await composio.connectedAccounts.delete(match.id);
+    return { ok: true };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Disconnect failed",
+    };
+  }
+}

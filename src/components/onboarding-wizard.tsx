@@ -71,7 +71,7 @@ export function OnboardingWizard({
     (step === 4 && !!selectedStarter);
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-2xl px-4 md:px-0">
       {/* Progress bar */}
       <div className="mb-8 flex items-center gap-2">
         {[1, 2, 3, 4].map((n) => (

@@ -5,6 +5,7 @@ import { listTasks } from "@/lib/google/tasks";
 import { getLLMForUser } from "@/lib/llm/providers";
 import { generateText } from "ai";
 import { Resend } from "resend";
+import { getAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -100,9 +101,9 @@ Structure:
   </div>
   <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
   <p style="color: #64748b; font-size: 13px;">
-    <a href="https://cowork-gilt.vercel.app/dashboard" style="color: #6366f1;">Open Sigap dashboard →</a>
+    <a href="${getAppUrl()}/dashboard" style="color: #6366f1;">Open Sigap dashboard →</a>
   </p>
-  <p style="color: #94a3b8; font-size: 11px;">Sent by Sigap. <a href="https://cowork-gilt.vercel.app/settings" style="color: #94a3b8;">Manage settings</a>.</p>
+  <p style="color: #94a3b8; font-size: 11px;">Sent by Sigap. <a href="${getAppUrl()}/settings" style="color: #94a3b8;">Manage settings</a>.</p>
 </div>`;
 
       await resend.emails.send({

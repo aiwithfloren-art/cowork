@@ -70,20 +70,24 @@ export function AppNav({ items, locale, user, signOutLabel, onSignOut }: Props) 
           </div>
         </div>
 
-        {/* Mobile hamburger */}
-        <button
-          onClick={() => setOpen((o) => !o)}
-          className="rounded-md p-2 text-slate-700 md:hidden"
-          aria-label="Toggle menu"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            {open ? (
-              <path d="M6 6L18 18 M6 18L18 6" />
-            ) : (
-              <path d="M4 6h16 M4 12h16 M4 18h16" />
-            )}
-          </svg>
-        </button>
+        {/* Mobile-only: notification bell + hamburger (user shouldn't miss
+            team notifs just because they're on a phone) */}
+        <div className="flex items-center gap-1 md:hidden">
+          <NotificationBell />
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="rounded-md p-2 text-slate-700"
+            aria-label="Toggle menu"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {open ? (
+                <path d="M6 6L18 18 M6 18L18 6" />
+              ) : (
+                <path d="M4 6h16 M4 12h16 M4 18h16" />
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}

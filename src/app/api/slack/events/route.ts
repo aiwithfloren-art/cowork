@@ -9,6 +9,7 @@ import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 import { redactSecrets, extractSavedTokens } from "@/lib/security/redact-secrets";
+import { getAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -165,7 +166,7 @@ async function processSlackMessage(args: {
     const slackErr = profile.error ?? "unknown_error";
     const hint =
       slackErr === "missing_scope"
-        ? "Reconnect Slack — scope 'users:read.email' belum granted. Buka https://cowork-gilt.vercel.app/settings/connectors → disconnect Slack → Connect lagi."
+        ? `Reconnect Slack — scope 'users:read.email' belum granted. Buka ${getAppUrl()}/settings/connectors → disconnect Slack → Connect lagi.`
         : slackErr === "user_not_found"
           ? "Akun Slack lo ga ke-resolve di workspace ini. Coba reconnect Slack."
           : "Slack API error — kemungkinan token kadaluarsa. Reconnect Slack di /settings/connectors.";
@@ -203,7 +204,7 @@ async function processSlackMessage(args: {
     await postSlack(
       connector.access_token,
       channel,
-      `Hi! Email Slack lo (${slackEmail}) ga match sama Sigap account. Sign in ke https://cowork-gilt.vercel.app pake email yang sama (${slackEmail}), atau login ke Sigap dulu.`,
+      `Hi! Email Slack lo (${slackEmail}) ga match sama Sigap account. Sign in ke ${getAppUrl()} pake email yang sama (${slackEmail}), atau login ke Sigap dulu.`,
     );
     return;
   }

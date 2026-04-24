@@ -169,7 +169,7 @@ export default async function DashboardPage({
 
       {/* Quick-access widget grid — OpenWork-style home. Links to the main
           surfaces so users don't have to hunt through the nav. */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
         <WidgetCard
           emoji="👥"
           label="AI Employees"
@@ -297,7 +297,7 @@ export default async function DashboardPage({
         </div>
 
         <div className="lg:col-span-1">
-          <Card className="flex flex-col h-[calc(100vh-180px)] lg:sticky lg:top-6">
+          <Card className="flex flex-col h-[60vh] min-h-[400px] lg:h-[calc(100vh-180px)] lg:sticky lg:top-6">
             <CardHeader>
               <CardTitle>{t.chiefOfStaff}</CardTitle>
             </CardHeader>

@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import crypto from "crypto";
 import { sendHtmlEmail } from "@/lib/google/gmail";
+import { getAppUrl } from "@/lib/app-url";
 import {
   slugify,
   hardenSystemPrompt,
@@ -2726,9 +2727,7 @@ export function buildTools(userId: string) {
           sb.from("users").select("name, email").eq("id", userId).maybeSingle(),
           sb.from("organizations").select("name").eq("id", org_id).maybeSingle(),
         ]);
-        const baseUrl =
-          process.env.NEXT_PUBLIC_APP_URL || "https://cowork-gilt.vercel.app";
-        const inviteUrl = `${baseUrl}/invite/${token}`;
+        const inviteUrl = `${getAppUrl()}/invite/${token}`;
         const inviterName = inviter?.name || inviter?.email || "Someone";
         const orgName = org?.name || "a team";
         const subject = `${inviterName} invited you to join ${orgName} on Sigap`;

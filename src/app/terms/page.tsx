@@ -20,7 +20,8 @@ export default function TermsPage() {
       <h2>Free tier</h2>
       <p>
         We provide a free tier backed by a small monthly budget. When it runs out, service may be
-        paused. You can add your own Groq API key in Settings to continue uninterrupted.
+        paused until the next cycle. If you need guaranteed uptime or higher limits, reach out and
+        we&apos;ll talk about a paid tier.
       </p>
 
       <h2>No warranty</h2>

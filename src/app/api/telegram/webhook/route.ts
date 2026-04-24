@@ -7,6 +7,7 @@ import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { redactSecrets, extractSavedTokens } from "@/lib/security/redact-secrets";
+import { getAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
     } else {
       await sendTelegramMessage(
         chatId,
-        "👋 Welcome to Sigap Bot!\n\nTo link your account, open https://cowork-gilt.vercel.app/settings and copy the 6-digit linking code, then reply here with `/start CODE`.",
+        `👋 Welcome to Sigap Bot!\n\nTo link your account, open ${getAppUrl(req)}/settings and copy the 6-digit linking code, then reply here with \`/start CODE\`.`,
       );
     }
     return NextResponse.json({ ok: true });
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
   if (!link) {
     await sendTelegramMessage(
       chatId,
-      "You're not linked yet. Open https://cowork-gilt.vercel.app/settings and get a 6-digit code, then send it to me.",
+      `You're not linked yet. Open ${getAppUrl(req)}/settings and get a 6-digit code, then send it to me.`,
     );
     return NextResponse.json({ ok: true });
   }
@@ -97,7 +98,7 @@ async function handleLinkCode(
   if (!linkCode || new Date(linkCode.expires_at) < new Date()) {
     await sendTelegramMessage(
       chatId,
-      "❌ Invalid or expired code. Get a fresh one at https://cowork-gilt.vercel.app/settings",
+      `❌ Invalid or expired code. Get a fresh one at ${getAppUrl()}/settings`,
     );
     return NextResponse.json({ ok: true });
   }

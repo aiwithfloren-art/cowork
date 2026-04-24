@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type Status = {
   enabled: string[];
@@ -18,10 +18,10 @@ export function OrgConnectors({ canEdit }: { canEdit: boolean }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
+  const load = useCallback(async () => {
     setError(null);
     try {
       const res = await fetch("/api/team/composio/status");
@@ -32,11 +32,30 @@ export function OrgConnectors({ canEdit }: { canEdit: boolean }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  useEffect(() => {
+    const onPageShow = () => {
+      setBusy(null);
+      load();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        setBusy(null);
+        load();
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
 
   async function connect(toolkit: string) {
     setBusy(toolkit);
@@ -61,6 +80,34 @@ export function OrgConnectors({ canEdit }: { canEdit: boolean }) {
     }
   }
 
+  async function disconnect(toolkit: string) {
+    if (
+      !confirm(
+        `Disconnect ${toolkit} from the whole team? All AI employees will lose access until you reconnect.`,
+      )
+    ) {
+      return;
+    }
+    setDisconnecting(toolkit);
+    setError(null);
+    try {
+      const res = await fetch("/api/team/composio/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolkit }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Disconnect failed");
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Disconnect failed");
+    } finally {
+      setDisconnecting(null);
+    }
+  }
+
   if (loading) return <p className="text-xs text-slate-400">Loading…</p>;
   if (!status || status.enabled.length === 0) {
     return (
@@ -80,10 +127,12 @@ export function OrgConnectors({ canEdit }: { canEdit: boolean }) {
       <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100 bg-white">
         {status.enabled.map((tk) => {
           const isConnected = status.connected.includes(tk);
+          const isDisconnecting = disconnecting === tk;
+          const isBusy = busy === tk;
           return (
             <li
               key={tk}
-              className="flex items-center justify-between px-4 py-3 text-sm"
+              className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
             >
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{toolkitEmoji(tk)}</span>
@@ -95,16 +144,27 @@ export function OrgConnectors({ canEdit }: { canEdit: boolean }) {
                 </div>
               </div>
               {isConnected ? (
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                  ✓ Connected
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                    ✓ Connected
+                  </span>
+                  {canEdit && (
+                    <button
+                      onClick={() => disconnect(tk)}
+                      disabled={isDisconnecting}
+                      className="rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                    >
+                      {isDisconnecting ? "Disconnecting…" : "Disconnect"}
+                    </button>
+                  )}
+                </div>
               ) : canEdit ? (
                 <button
                   onClick={() => connect(tk)}
-                  disabled={busy === tk}
+                  disabled={isBusy}
                   className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
-                  {busy === tk ? "Opening…" : "Connect"}
+                  {isBusy ? "Opening…" : "Connect"}
                 </button>
               ) : (
                 <span className="text-xs text-slate-400">Owner only</span>

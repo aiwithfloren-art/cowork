@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getAppUrl } from "@/lib/app-url";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM_EMAIL || "Sigap <onboarding@resend.dev>";
@@ -87,7 +88,7 @@ export async function sendWeeklyReportEmail(args: {
         ${args.reportHtml}
       </div>
       <p style="color: #64748b; font-size: 13px;">
-        <a href="https://cowork-gilt.vercel.app/dashboard" style="color: #6366f1;">Open dashboard →</a>
+        <a href="${getAppUrl()}/dashboard" style="color: #6366f1;">Open dashboard →</a>
       </p>
     </div>
   `;

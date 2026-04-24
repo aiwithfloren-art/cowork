@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import crypto from "crypto";
-import { headers } from "next/headers";
 import { sendInviteEmail } from "@/lib/email/client";
+import { getAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -48,10 +48,7 @@ export async function POST(req: Request) {
     sb.from("organizations").select("name").eq("id", org_id).maybeSingle(),
   ]);
 
-  const h = await headers();
-  const host = h.get("host") ?? "cowork-gilt.vercel.app";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  const inviteUrl = `${proto}://${host}/invite/${token}`;
+  const inviteUrl = `${getAppUrl(req)}/invite/${token}`;
 
   await sendInviteEmail({
     to: email.trim().toLowerCase(),

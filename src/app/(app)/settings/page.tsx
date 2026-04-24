@@ -62,7 +62,7 @@ export default async function SettingsPage() {
   const t = dict.settings;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 px-4 md:px-6">
       <h1 className="text-2xl font-bold text-slate-900">{t.title}</h1>
 
       <Card>

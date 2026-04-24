@@ -10,8 +10,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  * OAuth app registration (one-time, owner does this at github.com/
  * settings/developers):
  *   - Name: Sigap
- *   - Homepage URL: https://cowork-gilt.vercel.app
- *   - Callback URL: https://cowork-gilt.vercel.app/api/connectors/github/callback
+ *   - Homepage URL: <your deployment URL, e.g. https://your-app.vercel.app>
+ *   - Callback URL: <same origin>/api/connectors/github/callback
  *   - Scopes requested on install: repo, user:email, read:org
  *
  * Env vars required:
