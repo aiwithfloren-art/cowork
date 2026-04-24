@@ -28,6 +28,14 @@ export function TasksPanel({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [undoEntry, setUndoEntry] = useState<UndoEntry | null>(null);
 
+  // Sync local state when parent passes fresh initialTasks — triggered by
+  // router.refresh() after the chat agent adds/edits/deletes a task.
+  // Without this, useState(initialTasks) only takes the value once and
+  // the panel stays stale until a full page reload.
+  useEffect(() => {
+    setTasks(initialTasks);
+  }, [initialTasks]);
+
   // Auto-dismiss undo toast after 5s
   useEffect(() => {
     if (!undoEntry) return;
