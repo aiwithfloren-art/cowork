@@ -44,8 +44,9 @@ export async function runAgent(agentId: string): Promise<RunResult> {
   //   - A few low-stakes writes that the user can undo/delete (PR comments,
   //     artifacts, personal notes, Google Docs they own)
   // Blocked: send_email, broadcast, assign_task, github_write_file,
-  // github_create_repo, github_create_pr, delete_*, update_calendar_event,
-  // etc — anything with external blast-radius or irreversible effects.
+  // github_write_files_batch, github_create_repo, github_create_pr, delete_*,
+  // update_calendar_event, etc — anything with external blast-radius or
+  // irreversible effects.
   const AUTONOMOUS_SAFE = new Set([
     // Reads
     "get_today_schedule",
@@ -104,7 +105,7 @@ You MAY call these tools if your role needs them:
   - Read tools: schedule, tasks, inbox, files, notes, team, GitHub repos/commits/diffs/PRs.
   - Low-stakes writes: save_note, create_artifact, create_google_doc, github_comment_on_pr.
 You may NOT call: send_email, broadcast_to_team, assign_task_to_member, github_write_file,
-github_create_repo, github_create_pr, anything that deletes or updates external state.
+github_write_files_batch, github_create_repo, github_create_pr, anything that deletes or updates external state.
 Those are banned for autonomous runs — too risky without a human in the loop.
 
 Reply in the user's likely language. Keep the digest compact.

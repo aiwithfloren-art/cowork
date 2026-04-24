@@ -9,7 +9,7 @@ import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 import { redactSecrets, extractSavedTokens } from "@/lib/security/redact-secrets";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";

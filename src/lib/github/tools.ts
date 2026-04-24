@@ -129,6 +129,85 @@ export async function writeFile(
   };
 }
 
+export async function writeFilesBatch(
+  userId: string,
+  opts: {
+    owner: string;
+    repo: string;
+    files: Array<{ path: string; content: string }>;
+    message: string;
+    branch?: string;
+  },
+): Promise<{
+  commit_sha: string;
+  html_url: string;
+  files_count: number;
+  branch: string;
+}> {
+  if (!opts.files.length) {
+    throw new Error("writeFilesBatch: files array is empty");
+  }
+
+  const octokit = await getOctokitForUser(userId);
+
+  let branch = opts.branch;
+  if (!branch) {
+    const { data: repoData } = await octokit.repos.get({
+      owner: opts.owner,
+      repo: opts.repo,
+    });
+    branch = repoData.default_branch;
+  }
+
+  const { data: refData } = await octokit.git.getRef({
+    owner: opts.owner,
+    repo: opts.repo,
+    ref: `heads/${branch}`,
+  });
+  const parentSha = refData.object.sha;
+
+  const { data: parentCommit } = await octokit.git.getCommit({
+    owner: opts.owner,
+    repo: opts.repo,
+    commit_sha: parentSha,
+  });
+  const parentTreeSha = parentCommit.tree.sha;
+
+  const { data: newTree } = await octokit.git.createTree({
+    owner: opts.owner,
+    repo: opts.repo,
+    base_tree: parentTreeSha,
+    tree: opts.files.map((f) => ({
+      path: f.path,
+      mode: "100644",
+      type: "blob",
+      content: f.content,
+    })),
+  });
+
+  const { data: newCommit } = await octokit.git.createCommit({
+    owner: opts.owner,
+    repo: opts.repo,
+    message: opts.message,
+    tree: newTree.sha,
+    parents: [parentSha],
+  });
+
+  await octokit.git.updateRef({
+    owner: opts.owner,
+    repo: opts.repo,
+    ref: `heads/${branch}`,
+    sha: newCommit.sha,
+  });
+
+  return {
+    commit_sha: newCommit.sha,
+    html_url: newCommit.html_url,
+    files_count: opts.files.length,
+    branch,
+  };
+}
+
 export async function listCommits(
   userId: string,
   opts: {

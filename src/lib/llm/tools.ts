@@ -37,6 +37,7 @@ import {
   createRepo as ghCreateRepo,
   readFile as ghReadFile,
   writeFile as ghWriteFile,
+  writeFilesBatch as ghWriteFilesBatch,
   listCommits as ghListCommits,
   getCommitDiff as ghGetCommitDiff,
   createPullRequest as ghCreatePR,
@@ -1297,6 +1298,54 @@ export function buildTools(userId: string) {
           return { ok: true, commit_sha: r.commit_sha, html_url: r.html_url };
         } catch (e) {
           return { error: e instanceof Error ? e.message : "Failed to write file" };
+        }
+      },
+    }),
+
+    github_write_files_batch: tool({
+      description:
+        "Commit MANY files to a GitHub repo in a SINGLE atomic commit using the Git Tree API. STRONGLY PREFERRED over repeated github_write_file when scaffolding or bootstrapping a project (Next.js app, landing page, etc). One call = one commit with all files. ~10x faster than N sequential github_write_file calls and avoids serverless timeout. Use for: initial scaffold, adding a feature that spans multiple files, refactors. Only text/UTF-8 files supported (no binaries). Tip: the very first scaffold commit can overwrite the auto-generated README.",
+      inputSchema: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        files: z
+          .array(
+            z.object({
+              path: z.string().describe("Repo-relative path, e.g. 'package.json' or 'src/app/page.tsx'"),
+              content: z.string().describe("Full UTF-8 file content"),
+            }),
+          )
+          .min(1)
+          .describe("List of files to create/update in one commit"),
+        message: z
+          .string()
+          .describe("Commit message. Conventional commit style preferred, e.g. 'chore: scaffold Next.js app'."),
+        branch: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Branch to commit to. Default = default branch."),
+      }),
+      execute: async ({ owner, repo, files, message, branch }) => {
+        try {
+          const r = await ghWriteFilesBatch(userId, {
+            owner,
+            repo,
+            files,
+            message,
+            branch: branch ?? undefined,
+          });
+          return {
+            ok: true,
+            commit_sha: r.commit_sha,
+            html_url: r.html_url,
+            files_count: r.files_count,
+            branch: r.branch,
+          };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Failed to write files batch",
+          };
         }
       },
     }),
