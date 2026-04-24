@@ -467,16 +467,34 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
   if (contextReply) return respondIntercepted(contextReply);
 
   try {
-    const result = await generateText({
-      model: llm.model,
-      system: systemWithTime,
-      messages: body.messages,
-      tools,
-      stopWhen: stepCountIs(12),
-      prepareStep: async ({ messages }) => ({
-        messages: stripReasoningFromMessages(messages),
-      }),
-    });
+    // Retry once on "Invalid JSON response" — DeepSeek V3.2 (coder agent)
+    // occasionally returns a malformed body that fails the AI SDK's
+    // JSON schema. A single retry usually succeeds because the model
+    // re-generates from scratch. Any other error bubbles straight up.
+    const runGenerate = () =>
+      generateText({
+        model: llm.model,
+        system: systemWithTime,
+        messages: body.messages,
+        tools,
+        stopWhen: stepCountIs(12),
+        prepareStep: async ({ messages }) => ({
+          messages: stripReasoningFromMessages(messages),
+        }),
+      });
+
+    let result: Awaited<ReturnType<typeof runGenerate>>;
+    try {
+      result = await runGenerate();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/invalid json response|JSON parse|unexpected token/i.test(msg)) {
+        console.warn("[chat] upstream returned malformed body, retrying once:", msg);
+        result = await runGenerate();
+      } else {
+        throw e;
+      }
+    }
 
     const toolsCalled = (result.steps ?? [])
       .flatMap((s: { toolCalls?: Array<{ toolName?: string }> }) => s.toolCalls ?? [])
@@ -561,17 +579,46 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "LLM request failed";
+    const rawMessage = e instanceof Error ? e.message : "LLM request failed";
     const stack = e instanceof Error ? e.stack : undefined;
     console.error("[chat] main LLM flow error:", {
-      message,
+      message: rawMessage,
       stack,
       userId,
       lastUserMsg: lastUser.content.slice(0, 200),
       agentSlug: agentRecord?.name ?? null,
     });
-    return NextResponse.json({ error: message }, { status: 500 });
+
+    // Translate cryptic upstream errors into something a non-technical
+    // user can act on. Default is to surface the raw message so we can
+    // still debug unknown failures.
+    const friendly = friendlyLLMErrorMessage(rawMessage);
+    return NextResponse.json({ error: friendly }, { status: 500 });
   }
+}
+
+function friendlyLLMErrorMessage(raw: string): string {
+  const m = raw.toLowerCase();
+  if (/invalid json response|json parse|unexpected token/.test(m)) {
+    return "The AI got confused and sent a garbled response. Try again — if it keeps happening, start a fresh chat or rephrase your last message.";
+  }
+  if (/insufficient (credits|funds|balance)|402|payment required/.test(m)) {
+    return "The LLM provider is out of credits. Admin needs to top up OpenRouter at https://openrouter.ai/credits.";
+  }
+  if (/rate limit|429|too many requests/.test(m)) {
+    return "The LLM provider is rate-limiting us. Wait 30-60 seconds and try again.";
+  }
+  if (/context (length|window)|maximum context|too many tokens/.test(m)) {
+    return "This chat has gotten too long for the AI to handle. Start a new chat session (the old one is still saved in history).";
+  }
+  if (/timeout|etimedout|ETIMEDOUT/.test(m)) {
+    return "The AI took too long to respond. Try again with a shorter or simpler message.";
+  }
+  if (/fetch failed|econnreset|network|socket hang up/.test(m)) {
+    return "Network hiccup between us and the AI provider. Try again in a moment.";
+  }
+  // Unknown error — return the raw message plus a hint so developers can debug.
+  return `${raw} — if this keeps happening, screenshot it to the admin.`;
 }
 
 type StepLike = {
