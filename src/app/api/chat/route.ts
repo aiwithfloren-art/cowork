@@ -219,6 +219,21 @@ export async function POST(req: Request) {
   const lastUser = body.messages[body.messages.length - 1];
   const allTools = await buildToolsForUser(userId);
 
+  // Auto-upgrade stored tool lists to include newer tools that share the same
+  // capability as a tool the agent already has. Lets existing agents pick up
+  // new efficiency tools (e.g. github_write_files_batch) without a DB
+  // migration or user re-configuration.
+  const TOOL_AUTO_UPGRADES: Array<{ if_has: string; also_allow: string }> = [
+    { if_has: "github_write_file", also_allow: "github_write_files_batch" },
+  ];
+  const expandEnabled = (list: string[]): string[] => {
+    const set = new Set(list);
+    for (const { if_has, also_allow } of TOOL_AUTO_UPGRADES) {
+      if (set.has(if_has)) set.add(also_allow);
+    }
+    return Array.from(set);
+  };
+
   // If caller is chatting with a specific custom agent, narrow the tool
   // set + swap in the agent's system prompt.
   type AgentRecord = {
@@ -275,13 +290,17 @@ export async function POST(req: Request) {
     }
   }
 
+  const effectiveAgentTools = agentRecord
+    ? expandEnabled(agentRecord.enabled_tools)
+    : [];
+  const effectiveTemplateTools = expandEnabled(templateAllowedTools);
   const tools = agentRecord
     ? Object.fromEntries(
         Object.entries(allTools).filter(([k]) => {
-          if (!agentRecord!.enabled_tools.includes(k)) return false;
+          if (!effectiveAgentTools.includes(k)) return false;
           // If template has a whitelist, intersect with it.
-          if (templateAllowedTools.length > 0) {
-            return templateAllowedTools.includes(k);
+          if (effectiveTemplateTools.length > 0) {
+            return effectiveTemplateTools.includes(k);
           }
           return true;
         }),
@@ -298,7 +317,23 @@ export async function POST(req: Request) {
     minute: "2-digit",
     hour12: false,
   }).format(new Date());
-  const baseSystem = agentRecord ? agentRecord.system_prompt : SYSTEM_PROMPT;
+  let baseSystem = agentRecord ? agentRecord.system_prompt : SYSTEM_PROMPT;
+
+  // Runtime nudge for agents whose stored system_prompt predates the batch
+  // tool. If the effective tool set includes both single + batch GitHub
+  // writers, remind the model to prefer batch for any multi-file work so
+  // scaffolds don't overflow the serverless timeout.
+  if (
+    agentRecord &&
+    "github_write_files_batch" in tools &&
+    "github_write_file" in tools
+  ) {
+    baseSystem = `${baseSystem}
+
+## GitHub multi-file writes — IMPORTANT
+
+Whenever you need to write MORE THAN ONE file to a repo in the same turn (scaffold, bootstrap, feature spanning multiple files, refactor), you MUST call **github_write_files_batch** with the full list of files in a single call. Do NOT call github_write_file multiple times — that creates N separate commits, is ~10x slower, and will hit the serverless timeout on anything non-trivial. Reserve github_write_file strictly for isolated single-file edits on existing repos (typo fix, one-line patch).`;
+  }
 
   // For main Sigap, show the list of sub-agents the user has built so the
   // model can accurately answer "what agents do I have?" and refer users
