@@ -27,11 +27,14 @@ export const SUPPORTED_PROVIDERS: LLMProvider[] = [
 ];
 
 // Sensible defaults per provider — model IDs that support tool-calling well.
+// OpenRouter default is Haiku 4.5: cheapest Anthropic model with reliable
+// tool-calling (~$1/$5 per 1M tokens) — fits the "cheap but works" brief for
+// coder-heavy workloads where Groq's gpt-oss sometimes halluciates tool args.
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
   groq: DEFAULT_GROQ_MODEL,
   openai: "gpt-4o-mini",
   anthropic: "claude-sonnet-4-5-20250929",
-  openrouter: "anthropic/claude-sonnet-4.5",
+  openrouter: "anthropic/claude-haiku-4.5",
 };
 
 // Very rough $/1M tokens for usage estimation. SaaS tier metering stays
@@ -41,7 +44,7 @@ const COST_TABLE: Record<LLMProvider, { in: number; out: number }> = {
   groq: { in: 0.15, out: 0.6 },
   openai: { in: 0.15, out: 0.6 },
   anthropic: { in: 3.0, out: 15.0 },
-  openrouter: { in: 3.0, out: 15.0 },
+  openrouter: { in: 1.0, out: 5.0 },
 };
 
 export function estimateCost(
@@ -86,6 +89,18 @@ export async function resolveLLMFor(userId: string): Promise<{
       provider: org.provider,
       model: org.model ?? DEFAULT_MODELS[org.provider],
       apiKey: org.apiKey ?? platformKeyFor(org.provider),
+    };
+  }
+
+  // Platform default. Prefer OpenRouter + Haiku 4.5 when OPENROUTER_API_KEY
+  // is configured — cheap, reliable tool-calling, and every self-hoster can
+  // flip to it by adding one env var. Groq remains the fallback for zero-
+  // config installs where GROQ_API_KEY is all that's set.
+  if (process.env.OPENROUTER_API_KEY) {
+    return {
+      provider: "openrouter",
+      model: DEFAULT_MODELS.openrouter,
+      apiKey: process.env.OPENROUTER_API_KEY,
     };
   }
 
