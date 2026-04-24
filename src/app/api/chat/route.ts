@@ -467,34 +467,21 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
   if (contextReply) return respondIntercepted(contextReply);
 
   try {
-    // Retry once on "Invalid JSON response" — DeepSeek V3.2 (coder agent)
-    // occasionally returns a malformed body that fails the AI SDK's
-    // JSON schema. A single retry usually succeeds because the model
-    // re-generates from scratch. Any other error bubbles straight up.
-    const runGenerate = () =>
-      generateText({
-        model: llm.model,
-        system: systemWithTime,
-        messages: body.messages,
-        tools,
-        stopWhen: stepCountIs(12),
-        prepareStep: async ({ messages }) => ({
-          messages: stripReasoningFromMessages(messages),
-        }),
-      });
-
-    let result: Awaited<ReturnType<typeof runGenerate>>;
-    try {
-      result = await runGenerate();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (/invalid json response|JSON parse|unexpected token/i.test(msg)) {
-        console.warn("[chat] upstream returned malformed body, retrying once:", msg);
-        result = await runGenerate();
-      } else {
-        throw e;
-      }
-    }
+    // No retry on Invalid JSON — earlier version retried once on parse
+    // errors, but when the first attempt was already slow (large context,
+    // DeepSeek V3.2), the retry pushed the whole turn past the 300s
+    // Vercel serverless cap. If a parse error happens, the friendly
+    // message below tells the user to retry manually.
+    const result = await generateText({
+      model: llm.model,
+      system: systemWithTime,
+      messages: body.messages,
+      tools,
+      stopWhen: stepCountIs(8),
+      prepareStep: async ({ messages }) => ({
+        messages: stripReasoningFromMessages(messages),
+      }),
+    });
 
     const toolsCalled = (result.steps ?? [])
       .flatMap((s: { toolCalls?: Array<{ toolName?: string }> }) => s.toolCalls ?? [])
