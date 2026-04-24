@@ -32,18 +32,18 @@ export const SUPPORTED_PROVIDERS: LLMProvider[] = [
 ];
 
 // Sensible defaults per provider — model IDs that support tool-calling well.
-// OpenRouter default is Gemini 2.5 Flash LITE: ~$0.10/$0.40 per 1M tokens,
-// ~5x cheaper than full 2.5 Flash ($0.30/$2.50) with the same Google
-// tool-calling stack. Sufficient for the main Sigap chat loop where the
-// workload is picking from ~55 tools and shaping their JSON args, not
-// heavy code generation. Agents that need real code quality
+// OpenRouter default is GPT-4o-mini: $0.15/$0.60 per 1M tokens. Slightly
+// more expensive than Gemini Flash Lite ($0.10/$0.40) but OpenAI's
+// function-calling stack is the most battle-tested across 50+ tool
+// definitions — worth the ~50% cost bump to avoid tool-selection misses
+// on the main Sigap chat loop. Agents that need real code quality
 // (coder, reviewer) override this via agent.llm_override_model to
 // deepseek-v3.2 — see src/lib/starter-kit.ts.
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
   groq: DEFAULT_GROQ_MODEL,
   openai: "gpt-4o-mini",
   anthropic: "claude-sonnet-4-5-20250929",
-  openrouter: "google/gemini-2.5-flash-lite",
+  openrouter: "openai/gpt-4o-mini",
 };
 
 // Very rough $/1M tokens for usage estimation. SaaS tier metering stays
