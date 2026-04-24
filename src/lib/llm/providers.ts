@@ -27,14 +27,16 @@ export const SUPPORTED_PROVIDERS: LLMProvider[] = [
 ];
 
 // Sensible defaults per provider — model IDs that support tool-calling well.
-// OpenRouter default is Haiku 4.5: cheapest Anthropic model with reliable
-// tool-calling (~$1/$5 per 1M tokens) — fits the "cheap but works" brief for
-// coder-heavy workloads where Groq's gpt-oss sometimes halluciates tool args.
+// OpenRouter default is Gemini 2.5 Flash: ~$0.30/$2.50 per 1M tokens,
+// ~3x cheaper than Haiku 4.5 while keeping reliable tool-calling (Google's
+// instruction-following is solid, unlike gpt-oss which hallucinates tool
+// args). Sweet spot of "cheap" vs "works" for the coder agent's heavy
+// http_request + github_write_files_batch pipelines.
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
   groq: DEFAULT_GROQ_MODEL,
   openai: "gpt-4o-mini",
   anthropic: "claude-sonnet-4-5-20250929",
-  openrouter: "anthropic/claude-haiku-4.5",
+  openrouter: "google/gemini-2.5-flash",
 };
 
 // Very rough $/1M tokens for usage estimation. SaaS tier metering stays
@@ -44,7 +46,7 @@ const COST_TABLE: Record<LLMProvider, { in: number; out: number }> = {
   groq: { in: 0.15, out: 0.6 },
   openai: { in: 0.15, out: 0.6 },
   anthropic: { in: 3.0, out: 15.0 },
-  openrouter: { in: 1.0, out: 5.0 },
+  openrouter: { in: 0.3, out: 2.5 },
 };
 
 export function estimateCost(
