@@ -187,7 +187,7 @@ async function main() {
     "Competitor pricing — Reclaim: $10/mo, Motion: $19/mo, Superhuman: $30/mo. Kita sweet spot di $8.",
     "Launch checklist: (1) bikin Product Hunt draft, (2) DM 10 temen dekat, (3) post LinkedIn Jumat 21:00.",
     "Quote dari pelanggan Acme: 'kayak punya chief of staff tapi 1/100 harganya' — pake buat testimonial.",
-    "Blog post outline: Building Cowork in 24 hours — fokus ke tooling (Next 16, Groq, Supabase), bukan ke hype.",
+    "Blog post outline: Building Cowork in 24 hours — fokus ke tooling (Next 16, OpenRouter, Supabase), bukan ke hype.",
   ];
 
   console.log(`\n📝 Creating ${notes.length} notes…`);

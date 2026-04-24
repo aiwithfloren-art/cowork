@@ -2,58 +2,48 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import type { LanguageModel } from "ai";
-import { loadPrimaryOrgContext } from "@/lib/org-context";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { DEFAULT_MODEL as DEFAULT_GROQ_MODEL } from "./client";
 
 /**
  * LLM provider abstraction. Pick the provider + model based on (in order):
- *   1. Platform default — OpenRouter + Gemini 2.5 Flash when OPENROUTER_API_KEY is set.
- *      Wins over everything else so all users are safe from Groq's 8K TPM free-tier
- *      limit that chokes on Cowork's ~27 tool definitions. Amanda hit "Request too
- *      large (Requested 21268, Limit 8000)" on a Calendar+Gmail multi-tool turn.
+ *   1. Platform default — OpenRouter + GPT-4o-mini via OPENROUTER_API_KEY.
+ *      This wins over org-level policy so every user is on the same
+ *      battle-tested function-calling stack; teams can still opt into BYO
+ *      keys by setting organizations.llm_provider + llm_api_key.
  *   2. Org-level policy: organizations.llm_provider + llm_model + llm_api_key
- *      (org admin explicitly opted into a BYO provider)
- *   3. Groq via GROQ_API_KEY env (fallback for zero-config self-host)
- *
- * Personal per-user Groq keys (user_settings.groq_key) are intentionally
- * no longer a provider override — they were the path that forced new users
- * onto the TPM-limited free tier. The column is kept for backwards compat
- * but ignored during resolution.
+ *      (org admin explicitly opted into a BYO provider — OpenAI direct,
+ *      Anthropic, or any OpenRouter model).
+ *   3. Fail closed — if no OpenRouter key and no org policy, throw. We no
+ *      longer ship a zero-config fallback; deployments must set
+ *      OPENROUTER_API_KEY.
  */
 
-export type LLMProvider = "groq" | "openai" | "anthropic" | "openrouter";
+export type LLMProvider = "openai" | "anthropic" | "openrouter";
 
 export const SUPPORTED_PROVIDERS: LLMProvider[] = [
-  "groq",
   "openai",
   "anthropic",
   "openrouter",
 ];
 
 // Sensible defaults per provider — model IDs that support tool-calling well.
-// OpenRouter default is GPT-4o-mini: $0.15/$0.60 per 1M tokens. Slightly
-// more expensive than Gemini Flash Lite ($0.10/$0.40) but OpenAI's
-// function-calling stack is the most battle-tested across 50+ tool
-// definitions — worth the ~50% cost bump to avoid tool-selection misses
-// on the main Sigap chat loop. Agents that need real code quality
-// (coder, reviewer) override this via agent.llm_override_model to
-// deepseek-v3.2 — see src/lib/starter-kit.ts.
+// OpenRouter default is GPT-4o-mini: $0.15/$0.60 per 1M tokens. OpenAI's
+// function-calling stack is the most battle-tested across Sigap's 55+ tool
+// definitions. Agents that need real code quality (coder, reviewer)
+// override this via agent.llm_override_model to deepseek-v3.2 — see
+// src/lib/starter-kit.ts.
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
-  groq: DEFAULT_GROQ_MODEL,
   openai: "gpt-4o-mini",
   anthropic: "claude-sonnet-4-5-20250929",
   openrouter: "openai/gpt-4o-mini",
 };
 
-// Very rough $/1M tokens for usage estimation. SaaS tier metering stays
-// Groq-centric; orgs on other providers pay via their BYO key so billing
-// is their problem.
+// Very rough $/1M tokens for usage estimation. Orgs on BYO providers pay
+// via their own key so platform billing only tracks OpenRouter spend.
 const COST_TABLE: Record<LLMProvider, { in: number; out: number }> = {
-  groq: { in: 0.15, out: 0.6 },
   openai: { in: 0.15, out: 0.6 },
   anthropic: { in: 3.0, out: 15.0 },
-  openrouter: { in: 0.3, out: 2.5 },
+  openrouter: { in: 0.15, out: 0.6 },
 };
 
 export function estimateCost(
@@ -61,7 +51,7 @@ export function estimateCost(
   tokensIn: number,
   tokensOut: number,
 ): number {
-  const p = COST_TABLE[provider] ?? COST_TABLE.groq;
+  const p = COST_TABLE[provider] ?? COST_TABLE.openrouter;
   return (tokensIn / 1_000_000) * p.in + (tokensOut / 1_000_000) * p.out;
 }
 
@@ -75,7 +65,6 @@ export async function resolveLLMFor(userId: string): Promise<{
   model: string;
   apiKey: string | undefined;
 }> {
-  // Platform OpenRouter wins first — keeps all users off Groq's 8K TPM cap.
   if (process.env.OPENROUTER_API_KEY) {
     return {
       provider: "openrouter",
@@ -93,23 +82,17 @@ export async function resolveLLMFor(userId: string): Promise<{
     };
   }
 
-  return {
-    provider: "groq",
-    model: DEFAULT_GROQ_MODEL,
-    apiKey: process.env.GROQ_API_KEY,
-  };
+  throw new Error(
+    "No LLM provider configured: set OPENROUTER_API_KEY, or configure an org BYO provider.",
+  );
 }
 
 function isSupportedProvider(p: string | null | undefined): p is LLMProvider {
-  return (
-    p === "groq" || p === "openai" || p === "anthropic" || p === "openrouter"
-  );
+  return p === "openai" || p === "anthropic" || p === "openrouter";
 }
 
 function platformKeyFor(provider: LLMProvider): string | undefined {
   switch (provider) {
-    case "groq":
-      return process.env.GROQ_API_KEY;
     case "openai":
       return process.env.OPENAI_API_KEY;
     case "anthropic":
@@ -163,12 +146,6 @@ export function buildModel(
   apiKey: string | undefined,
 ): LanguageModel {
   switch (provider) {
-    case "groq":
-      return createOpenAICompatible({
-        name: "groq",
-        apiKey: apiKey ?? "",
-        baseURL: "https://api.groq.com/openai/v1",
-      })(modelId);
     case "openai":
       return createOpenAI({ apiKey: apiKey ?? "" })(modelId);
     case "anthropic":

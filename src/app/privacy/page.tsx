@@ -40,7 +40,7 @@ export default function PrivacyPage() {
       <h2>Third parties</h2>
       <ul>
         <li><strong>Google</strong> — we use Google OAuth &amp; Google APIs. Subject to Google&apos;s privacy policy.</li>
-        <li><strong>Groq</strong> — your chat messages are sent to Groq for LLM inference. Subject to Groq&apos;s privacy policy.</li>
+        <li><strong>OpenRouter</strong> — your chat messages are sent to OpenRouter, which routes them to an underlying model provider (OpenAI for most turns, DeepSeek for code-heavy agents). Subject to OpenRouter&apos;s privacy policy and the selected model provider&apos;s terms.</li>
         <li><strong>Supabase</strong> — we store data in Supabase (Postgres, hosted in Tokyo).</li>
         <li><strong>Vercel</strong> — we host the app on Vercel.</li>
       </ul>

@@ -257,17 +257,17 @@ async function main() {
     }
   }
 
-  // ---------- LLM: real Groq call with tools ----------
+  // ---------- LLM: real OpenRouter call ----------
   try {
-    const groqKey = process.env.GROQ_API_KEY;
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const openrouterKey = process.env.OPENROUTER_API_KEY;
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${groqKey}`,
+        Authorization: `Bearer ${openrouterKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-4o-mini",
         messages: [
           { role: "system", content: "You are a helpful assistant." },
           { role: "user", content: "Say 'hello from sigap test' and nothing else." },
@@ -277,18 +277,18 @@ async function main() {
     });
     if (!res.ok) {
       const err = await res.text();
-      fail("groq.chat.completions", `${res.status} — ${err.slice(0, 200)}`);
+      fail("openrouter.chat.completions", `${res.status} — ${err.slice(0, 200)}`);
     } else {
       const data = (await res.json()) as {
         choices: Array<{ message: { content: string } }>;
       };
       pass(
-        "groq.chat.completions",
+        "openrouter.chat.completions",
         `responded: "${data.choices[0].message.content.trim().slice(0, 50)}"`,
       );
     }
   } catch (e) {
-    fail("groq.chat.completions", (e as Error).message);
+    fail("openrouter.chat.completions", (e as Error).message);
   }
 
   // ---------- DB: orgs, invites, audit log counts ----------

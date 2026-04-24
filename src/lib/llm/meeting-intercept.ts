@@ -5,11 +5,12 @@ import { buildToolsForUser } from "./build-tools";
 import { stripReasoningFromMessages } from "./strip-reasoning";
 
 /**
- * Kimi K2 (via Groq) is unreliable about actually calling start_meeting_bot —
- * it often responds "Bot sudah dikirim!" without invoking any tool, leaving
- * no row in meeting_bots. When the user's message clearly matches a record
- * intent with a meeting URL, bypass the LLM: hit the Attendee API directly
- * and return a canned reply.
+ * Meeting record shortcut — bypass the LLM when the user's message clearly
+ * matches a record intent with a meeting URL, hit the Attendee API
+ * directly, and return a canned reply. LLMs have historically been
+ * flaky about actually calling start_meeting_bot (responding "Bot sudah
+ * dikirim!" without invoking any tool and leaving no row in meeting_bots),
+ * so a deterministic path is safer for this high-stakes action.
  */
 
 const MEETING_VERBS =

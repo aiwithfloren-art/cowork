@@ -11,7 +11,7 @@ export const runtime = "nodejs";
  *
  * Members on the org inherit these settings automatically via getLLMForUser.
  * Leaving llm_api_key empty means "use the platform's env key" (SaaS
- * default), which for most orgs on the current Groq tier is fine.
+ * default) — which for most orgs on the shared OpenRouter tier is fine.
  */
 
 const ALL_TOOL_SLUGS = new Set([

@@ -11,7 +11,7 @@ dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 
 import { createClient } from "@supabase/supabase-js";
 import { generateText, stepCountIs } from "ai";
-import { getGroq, DEFAULT_MODEL } from "../src/lib/llm/client";
+import { getLLMForUser } from "../src/lib/llm/providers";
 import { buildToolsForUser } from "../src/lib/llm/build-tools";
 import { stripReasoningFromMessages } from "../src/lib/llm/strip-reasoning";
 
@@ -122,9 +122,9 @@ async function main() {
   }
   const userId = user.id;
   console.log(`Testing as ${EMAIL} (${userId.slice(0, 8)}…)`);
-  console.log(`Model: ${DEFAULT_MODEL}\n`);
 
-  const groq = getGroq();
+  const llm = await getLLMForUser(userId);
+  console.log(`Model: ${llm.modelId} (${llm.provider})\n`);
   const tools = await buildToolsForUser(userId);
   console.log(`Tools loaded: ${Object.keys(tools).length}\n`);
 
@@ -141,7 +141,7 @@ async function main() {
     };
     try {
       const result = await generateText({
-        model: groq(DEFAULT_MODEL),
+        model: llm.model,
         system:
           "You are Sigap. Use tools to answer. Reply briefly in the user's language. Today is 2026-04-20 WIB.",
         messages: [{ role: "user", content: s.prompt }],

@@ -157,7 +157,7 @@ You MUST categorize each memory into one of 4 types. Pick the most specific type
 - Metrics, KPIs, numbers ("MRR $1.2k, retention 40% W4")
 - Client/deal info ("Acme mau annual deal $2k/bulan, pushback diskon 20%")
 - People they work with ("Budi itu engineering lead")
-- Decisions with rationale ("kita pake Groq bukan OpenAI karena latency")
+- Decisions with rationale ("kita pake GPT-4o-mini bukan Sonnet karena biaya")
 - Examples:
   - "Cowork beta launch target is 2026-05-15"
   - "Current MRR is $1.2k with 40% W4 retention (as of 2026-04-15)"

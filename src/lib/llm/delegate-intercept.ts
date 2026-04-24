@@ -3,14 +3,14 @@ import { addTask } from "@/lib/google/tasks";
 import { sendEmail } from "@/lib/google/gmail";
 
 /**
- * Kimi K2 (via Groq) is unreliable at picking assign_task_to_member
- * even with few-shot + toolChoice. When the user's message clearly
- * matches a delegation pattern, bypass the LLM entirely: parse the
- * intent deterministically, call the underlying Google Tasks API +
- * notification insert + email, and return a canned reply.
+ * Delegation shortcut — when the user's message clearly matches a
+ * delegation pattern ("kasih/assign/delegasi ... email@domain.tld"),
+ * bypass the LLM entirely: parse the intent deterministically, call
+ * the underlying Google Tasks API + notification insert + email, and
+ * return a canned reply. This saves one LLM turn on the hot path
+ * (delegation was historically the most-missed tool call).
  *
- * Only activates for "kasih/assign/delegasi ... email@domain.tld".
- * Falls back to LLM flow for everything else.
+ * Falls back to LLM flow for everything that doesn't match.
  */
 export async function tryInterceptDelegation(
   userId: string,

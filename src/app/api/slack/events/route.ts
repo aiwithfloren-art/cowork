@@ -86,7 +86,7 @@ export async function POST(req: Request) {
   }
 
   // Slack retries any event it doesn't get a 200 for within 3s. Our handler
-  // takes longer (Groq + tools), so without this guard a single user message
+  // takes longer (LLM + tools), so without this guard a single user message
   // would be processed up to 3x in parallel, producing duplicate replies.
   if (req.headers.get("x-slack-retry-num")) {
     return NextResponse.json({ ok: true });

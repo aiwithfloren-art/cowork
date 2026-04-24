@@ -128,9 +128,8 @@ export async function tryInterceptCompanyContext(
       ? message.trim().slice(0, 500)
       : null;
 
-  // Trimmed system prompt — the previous version blew past Groq's 8K TPM
-  // free-tier limit on small orgs with many enabled tools. Keep it tight:
-  // LLM only needs the CURRENT spec + the 3 fields + output schema.
+  // Trimmed system prompt — keep the LLM input tight; it only needs the
+  // CURRENT spec + the 3 fields + output schema, not the whole tool set.
   const systemPrompt = `Sigap Company Context Setup.${pending ? ` User is about to do: "${pending.slice(0, 200)}".` : ""}
 Collect missing fields via SHORT Qs in user's language. Skip fields already set.
 
@@ -153,7 +152,7 @@ OR
 
   // Feed the LLM only the portion of history that belongs to this flow
   // (so it doesn't get confused by earlier chat about other topics).
-  // Cap at last 4 turns to stay within token budget on small Groq tier.
+  // Cap at last 4 turns to keep the prompt payload small and cheap.
   const flowTurns: Msg[] = [];
   const MAX_FLOW_TURNS = 4;
   if (inFlow) {

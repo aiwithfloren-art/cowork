@@ -4,13 +4,13 @@
 
 - 🤖 **Personal AI** — reads your Google Calendar, Tasks, Drive/Docs via tool calling
 - 🧑‍💼 **Manager Mode** — ask AI about teammates without pinging them (privacy-first, fully audited)
-- 🔌 **Model-agnostic** — default Groq Llama 3.3 70B, swappable to any OpenAI-compatible endpoint
+- 🔌 **Model-agnostic** — default OpenRouter + GPT-4o-mini for chat, DeepSeek V3.2 for code agents; swap any model by changing one line
 - 🔐 **Privacy-first** — members opt in to share, every query logged, no surveillance
-- 💸 **Free tier** — 30 messages/day on our shared key, bring your own Groq key for unlimited
+- 💸 **Free tier** — 30 messages/day on our shared key; org admins can bring their own provider key for unlimited
 
 ## Stack
 
-Next.js 16 · Supabase (Postgres) · NextAuth · Vercel AI SDK · Groq · Tailwind · TypeScript
+Next.js 16 · Supabase (Postgres) · NextAuth · Vercel AI SDK · OpenRouter · Tailwind · TypeScript
 
 ## Quick start (self-host)
 
@@ -18,7 +18,7 @@ Next.js 16 · Supabase (Postgres) · NextAuth · Vercel AI SDK · Groq · Tailwi
 - Node.js 20+
 - A Supabase project (free tier works)
 - A Google Cloud OAuth client with Calendar, Tasks, Drive, Docs scopes enabled
-- A Groq API key (optional — users can BYOK)
+- An OpenRouter API key (top up ≥ $10 to avoid free-tier throttling)
 
 ### Setup
 
@@ -40,7 +40,7 @@ See [`.env.local.example`](.env.local.example).
 
 | Var | Purpose |
 |---|---|
-| `GROQ_API_KEY` | Shared Groq key (free tier for all users) |
+| `OPENROUTER_API_KEY` | Shared OpenRouter key (covers gpt-4o-mini + deepseek-v3.2 via one provider) |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret key (server-only) |
@@ -61,7 +61,7 @@ After deploy, go to Project Settings → Environment Variables and paste in the 
 - Sign in with Google → instant dashboard
 - Daily schedule, tasks, chat with AI (tool-calling Google APIs)
 - Private notes
-- BYOK Groq key for unlimited usage
+- BYO provider key (OpenRouter / OpenAI / Anthropic) for unlimited usage
 - Team workspaces, invite by email, privacy toggle
 - Manager dashboard with Ask-AI-about-member
 - Full audit log visible to every member

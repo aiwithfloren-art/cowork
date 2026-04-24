@@ -100,7 +100,7 @@ create table if not exists public.organizations (
 alter table public.organizations add column if not exists description text;
 alter table public.organizations add column if not exists brand_tone text;
 alter table public.organizations add column if not exists websites text[] default '{}'::text[];
-alter table public.organizations add column if not exists llm_provider text default 'groq';
+alter table public.organizations add column if not exists llm_provider text default 'openrouter';
 alter table public.organizations add column if not exists llm_model text;
 alter table public.organizations add column if not exists llm_api_key text;
 alter table public.organizations add column if not exists daily_quota_per_member int;
