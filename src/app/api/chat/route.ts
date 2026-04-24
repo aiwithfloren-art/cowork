@@ -335,6 +335,29 @@ export async function POST(req: Request) {
 Whenever you need to write MORE THAN ONE file to a repo in the same turn (scaffold, bootstrap, feature spanning multiple files, refactor), you MUST call **github_write_files_batch** with the full list of files in a single call. Do NOT call github_write_file multiple times — that creates N separate commits, is ~10x slower, and will hit the serverless timeout on anything non-trivial. Reserve github_write_file strictly for isolated single-file edits on existing repos (typo fix, one-line patch).`;
   }
 
+  // Runtime nudge for coder agents doing Vercel deploys: poll until READY
+  // and never tell the user to "cek dashboard". Also fixes hardcoded 'Sigap'
+  // in the stored prompts' token-onboarding snippet.
+  if (
+    agentRecord &&
+    "http_request" in tools &&
+    ("get_credential" in tools || "list_credentials" in tools)
+  ) {
+    baseSystem = `${baseSystem}
+
+## Deploy status — IMPORTANT (overrides older instructions in this prompt)
+
+After triggering ANY deploy (Vercel, Netlify, Railway, Fly.io, etc):
+1. You MUST poll the deployment status endpoint in a loop until it reaches a terminal state (READY / ERROR / CANCELED) or you have polled ~10 times (~10-20s). Call http_request GET <status endpoint> repeatedly — network latency naturally spaces the calls.
+2. NEVER tell the user "bakal jalan otomatis", "cek dashboard", "tunggu beberapa menit" as the final reply. Either confirm success with the live URL, report an error with a concrete next step, or say "masih BUILDING — reply 'cek deploy' buat gw check ulang".
+3. For Vercel specifically: POST /v13/deployments returns an \`id\`. Poll GET /v13/deployments/{id}; the \`readyState\` field is what determines terminal status. Final URL is \`https://{url}\` from the response.
+4. If user follows up with "cek deploy" / "status deploy" / "udah live belum" → fetch the latest deployment ID from prior turn, call the status endpoint once, report current state.
+
+## Token onboarding — name guidance
+
+When asking the user to create a Vercel/Netlify/Railway/etc personal access token, the token's *name* field is free-form and only visible in the user's own dashboard. Never hardcode 'Sigap' — instead say the name is free ("bebas — misal nama project lo, atau sigap") and, if the user is clearly building a named project in the current session (e.g. "halolearn", "acme-landing"), suggest THAT name.`;
+  }
+
   // For main Sigap, show the list of sub-agents the user has built so the
   // model can accurately answer "what agents do I have?" and refer users
   // to /agents/<slug> without hallucinating.

@@ -5,6 +5,29 @@ import { useRouter } from "next/navigation";
 import { Markdown } from "./markdown";
 import type { Dict } from "@/lib/i18n/dictionaries";
 
+// Animated "working" indicator shown when backend is mid-turn but no text
+// has streamed yet (long tool calls — scaffolds, deploys, etc). Three
+// bouncing dots + elapsed seconds so users can see the turn is alive.
+function WorkingIndicator({ label }: { label: string }) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span className="inline-flex items-center gap-2 text-slate-500">
+      <span className="inline-flex gap-1">
+        <span className="h-1.5 w-1.5 animate-[bounce_1s_infinite] rounded-full bg-slate-400 [animation-delay:-0.3s]" />
+        <span className="h-1.5 w-1.5 animate-[bounce_1s_infinite] rounded-full bg-slate-400 [animation-delay:-0.15s]" />
+        <span className="h-1.5 w-1.5 animate-[bounce_1s_infinite] rounded-full bg-slate-400" />
+      </span>
+      <span className="text-xs tabular-nums">
+        {label} · {seconds}s
+      </span>
+    </span>
+  );
+}
+
 type Msg = {
   role: "user" | "assistant";
   content: string;
@@ -461,8 +484,10 @@ export function Chat({
                 >
                   {m.role === "assistant" && m.content ? (
                     <Markdown>{m.content}</Markdown>
+                  ) : isStreaming ? (
+                    <WorkingIndicator label="Sigap lagi kerja" />
                   ) : (
-                    m.content || (isStreaming ? "…" : "")
+                    m.content || ""
                   )}
                   {isStreaming && m.content && (
                     <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-slate-400 align-middle" />
