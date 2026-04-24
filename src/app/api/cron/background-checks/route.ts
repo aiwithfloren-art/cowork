@@ -39,16 +39,30 @@ export async function GET(req: Request) {
   }
 
   const sb = supabaseAdmin();
+  // Soft-lock via staleness: skip rows another cron invocation just touched.
+  // If a run takes >60s (next cron starts mid-flight), the newer run only
+  // picks up rows not updated in the last 30s — avoids duplicate notify.
+  const staleCutoff = new Date(Date.now() - 30_000).toISOString();
   const { data: pending } = await sb
     .from("background_checks")
     .select("id, user_id, kind, payload, attempts, max_attempts")
     .eq("status", "pending")
+    .lt("updated_at", staleCutoff)
     .order("updated_at", { ascending: true })
     .limit(50);
 
   if (!pending || pending.length === 0) {
     return NextResponse.json({ ok: true, checked: 0 });
   }
+
+  // Claim each row immediately so concurrent cron runs see the fresh timestamp
+  // in their query filter and skip. Not a hard lock, but good enough for a
+  // per-minute schedule.
+  const claimedIds = pending.map((p) => p.id);
+  await sb
+    .from("background_checks")
+    .update({ updated_at: new Date().toISOString() })
+    .in("id", claimedIds);
 
   let terminal = 0;
   let stillPending = 0;
@@ -189,10 +203,27 @@ async function checkVercelDeploy(
   const liveUrl = data.url ? `https://${data.url}` : expected_url ?? null;
 
   if (state === "READY") {
+    // Vercel private projects gate the preview URL with Deployment Protection
+    // (401 even after READY). Detect this so the notification doesn't promise
+    // a link that will 401 in the user's browser.
+    let protectionNote = "";
+    if (liveUrl) {
+      try {
+        const probe = await fetch(liveUrl, { method: "HEAD", redirect: "manual" });
+        if (probe.status === 401 || probe.status === 403) {
+          protectionNote =
+            "\n⚠️ URL-nya masih private (Vercel Deployment Protection). Buat publikin: Project Settings → Deployment Protection → Off. Atau assign custom domain.";
+        }
+      } catch {
+        // Probe failure doesn't block notification — just skip the note.
+      }
+    }
     await notifyUser(row.user_id, {
       kind: "deploy_ready",
       title: `✅ Deploy ${project_name} udah LIVE!`,
-      body: liveUrl ? `Klik buat buka: ${liveUrl}` : "Deploy selesai tanpa URL (cek dashboard Vercel).",
+      body: liveUrl
+        ? `Klik buat buka: ${liveUrl}${protectionNote}`
+        : "Deploy selesai tanpa URL (cek dashboard Vercel).",
       link: liveUrl,
     });
   } else {
@@ -243,7 +274,10 @@ async function sendSlackDM(
     .select("email")
     .eq("id", userId)
     .maybeSingle();
-  if (!user?.email) return;
+  if (!user?.email) {
+    console.warn("[sendSlackDM] no email for user", userId);
+    return;
+  }
 
   const { data: slackConnector } = await sb
     .from("connectors")
@@ -252,7 +286,10 @@ async function sendSlackDM(
     .eq("provider", "slack")
     .is("org_id", null)
     .maybeSingle();
-  if (!slackConnector?.access_token) return;
+  if (!slackConnector?.access_token) {
+    // Not connected — silent skip (in-app notif still fires).
+    return;
+  }
 
   const lookup = await fetch(
     `https://slack.com/api/users.lookupByEmail?email=${encodeURIComponent(user.email)}`,
@@ -260,13 +297,21 @@ async function sendSlackDM(
   );
   const lookupJson = (await lookup.json()) as {
     ok: boolean;
+    error?: string;
     user?: { id?: string };
   };
-  if (!lookupJson.ok || !lookupJson.user?.id) return;
+  if (!lookupJson.ok || !lookupJson.user?.id) {
+    console.error("[sendSlackDM] lookupByEmail failed", {
+      userId,
+      email: user.email,
+      slackError: lookupJson.error ?? "unknown",
+    });
+    return;
+  }
 
   const text = link ? `${title}\n${body}\n<${link}|Buka →>` : `${title}\n${body}`;
 
-  await fetch("https://slack.com/api/chat.postMessage", {
+  const postRes = await fetch("https://slack.com/api/chat.postMessage", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${slackConnector.access_token}`,
@@ -274,4 +319,13 @@ async function sendSlackDM(
     },
     body: JSON.stringify({ channel: lookupJson.user.id, text }),
   });
+  const postJson = (await postRes.json()) as { ok: boolean; error?: string };
+  if (!postJson.ok) {
+    console.error("[sendSlackDM] chat.postMessage failed", {
+      userId,
+      slackUserId: lookupJson.user.id,
+      slackError: postJson.error ?? "unknown",
+      httpStatus: postRes.status,
+    });
+  }
 }

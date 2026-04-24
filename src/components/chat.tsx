@@ -357,25 +357,37 @@ export function Chat({
 
       const decoder = new TextDecoder();
       let accumulated = "";
+      let streamAborted = false;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        accumulated += chunk;
-        setMessages((msgs) => {
-          const copy = [...msgs];
-          copy[copy.length - 1] = { role: "assistant", content: accumulated };
-          return copy;
-        });
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          accumulated += chunk;
+          setMessages((msgs) => {
+            const copy = [...msgs];
+            copy[copy.length - 1] = { role: "assistant", content: accumulated };
+            return copy;
+          });
+        }
+      } catch (streamErr) {
+        // Stream was cut mid-turn: Vercel 504 timeout, network blip, browser
+        // sleep, etc. The WorkingIndicator would otherwise spin forever —
+        // surface a concrete action instead of leaving the user guessing.
+        streamAborted = true;
+        console.warn("[chat] stream aborted:", streamErr);
       }
 
       if (!accumulated.trim()) {
+        const fallback = streamAborted
+          ? "⚠️ Koneksi ke backend kepotong di tengah (bisa 504 timeout atau network). Coba lagi — kalo keulang, persingkat message lo."
+          : "⚠️ Model ga ngasih response. Coba rephrase — bisa jadi question-nya terlalu panjang atau ambiguous.";
         setMessages((msgs) => {
           const copy = [...msgs];
           copy[copy.length - 1] = {
             role: "assistant",
-            content: "(No response — try rephrasing)",
+            content: fallback,
           };
           return copy;
         });

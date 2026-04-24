@@ -24,7 +24,8 @@ create index if not exists background_checks_pending
 create index if not exists background_checks_user_recent
   on public.background_checks(user_id, created_at desc);
 
-alter table public.background_checks enable row level security;
-
-create policy "bgcheck_own_rows" on public.background_checks
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- No RLS: this table is system-managed. All writers (schedule_deploy_watcher
+-- tool + cron job) use the service_role key via supabaseAdmin(), and both
+-- enforce user_id scoping in query logic. Users never query this table
+-- directly from the browser; notifications are surfaced via the existing
+-- notifications table (which does have RLS).
