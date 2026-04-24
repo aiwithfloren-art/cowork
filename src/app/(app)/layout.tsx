@@ -2,6 +2,7 @@ import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { getDict, getLocale } from "@/lib/i18n";
 import { AppNav } from "@/components/app-nav";
+import { NotificationToaster } from "@/components/notification-toaster";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -81,6 +82,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         onSignOut={handleSignOut}
       />
       <main className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">{children}</main>
+      <NotificationToaster />
     </div>
   );
 }

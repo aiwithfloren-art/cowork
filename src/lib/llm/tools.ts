@@ -1350,6 +1350,55 @@ export function buildTools(userId: string) {
       },
     }),
 
+    schedule_deploy_watcher: tool({
+      description:
+        "Queue a background watcher for a deploy that's still BUILDING after your inline polling cap. The watcher runs every minute, polls the deploy status, and pushes a Slack DM + in-app notification to the user when the deploy reaches READY / ERROR / CANCELED. Use this INSTEAD of telling the user to 'check later' — it lets you end the chat turn cleanly while still guaranteeing the user gets notified when the deploy finishes. Call this after your 3rd inline poll shows non-terminal status.",
+      inputSchema: z.object({
+        provider: z
+          .enum(["vercel"])
+          .describe("Deploy provider — currently only 'vercel' supported"),
+        deployment_id: z
+          .string()
+          .describe("Provider-specific deployment ID (Vercel's `dpl_xxx` style, returned from POST /v13/deployments)"),
+        project_name: z
+          .string()
+          .describe("Human-readable project name for the notification text, e.g. 'halolearn' or 'acme-landing'"),
+        expected_url: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("The deployment's preview URL (https://...). Included in the notification so user can click through."),
+      }),
+      execute: async ({ provider, deployment_id, project_name, expected_url }) => {
+        try {
+          const { data, error } = await supabaseAdmin()
+            .from("background_checks")
+            .insert({
+              user_id: userId,
+              kind: `${provider}_deploy`,
+              payload: {
+                deployment_id,
+                project_name,
+                expected_url: expected_url ?? null,
+              },
+            })
+            .select("id")
+            .single();
+          if (error) return { error: error.message };
+          return {
+            ok: true,
+            id: data.id,
+            note:
+              "Watcher queued. User akan dapet Slack DM + notif in-app pas deploy ready/error. Cron polling setiap 1 menit.",
+          };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Failed to schedule watcher",
+          };
+        }
+      },
+    }),
+
     github_list_commits: tool({
       description:
         "List recent commits on a repo. Use for daily reviewer: 'commit apa aja hari ini di repo X', 'what was pushed in the last 24h'. Pass since='YYYY-MM-DDTHH:MM:SSZ' to filter.",

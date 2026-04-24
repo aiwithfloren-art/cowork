@@ -34,6 +34,7 @@ const ALL_TOOL_SLUGS = [
   "github_read_file",
   "github_write_file",
   "github_write_files_batch",
+  "schedule_deploy_watcher",
   "github_list_commits",
   "github_get_commit_diff",
   "github_create_pr",
