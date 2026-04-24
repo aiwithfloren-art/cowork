@@ -70,13 +70,7 @@ export async function POST(req: Request) {
     .maybeSingle();
   const targetName = targetUser?.name ?? targetUser?.email ?? "this team member";
 
-  // Rate-limit the viewer
-  const { data: viewerSettings } = await sb
-    .from("user_settings")
-    .select("groq_key")
-    .eq("user_id", viewerId)
-    .maybeSingle();
-  const rl = await checkRateLimit(viewerId, Boolean(viewerSettings?.groq_key));
+  const rl = await checkRateLimit(viewerId);
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
 
   const llm = await getLLMForUser(viewerId);
@@ -103,15 +97,13 @@ export async function POST(req: Request) {
 
     const tokensIn = result.usage?.inputTokens ?? 0;
     const tokensOut = result.usage?.outputTokens ?? 0;
-    if (!viewerSettings?.groq_key) {
-      await logUsage(
-        viewerId,
-        tokensIn,
-        tokensOut,
-        estimateCost(llm.provider, tokensIn, tokensOut),
-        llm.modelId,
-      );
-    }
+    await logUsage(
+      viewerId,
+      tokensIn,
+      tokensOut,
+      estimateCost(llm.provider, tokensIn, tokensOut),
+      llm.modelId,
+    );
 
     // Audit log — general query record (read_member_file also logs individually)
     await sb.from("audit_log").insert({

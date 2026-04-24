@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getTodayEvents } from "@/lib/google/calendar";
 import { listTasks } from "@/lib/google/tasks";
-import { getGroq, DEFAULT_MODEL } from "@/lib/llm/client";
+import { getLLMForUser } from "@/lib/llm/providers";
 import { generateText } from "ai";
 import { Resend } from "resend";
 
@@ -63,9 +63,9 @@ export async function GET(req: Request) {
         overdue_count: overdue.length,
       };
 
-      const groq = getGroq();
+      const llm = await getLLMForUser(u.id);
       const { text } = await generateText({
-        model: groq(DEFAULT_MODEL),
+        model: llm.model,
         system:
           "You write short, warm morning briefings. Output CLEAN HTML (no <html> tag, just inner content). Use <p>, <ul>, <li>, <strong>. Tone: friendly, actionable. Max 150 words. Detect language from user's name (Indonesian-sounding name → Bahasa Indonesia, else English).",
         prompt: `Write a morning briefing for ${context.name}:

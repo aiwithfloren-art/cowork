@@ -251,11 +251,6 @@ export const dictionaries = {
       telegramUnlink: "Unlink Telegram",
       telegramCodeExpires: "expires in 10 min",
       telegramCodeNew: "Generate a new code",
-      byokTitle: "Bring Your Own Groq Key",
-      byokDesc:
-        "Sigap's free tier is rate-limited (30 messages/day). For unlimited usage, paste your own Groq API key below. Get one free at",
-      byokSave: "Save",
-      byokRemove: "Remove key",
       account: "Account",
       accountSignedIn: "Signed in as",
       accountRevoke: "To revoke Sigap's access to your Google account, visit",
@@ -558,11 +553,6 @@ export const dictionaries = {
       telegramUnlink: "Putus Telegram",
       telegramCodeExpires: "expires dalam 10 menit",
       telegramCodeNew: "Buat kode baru",
-      byokTitle: "Pakai Groq Key Sendiri",
-      byokDesc:
-        "Tier gratis Sigap rate-limited (30 pesan/hari). Untuk unlimited, paste Groq API key Anda sendiri. Dapat gratis di",
-      byokSave: "Simpan",
-      byokRemove: "Hapus key",
       account: "Akun",
       accountSignedIn: "Masuk sebagai",
       accountRevoke: "Untuk mencabut akses Sigap ke akun Google Anda, kunjungi",

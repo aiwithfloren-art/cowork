@@ -21,10 +21,9 @@ create table if not exists public.google_tokens (
   updated_at timestamptz default now()
 );
 
--- User settings (BYOK, model choice)
+-- User settings (model choice — kept for future per-user model preference)
 create table if not exists public.user_settings (
   user_id uuid primary key references public.users(id) on delete cascade,
-  groq_key text,
   model text default 'llama-3.3-70b-versatile',
   created_at timestamptz default now()
 );

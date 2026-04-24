@@ -8,13 +8,18 @@ import { DEFAULT_MODEL as DEFAULT_GROQ_MODEL } from "./client";
 
 /**
  * LLM provider abstraction. Pick the provider + model based on (in order):
- *   1. User's BYO key (personal Groq key from user_settings, Groq-only)
+ *   1. Platform default — OpenRouter + Gemini 2.5 Flash when OPENROUTER_API_KEY is set.
+ *      Wins over everything else so all users are safe from Groq's 8K TPM free-tier
+ *      limit that chokes on Cowork's ~27 tool definitions. Amanda hit "Request too
+ *      large (Requested 21268, Limit 8000)" on a Calendar+Gmail multi-tool turn.
  *   2. Org-level policy: organizations.llm_provider + llm_model + llm_api_key
- *   3. Platform default (Groq via GROQ_API_KEY env)
+ *      (org admin explicitly opted into a BYO provider)
+ *   3. Groq via GROQ_API_KEY env (fallback for zero-config self-host)
  *
- * This layer exists so future admin console + self-host deployments can
- * swap to OpenAI, Anthropic, or any OpenAI-compatible endpoint
- * (OpenRouter, Azure, local) without touching every call site.
+ * Personal per-user Groq keys (user_settings.groq_key) are intentionally
+ * no longer a provider override — they were the path that forced new users
+ * onto the TPM-limited free tier. The column is kept for backwards compat
+ * but ignored during resolution.
  */
 
 export type LLMProvider = "groq" | "openai" | "anthropic" | "openrouter";
@@ -68,20 +73,12 @@ export async function resolveLLMFor(userId: string): Promise<{
   model: string;
   apiKey: string | undefined;
 }> {
-  const sb = supabaseAdmin();
-
-  // User's personal Groq key short-circuits everything — same semantics as
-  // before the abstraction landed.
-  const { data: settings } = await sb
-    .from("user_settings")
-    .select("groq_key")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (settings?.groq_key) {
+  // Platform OpenRouter wins first — keeps all users off Groq's 8K TPM cap.
+  if (process.env.OPENROUTER_API_KEY) {
     return {
-      provider: "groq",
-      model: DEFAULT_GROQ_MODEL,
-      apiKey: settings.groq_key as string,
+      provider: "openrouter",
+      model: DEFAULT_MODELS.openrouter,
+      apiKey: process.env.OPENROUTER_API_KEY,
     };
   }
 
@@ -91,18 +88,6 @@ export async function resolveLLMFor(userId: string): Promise<{
       provider: org.provider,
       model: org.model ?? DEFAULT_MODELS[org.provider],
       apiKey: org.apiKey ?? platformKeyFor(org.provider),
-    };
-  }
-
-  // Platform default. Prefer OpenRouter + Haiku 4.5 when OPENROUTER_API_KEY
-  // is configured — cheap, reliable tool-calling, and every self-hoster can
-  // flip to it by adding one env var. Groq remains the fallback for zero-
-  // config installs where GROQ_API_KEY is all that's set.
-  if (process.env.OPENROUTER_API_KEY) {
-    return {
-      provider: "openrouter",
-      model: DEFAULT_MODELS.openrouter,
-      apiKey: process.env.OPENROUTER_API_KEY,
     };
   }
 

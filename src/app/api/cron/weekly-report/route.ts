@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getEvents } from "@/lib/google/calendar";
 import { listTasks } from "@/lib/google/tasks";
-import { getGroq, DEFAULT_MODEL } from "@/lib/llm/client";
+import { getLLMForUser } from "@/lib/llm/providers";
 import { generateText } from "ai";
 import { sendWeeklyReportEmail } from "@/lib/email/client";
 
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
         listTasks(u.id),
       ]);
 
-      const groq = getGroq();
+      const llm = await getLLMForUser(u.id);
       const prompt = `Generate a friendly weekly report for ${u.name || u.email} based on this data:
 
 Calendar events this past week (${events.length} total):
@@ -65,7 +65,7 @@ Write a concise HTML report (NO <html> or <body> tags, just inner content with <
 Keep it under 200 words. Use Bahasa Indonesia or English depending on their name style.`;
 
       const result = await generateText({
-        model: groq(DEFAULT_MODEL),
+        model: llm.model,
         prompt,
       });
 

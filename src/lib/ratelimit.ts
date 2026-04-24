@@ -13,10 +13,7 @@ export type RateLimitResult =
       resetsAt?: string;
     };
 
-export async function checkRateLimit(userId: string, userHasOwnKey: boolean): Promise<RateLimitResult> {
-  // Users with their own API key bypass our rate limits & budget
-  if (userHasOwnKey) return { ok: true };
-
+export async function checkRateLimit(userId: string): Promise<RateLimitResult> {
   const sb = supabaseAdmin();
   const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
@@ -55,8 +52,8 @@ export async function checkRateLimit(userId: string, userHasOwnKey: boolean): Pr
       ok: false,
       reason: "daily",
       message: byOrg
-        ? `Daily limit reached (${effectiveDailyLimit} messages/day — set by your org admin). Ask your admin to raise the cap or add your own Groq key in Settings.`
-        : `Daily limit reached (${effectiveDailyLimit} messages/day on free tier). Add your own Groq API key in Settings for unlimited usage, or try again tomorrow.`,
+        ? `Daily limit reached (${effectiveDailyLimit} messages/day — set by your org admin). Ask your admin to raise the cap, or try again tomorrow.`
+        : `Daily limit reached (${effectiveDailyLimit} messages/day on free tier). Try again tomorrow.`,
       resetsAt: reset.toISOString(),
     };
   }
@@ -66,7 +63,7 @@ export async function checkRateLimit(userId: string, userHasOwnKey: boolean): Pr
     return {
       ok: false,
       reason: "hourly",
-      message: `Hourly limit reached (${HOURLY_LIMIT} messages/hour). Take a break and try again soon, or add your own key in Settings.`,
+      message: `Hourly limit reached (${HOURLY_LIMIT} messages/hour). Take a break and try again soon.`,
       resetsAt: reset.toISOString(),
     };
   }
@@ -76,7 +73,7 @@ export async function checkRateLimit(userId: string, userHasOwnKey: boolean): Pr
     return {
       ok: false,
       reason: "budget",
-      message: `Sigap's monthly free-tier budget is exhausted. Add your own Groq API key in Settings to continue (30 seconds at console.groq.com).`,
+      message: `Sigap's monthly free-tier budget is exhausted. Try again next month.`,
     };
   }
 

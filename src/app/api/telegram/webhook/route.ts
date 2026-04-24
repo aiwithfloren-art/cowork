@@ -119,14 +119,7 @@ async function handleLinkCode(
 
 async function handleAIChat(userId: string, chatId: number, text: string) {
   const sb = supabaseAdmin();
-  const { data: settings } = await sb
-    .from("user_settings")
-    .select("groq_key, model")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const userHasOwnKey = Boolean(settings?.groq_key);
-  const rl = await checkRateLimit(userId, userHasOwnKey);
+  const rl = await checkRateLimit(userId);
   if (!rl.ok) {
     await sendTelegramMessage(chatId, `⚠️ ${rl.message}`);
     return NextResponse.json({ ok: true });
@@ -250,15 +243,13 @@ async function handleAIChat(userId: string, chatId: number, text: string) {
 
     const tokensIn = result.usage?.inputTokens ?? 0;
     const tokensOut = result.usage?.outputTokens ?? 0;
-    if (!userHasOwnKey) {
-      await logUsage(
-        userId,
-        tokensIn,
-        tokensOut,
-        estimateCost(llm.provider, tokensIn, tokensOut),
-        llm.modelId,
-      );
-    }
+    await logUsage(
+      userId,
+      tokensIn,
+      tokensOut,
+      estimateCost(llm.provider, tokensIn, tokensOut),
+      llm.modelId,
+    );
 
     // Scrub tokens before persisting.
     const savedTokens = extractSavedTokens(

@@ -208,13 +208,7 @@ async function processSlackMessage(args: {
     return;
   }
 
-  const { data: settings } = await sb
-    .from("user_settings")
-    .select("groq_key")
-    .eq("user_id", sigapUser.id)
-    .maybeSingle();
-  const userHasOwnKey = Boolean(settings?.groq_key);
-  const rl = await checkRateLimit(sigapUser.id, userHasOwnKey);
+  const rl = await checkRateLimit(sigapUser.id);
   if (!rl.ok) {
     await postSlack(connector.access_token, channel, `⚠️ ${rl.message}`);
     return;
@@ -352,15 +346,13 @@ async function processSlackMessage(args: {
 
     const tokensIn = result.usage?.inputTokens ?? 0;
     const tokensOut = result.usage?.outputTokens ?? 0;
-    if (!userHasOwnKey) {
-      await logUsage(
-        sigapUser.id,
-        tokensIn,
-        tokensOut,
-        estimateCost(llm.provider, tokensIn, tokensOut),
-        llm.modelId,
-      );
-    }
+    await logUsage(
+      sigapUser.id,
+      tokensIn,
+      tokensOut,
+      estimateCost(llm.provider, tokensIn, tokensOut),
+      llm.modelId,
+    );
 
     // Scrub tokens before persisting (see redact-secrets for rationale).
     const savedTokens = extractSavedTokens(

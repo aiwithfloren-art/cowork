@@ -188,14 +188,7 @@ export async function POST(req: Request) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const sb = supabaseAdmin();
-  const { data: settings } = await sb
-    .from("user_settings")
-    .select("groq_key, model")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const userHasOwnKey = Boolean(settings?.groq_key);
-  const rl = await checkRateLimit(userId, userHasOwnKey);
+  const rl = await checkRateLimit(userId);
   if (!rl.ok) {
     return NextResponse.json(
       {
@@ -514,9 +507,7 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
     const tokensOut = result.usage?.outputTokens ?? 0;
     const cost = estimateCost(llm.provider, tokensIn, tokensOut);
 
-    if (!userHasOwnKey) {
-      await logUsage(userId, tokensIn, tokensOut, cost, llm.modelId);
-    }
+    await logUsage(userId, tokensIn, tokensOut, cost, llm.modelId);
 
     // Scrub pasted/echoed API tokens before persisting the turn. Pattern
     // pass catches well-known prefixes (sk-…, ghp_…, etc); exact-match
