@@ -1305,7 +1305,7 @@ export function buildTools(userId: string) {
 
     github_write_files_batch: tool({
       description:
-        "Commit MANY files to a GitHub repo in a SINGLE atomic commit using the Git Tree API. STRONGLY PREFERRED over repeated github_write_file when scaffolding or bootstrapping a project (Next.js app, landing page, etc). One call = one commit with all files. ~10x faster than N sequential github_write_file calls and avoids serverless timeout. Use for: initial scaffold, adding a feature that spans multiple files, refactors. Only text/UTF-8 files supported (no binaries). Tip: the very first scaffold commit can overwrite the auto-generated README.",
+        "Commit UP TO 5 files to a GitHub repo in a SINGLE atomic commit using the Git Tree API. STRONGLY PREFERRED over repeated github_write_file when scaffolding. MAX 5 files per call — for projects needing more files, call this tool multiple times (each batch = one commit). Hard 5-file cap exists because models generate ~50s of tokens per file, and packing too many into one call blows the 300s serverless budget. Example: 12-file Next.js scaffold → split into 3 calls (5 + 5 + 2). Only text/UTF-8 files supported (no binaries).",
       inputSchema: z.object({
         owner: z.string(),
         repo: z.string(),
@@ -1317,7 +1317,8 @@ export function buildTools(userId: string) {
             }),
           )
           .min(1)
-          .describe("List of files to create/update in one commit"),
+          .max(5)
+          .describe("List of files to create/update in one commit (MAX 5 files — split larger scaffolds into multiple calls)"),
         message: z
           .string()
           .describe("Commit message. Conventional commit style preferred, e.g. 'chore: scaffold Next.js app'."),
@@ -1353,7 +1354,7 @@ export function buildTools(userId: string) {
 
     schedule_deploy_watcher: tool({
       description:
-        "Queue a background watcher for a deploy that's still BUILDING after your inline polling cap. The watcher runs every minute, polls the deploy status, and pushes a Slack DM + in-app notification to the user when the deploy reaches READY / ERROR / CANCELED. Use this INSTEAD of telling the user to 'check later' — it lets you end the chat turn cleanly while still guaranteeing the user gets notified when the deploy finishes. Call this after your 3rd inline poll shows non-terminal status.",
+        "Queue a background watcher for a deploy you just triggered. The watcher polls deploy status on its own and pushes a Slack DM + in-app notification when the deploy reaches READY / ERROR / CANCELED. ALWAYS call this IMMEDIATELY after triggering a Vercel deploy — never poll status inline (polling eats the 300s serverless budget and risks 504 timeouts). End the turn right after this call with a reply telling the user a watcher is active.",
       inputSchema: z.object({
         provider: z
           .enum(["vercel"])
