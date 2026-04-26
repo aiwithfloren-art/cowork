@@ -285,7 +285,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Scan notes type=project yang mention 'TODO' atau 'pending' — kasih update kalau udah selesai.",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "google/gemini-2.5-flash-lite",
+    llm_override_model: "deepseek/deepseek-v3.2",
   },
   {
     name: "Code Reviewer",
@@ -347,7 +347,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Kalau ada PR open > 3 hari belum review, post reminder gentle ke author.",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "google/gemini-2.5-flash-lite",
+    llm_override_model: "deepseek/deepseek-v3.2",
     default_schedule: "0 2 * * *", // 09:00 WIB daily
   },
   {
