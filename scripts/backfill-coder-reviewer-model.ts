@@ -23,7 +23,7 @@ async function main() {
 
   const targets = ["Coder", "Code Reviewer"];
   const newProvider = "openrouter";
-  const newModel = "openai/gpt-4o-mini";
+  const newModel = "deepseek/deepseek-v3.2";
 
   for (const name of targets) {
     const { data: tmpls, error: tErr } = await sb
