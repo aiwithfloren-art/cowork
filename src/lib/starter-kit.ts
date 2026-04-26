@@ -31,6 +31,15 @@ function wrap(role: string): string {
   return `${BOUNDARY_ID}\n\n=== BEGIN ROLE ===\n${role}\n=== END ROLE ===`;
 }
 
+/**
+ * Public wrapper for the starter-template boundary. Used when installing
+ * a starter template directly (e.g., from /api/agents/install-starter)
+ * — keeps the prompt-injection guardrails identical to seedStarterSkills.
+ */
+export function wrapStarterRole(role: string): string {
+  return wrap(role);
+}
+
 type StarterTemplate = {
   name: string;
   emoji: string;

@@ -18,61 +18,66 @@ export default async function AgentsPage() {
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
+  const hasAgents = !!agents && agents.length > 0;
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-8 px-4 md:px-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">AI Employees</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Your activated AI employees — each one has a focused role and a
-          subset of tools. To create a new one, tell Sigap in the main chat:{" "}
-          <span className="font-mono text-indigo-700">
-            &quot;bikin AI employee Siska buat HR…&quot;
-          </span>
+          Activate pre-built AI agents for your team — each one comes with the
+          right tools and skills for its role. You can also create custom ones
+          via the main chat.
         </p>
       </div>
 
-      {(!agents || agents.length === 0) ? (
-        <>
-          <Card>
-            <CardContent className="py-10 text-center">
-              <p className="text-2xl">🤖</p>
-              <p className="mt-2 text-sm font-medium text-slate-900">
-                Belum ada agent
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Bikin sub-agent buat fokus di task spesifik — HR, sales,
-                research, content, dll.
-              </p>
-            </CardContent>
-          </Card>
-          <AgentTemplates />
-        </>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {agents.map((a) => (
-            <Card key={a.slug} className="transition hover:shadow-md">
-              <CardContent className="flex flex-col gap-3 p-4">
-                <Link
-                  href={`/agents/${a.slug}`}
-                  className="flex items-start gap-3"
-                >
-                  <span className="text-3xl">{a.emoji ?? "🤖"}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-slate-900">{a.name}</p>
-                    <p className="mt-1 line-clamp-2 text-xs text-slate-500">
-                      {a.description ?? "—"}
-                    </p>
+      {/* User's already-activated agents (shown only if any exist) */}
+      {hasAgents && (
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-slate-900">
+            Your activated agents
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {agents.map((a) => (
+              <Card key={a.slug} className="transition hover:shadow-md">
+                <CardContent className="flex flex-col gap-3 p-4">
+                  <Link
+                    href={`/agents/${a.slug}`}
+                    className="flex items-start gap-3"
+                  >
+                    <span className="text-3xl">{a.emoji ?? "🤖"}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-900">{a.name}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                        {a.description ?? "—"}
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>{(a.enabled_tools ?? []).length} tools</span>
+                    <DeleteAgentButton
+                      slug={a.slug}
+                      name={a.name}
+                      emoji={a.emoji}
+                    />
                   </div>
-                </Link>
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>{(a.enabled_tools ?? []).length} tools</span>
-                  <DeleteAgentButton slug={a.slug} name={a.name} emoji={a.emoji} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Browse templates — always visible (V1: always show marketplace
+          so users can keep adding agents, not just on empty state). */}
+      <div className="space-y-3">
+        {hasAgents && (
+          <p className="text-sm font-medium text-slate-900">
+            Add another AI employee
+          </p>
+        )}
+        <AgentTemplates />
+      </div>
     </div>
   );
 }
