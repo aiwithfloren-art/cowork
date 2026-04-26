@@ -27,15 +27,18 @@ export const SUPPORTED_PROVIDERS: LLMProvider[] = [
 ];
 
 // Sensible defaults per provider — model IDs that support tool-calling well.
-// OpenRouter default is GPT-4o-mini: $0.15/$0.60 per 1M tokens. OpenAI's
-// function-calling stack is the most battle-tested across Sigap's 55+ tool
-// definitions. Agents that need real code quality (coder, reviewer)
-// override this via agent.llm_override_model to deepseek-v3.2 — see
-// src/lib/starter-kit.ts.
+// OpenRouter default is Gemini 2.5 Flash Lite: $0.10/$0.40 per 1M tokens.
+// Cheapest reliable option for Sigap's tool-calling-heavy workload (55+
+// tool definitions). Same Google function-calling stack as Flash full,
+// just with a smaller cheaper model. ~33% cheaper than gpt-4o-mini.
+//
+// Why not gpt-oss-120b ($0.039/$0.19, even cheaper)? BFCL tool-calling
+// score 67% — fails 1/3 of multi-tool turns. That's the model that
+// caused Amanda's original 504 incident. Don't go back there.
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
   openai: "gpt-4o-mini",
   anthropic: "claude-sonnet-4-5-20250929",
-  openrouter: "openai/gpt-4o-mini",
+  openrouter: "google/gemini-2.5-flash-lite",
 };
 
 // Very rough $/1M tokens for usage estimation. Orgs on BYO providers pay
@@ -43,7 +46,7 @@ const DEFAULT_MODELS: Record<LLMProvider, string> = {
 const COST_TABLE: Record<LLMProvider, { in: number; out: number }> = {
   openai: { in: 0.15, out: 0.6 },
   anthropic: { in: 3.0, out: 15.0 },
-  openrouter: { in: 0.15, out: 0.6 },
+  openrouter: { in: 0.1, out: 0.4 },
 };
 
 export function estimateCost(

@@ -23,7 +23,7 @@ async function main() {
 
   const targets = ["Coder", "Code Reviewer"];
   const newProvider = "openrouter";
-  const newModel = "deepseek/deepseek-v3.2";
+  const newModel = "google/gemini-2.5-flash-lite";
 
   for (const name of targets) {
     const { data: tmpls, error: tErr } = await sb
