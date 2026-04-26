@@ -513,10 +513,7 @@ export function Chat({
               <p>{error}</p>
               {rateLimitResetAt && (
                 <p className="mt-1 text-[11px] text-red-600">
-                  Resets {timeFromNow(rateLimitResetAt)} ·{" "}
-                  <a href="/settings" className="underline">
-                    Add your own key →
-                  </a>
+                  Resets {timeFromNow(rateLimitResetAt)}
                 </p>
               )}
             </div>
