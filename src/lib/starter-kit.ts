@@ -552,7 +552,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Scan notes type=reference cari saved lead-gen-sheet-id, summarize current pipeline (X pending, Y approved, Z sent).",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "anthropic/claude-haiku-4.5",
+    llm_override_model: "openai/gpt-4o-mini",
   },
   {
     name: "Content Creator",
@@ -705,7 +705,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Kalau ada saved notes type='content_history', summarize content terakhir + tanyain mau bikin yang mirip atau topik baru.",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "anthropic/claude-haiku-4.5",
+    llm_override_model: "openai/gpt-4o-mini",
     onboarding_questions: [
       { key: "niche", question: "Niche/industry brand lo apa?", example: "skincare, F&B, tech, fashion" },
       { key: "brand_tone", question: "Brand tone yang lo mau?", options: ["casual", "professional", "playful", "bold"] },
