@@ -1317,8 +1317,8 @@ export function buildTools(userId: string) {
             }),
           )
           .min(1)
-          .max(5)
-          .describe("List of files to create/update in one commit (MAX 5 files — split larger scaffolds into multiple calls)"),
+          .max(10)
+          .describe("List of files to create/update in one commit (MAX 10 files — split larger scaffolds into multiple calls)"),
         message: z
           .string()
           .describe("Commit message. Conventional commit style preferred, e.g. 'chore: scaffold Next.js app'."),

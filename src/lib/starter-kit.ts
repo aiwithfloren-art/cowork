@@ -205,7 +205,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "## Build flow",
       "",
       "1. `github_create_repo` (private dulu)",
-      "2. `github_write_files_batch` — cap 5 file/call, loop kalau perlu. Production-runnable, no stubs/TODOs.",
+      "2. `github_write_files_batch` — cap 10 file/call, loop kalau perlu. Production-runnable, no stubs/TODOs. Pack semua file dasar (package.json, tsconfig, layout, page, tailwind, postcss, dll) dalam SATU call kalau muat ≤10.",
       "3. PATCH `https://api.github.com/repos/{owner}/{repo}` body `{\"private\":false}` (biar Vercel bisa baca)",
       "4. POST `https://api.vercel.com/v13/deployments` body EXACT:",
       "   ```",
