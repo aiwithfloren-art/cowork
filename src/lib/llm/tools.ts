@@ -1192,12 +1192,14 @@ export function buildTools(userId: string) {
             headers,
             rows: rows ?? undefined,
           });
+          const rowsWritten = (rows ?? []).length;
           return {
             ok: true,
             spreadsheet_id: id,
             url,
             title,
-            note: `Sheet created. In your reply, link as "[📊 ${title}](${url})". SAVE spreadsheet_id with save_note so you can append/update later.`,
+            rows_written: rowsWritten,
+            note: `Sheet created with ${rowsWritten} data rows. In your reply, you MUST report this exact number (rows_written=${rowsWritten}), not what the user originally asked for. Link as "[📊 ${title}](${url})". SAVE spreadsheet_id with save_note for future updates.`,
           };
         } catch (e) {
           return {
@@ -1224,6 +1226,11 @@ export function buildTools(userId: string) {
           .describe("Tab name. Default 'Sheet1'."),
       }),
       execute: async ({ spreadsheet_id, rows, sheet_name }) => {
+        if (!/^[A-Za-z0-9_-]{20,}$/.test(spreadsheet_id)) {
+          return {
+            error: `spreadsheet_id "${spreadsheet_id}" tidak valid. Real spreadsheet_id panjang 40+ karakter (mis. 1trKAK_6fO-8-9GV-mk74SW7...). Kalau belum ada sheet, panggil create_google_sheet DULU dengan rows yang mau ditulis — jangan panggil append_sheet_rows tanpa ID real.`,
+          };
+        }
         try {
           const r = await appendSheetRows(
             userId,
@@ -1260,6 +1267,9 @@ export function buildTools(userId: string) {
           .describe("Tab name. Default 'Sheet1'."),
       }),
       execute: async ({ spreadsheet_id, row_number, values, sheet_name }) => {
+        if (!/^[A-Za-z0-9_-]{20,}$/.test(spreadsheet_id)) {
+          return { error: `spreadsheet_id "${spreadsheet_id}" tidak valid. Real spreadsheet_id panjang 40+ karakter — gunakan ID dari create_google_sheet/get_notes.` };
+        }
         try {
           const r = await updateSheetRow(
             userId,
