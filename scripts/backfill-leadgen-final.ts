@@ -14,6 +14,6 @@ async function main() {
   const { data: a } = await sb.from("custom_agents")
     .update({ system_prompt: lg.role, llm_override_provider: lg.llm_override_provider, llm_override_model: lg.llm_override_model })
     .eq("name", "Lead Gen").select("id");
-  console.log(`✓ Lead Gen → ${lg.llm_override_model}, prompt ${(lg.role as string).length} chars: ${t?.length ?? 0} templates, ${a?.length ?? 0} installs`);
+  console.log(`✓ Lead Gen → ${lg.llm_override_model}: ${t?.length} tmpls, ${a?.length} installs`);
 }
 main().catch(e => { console.error(e); process.exit(1); });
