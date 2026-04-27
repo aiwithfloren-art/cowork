@@ -22,7 +22,7 @@
     },
     {
       "path": "/api/cron/lead-gen-reply-tracker",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 1 * * *"
     }
   ]
 }
