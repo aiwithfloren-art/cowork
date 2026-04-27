@@ -30,7 +30,7 @@ export async function createSheet(
     await sheets.spreadsheets.values.append({
       spreadsheetId: id,
       range: "Sheet1!A1",
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: "RAW",
       requestBody: { values: initial },
     });
   }
