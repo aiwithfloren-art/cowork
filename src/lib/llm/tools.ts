@@ -40,6 +40,7 @@ import {
   setConfigKey,
   completeOnboarding,
 } from "@/lib/agent-config";
+import { renderCarousel, type SlideTemplate } from "@/lib/render/png";
 import { shareFile, type DriveRole } from "@/lib/google/drive";
 import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
@@ -1365,6 +1366,105 @@ export function buildTools(userId: string, agentContext?: { name?: string }) {
           };
         } catch (e) {
           return { error: `Gagal add columns: ${e instanceof Error ? e.message : "unknown"}.` };
+        }
+      },
+    }),
+
+    render_carousel_slides: tool({
+      description:
+        "Render an IG/TikTok carousel as PNG images. Input: array of slide templates (1-10 slides). Each slide is a structured JSON spec — NOT raw HTML. Returns array of public PNG URLs (Supabase storage). Use for Content Creator output. Pagination ('1/5') is auto-added. Default slide size 1080x1080 (IG square).",
+      inputSchema: z.object({
+        slides: z
+          .array(
+            z.object({
+              width: z.number().int().nullable().optional().describe("Default 1080. Use 1080x1350 for IG portrait."),
+              height: z.number().int().nullable().optional().describe("Default 1080."),
+              background: z
+                .string()
+                .describe(
+                  "Hex color (#1a1a1a) or CSS gradient string ('linear-gradient(135deg, #667eea 0%, #764ba2 100%)').",
+                ),
+              text_color: z.string().nullable().optional().describe("Default '#FFFFFF'."),
+              layout: z.enum(["centered", "top-anchor", "bottom-anchor"]).nullable().optional(),
+              footer: z.string().nullable().optional().describe("Small footer text e.g. brand handle '@yourbrand'."),
+              elements: z
+                .array(
+                  z.discriminatedUnion("type", [
+                    z.object({
+                      type: z.literal("heading"),
+                      text: z.string(),
+                      size: z.enum(["lg", "xl", "2xl", "3xl", "4xl"]).nullable().optional(),
+                      color: z.string().nullable().optional(),
+                      align: z.enum(["left", "center", "right"]).nullable().optional(),
+                      weight: z.union([z.literal(400), z.literal(600), z.literal(700), z.literal(900)]).nullable().optional(),
+                    }),
+                    z.object({
+                      type: z.literal("subheading"),
+                      text: z.string(),
+                      color: z.string().nullable().optional(),
+                      align: z.enum(["left", "center", "right"]).nullable().optional(),
+                    }),
+                    z.object({
+                      type: z.literal("body"),
+                      text: z.string(),
+                      color: z.string().nullable().optional(),
+                      align: z.enum(["left", "center", "right"]).nullable().optional(),
+                    }),
+                    z.object({
+                      type: z.literal("badge"),
+                      text: z.string(),
+                      bg: z.string().nullable().optional(),
+                      color: z.string().nullable().optional(),
+                    }),
+                    z.object({
+                      type: z.literal("spacer"),
+                      size: z.enum(["sm", "md", "lg"]).nullable().optional(),
+                    }),
+                  ]),
+                )
+                .min(1)
+                .max(8),
+            }),
+          )
+          .min(1)
+          .max(10),
+      }),
+      execute: async ({ slides }) => {
+        try {
+          const buffers = await renderCarousel(slides as unknown as SlideTemplate[]);
+          const sb = supabaseAdmin();
+          const BUCKET = "sigap-images";
+          const carouselId = Math.random().toString(36).slice(2, 10);
+          const urls: string[] = [];
+
+          for (let i = 0; i < buffers.length; i++) {
+            const filename = `carousel/${userId}/${carouselId}/slide-${i + 1}.png`;
+            const upload = async () =>
+              sb.storage.from(BUCKET).upload(filename, buffers[i], {
+                contentType: "image/png",
+                cacheControl: "31536000",
+                upsert: true,
+              });
+            let r = await upload();
+            if (r.error && /Bucket not found/i.test(r.error.message)) {
+              await sb.storage.createBucket(BUCKET, { public: true });
+              r = await upload();
+            }
+            if (r.error) {
+              return { error: `Upload slide ${i + 1} failed: ${r.error.message}` };
+            }
+            const { data } = sb.storage.from(BUCKET).getPublicUrl(filename);
+            urls.push(data.publicUrl);
+          }
+
+          return {
+            ok: true,
+            slide_count: urls.length,
+            urls,
+            note: `Rendered ${urls.length} slides. In your reply to user, embed each PNG with markdown image syntax: ![Slide N](url) on separate lines so user can preview them inline. Provide all URLs in order.`,
+          };
+        } catch (e) {
+          return { error: `Carousel render failed: ${e instanceof Error ? e.message : "unknown"}` };
         }
       },
     }),
