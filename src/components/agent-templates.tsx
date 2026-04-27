@@ -14,9 +14,17 @@ type Template = {
   featured?: boolean;
 };
 
-// Featured agents = the V1 launch focus: Marketing + Coder.
+// Featured agents = the V1 launch focus.
 // Other agents are still installable but rendered as smaller secondary cards.
 const TEMPLATES: Template[] = [
+  {
+    emoji: "🎯",
+    title: "Lead Gen",
+    templateName: "Lead Gen",
+    description:
+      "Cari prospect, draft cold email tone-match per niche, simpan di Google Sheet. Approve di sheet → agent kirim + update status.",
+    featured: true,
+  },
   {
     emoji: "🧑‍💻",
     title: "Coder",

@@ -27,6 +27,12 @@ import {
 } from "@/lib/google/tasks";
 import { findCommonSlots } from "@/lib/google/freebusy";
 import { readDoc, createDoc } from "@/lib/google/docs";
+import {
+  createSheet,
+  appendRows as appendSheetRows,
+  updateRow as updateSheetRow,
+  readRows as readSheetRows,
+} from "@/lib/google/sheets";
 import { shareFile, type DriveRole } from "@/lib/google/drive";
 import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
@@ -1153,6 +1159,146 @@ export function buildTools(userId: string) {
         } catch (e) {
           return {
             error: `Gagal bikin Google Doc: ${e instanceof Error ? e.message : "unknown"}. User mungkin perlu re-authorize Google OAuth kalau token-nya expired.`,
+          };
+        }
+      },
+    }),
+
+    create_google_sheet: tool({
+      description:
+        "Create a NEW Google Sheet (spreadsheet) in the user's Drive. Use for prospect tracking, content calendars, lead pipelines, any tabular data. Provide column headers AND optional initial rows in one call. Returns the Sheet URL + spreadsheetId — save the spreadsheetId in a note (save_note) so you can append/update rows in later turns.",
+      inputSchema: z.object({
+        title: z
+          .string()
+          .describe(
+            "Title of the Sheet. Used as filename in Drive. Keep under 200 chars.",
+          ),
+        headers: z
+          .array(z.string())
+          .describe(
+            "Column headers, left-to-right. Example: ['Business Name', 'Email', 'Status', 'Notes']",
+          ),
+        rows: z
+          .array(z.array(z.string()))
+          .nullable()
+          .optional()
+          .describe(
+            "Optional initial data rows. Each inner array = one row, values aligned with headers.",
+          ),
+      }),
+      execute: async ({ title, headers, rows }) => {
+        try {
+          const { id, url } = await createSheet(userId, title, {
+            headers,
+            rows: rows ?? undefined,
+          });
+          return {
+            ok: true,
+            spreadsheet_id: id,
+            url,
+            title,
+            note: `Sheet created. In your reply, link as "[📊 ${title}](${url})". SAVE spreadsheet_id with save_note so you can append/update later.`,
+          };
+        } catch (e) {
+          return {
+            error: `Gagal bikin Google Sheet: ${e instanceof Error ? e.message : "unknown"}. User mungkin perlu re-authorize Google OAuth.`,
+          };
+        }
+      },
+    }),
+
+    append_sheet_rows: tool({
+      description:
+        "Append one or more rows to an existing Google Sheet. Use to add new prospects, content items, etc. Pass spreadsheet_id (from create_google_sheet or saved note). Rows are appended below the last data row.",
+      inputSchema: z.object({
+        spreadsheet_id: z.string().describe("ID returned by create_google_sheet."),
+        rows: z
+          .array(z.array(z.string()))
+          .describe(
+            "Rows to append. Each inner array = one row. Order/length must match the sheet's columns.",
+          ),
+        sheet_name: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Tab name. Default 'Sheet1'."),
+      }),
+      execute: async ({ spreadsheet_id, rows, sheet_name }) => {
+        try {
+          const r = await appendSheetRows(
+            userId,
+            spreadsheet_id,
+            rows,
+            sheet_name ?? "Sheet1",
+          );
+          return { ok: true, appended: r.appended };
+        } catch (e) {
+          return {
+            error: `Gagal append rows: ${e instanceof Error ? e.message : "unknown"}.`,
+          };
+        }
+      },
+    }),
+
+    update_sheet_row: tool({
+      description:
+        "Update a single row in an existing Google Sheet by 1-indexed row number (row 1 = headers, row 2 = first data row). Use to change status (e.g. 'pending' → 'sent') or fix a draft. Pass full row values starting at column A.",
+      inputSchema: z.object({
+        spreadsheet_id: z.string().describe("ID of the sheet."),
+        row_number: z
+          .number()
+          .int()
+          .min(1)
+          .describe("1-indexed row number. Row 1 is the header row."),
+        values: z
+          .array(z.string())
+          .describe("Full row values, left-to-right starting at column A."),
+        sheet_name: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Tab name. Default 'Sheet1'."),
+      }),
+      execute: async ({ spreadsheet_id, row_number, values, sheet_name }) => {
+        try {
+          const r = await updateSheetRow(
+            userId,
+            spreadsheet_id,
+            row_number,
+            values,
+            sheet_name ?? "Sheet1",
+          );
+          return { ok: true, updated: r.updated, row_number };
+        } catch (e) {
+          return {
+            error: `Gagal update row: ${e instanceof Error ? e.message : "unknown"}.`,
+          };
+        }
+      },
+    }),
+
+    read_sheet: tool({
+      description:
+        "Read all rows from a Google Sheet (up to A1:Z1000). Use to check which prospects are marked 'approved' before sending email, or to see current state. Returns rows as array of string arrays.",
+      inputSchema: z.object({
+        spreadsheet_id: z.string().describe("ID of the sheet."),
+        sheet_name: z
+          .string()
+          .nullable()
+          .optional()
+          .describe("Tab name. Default 'Sheet1'."),
+      }),
+      execute: async ({ spreadsheet_id, sheet_name }) => {
+        try {
+          const r = await readSheetRows(
+            userId,
+            spreadsheet_id,
+            sheet_name ?? "Sheet1",
+          );
+          return { ok: true, row_count: r.rows.length, rows: r.rows };
+        } catch (e) {
+          return {
+            error: `Gagal baca sheet: ${e instanceof Error ? e.message : "unknown"}.`,
           };
         }
       },
