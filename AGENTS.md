@@ -38,7 +38,29 @@ Setiap selesai coding, WAJIB jalankan urutan ini:
      "Saya hanya bisa verify build & syntax. Fitur ini perlu di-test di production."
    - JANGAN klaim "fitur jalan" kalau belum dicoba beneran
 
-5. **Report ke user** dengan format:
+5. **Self-review sebelum lapor** — Sebelum bilang "SELESAI" ke user, double-check ke diri sendiri:
+
+   ❓ Halusinasi check:
+   - Apakah saya benar-benar lakukan semua action yang saya klaim?
+   - Bukti konkrit: tool call yang dipanggil + return value-nya
+   - Kalau cuma asumsi, JANGAN klaim selesai
+
+   ❓ E2E test honesty check:
+   - Apakah E2E test beneran end-to-end dengan data real?
+   - Atau cuma test logic dengan data dummy/mock?
+   - Kalau pakai dummy/fake data, BILANG terus terang ke user
+
+   ❓ Visi alignment check:
+   - Apakah hasil match dengan request user?
+   - Ada gap antara request vs hasil?
+   - Kalau ada gap, sebutin di laporan
+
+   ❓ Risk disclosure:
+   - Ada limitation yang user perlu tau?
+   - Ada edge case yang gak ke-cover?
+   - JANGAN sembunyiin info penting
+
+6. **Report ke user** dengan format:
 
    ✅ SELESAI
 
@@ -50,6 +72,9 @@ Setiap selesai coding, WAJIB jalankan urutan ini:
    - ✅ Dev server: jalan tanpa error
    - ✅ Logic test: [hasil]
    - ✅ End-to-end test: [hasil, atau "perlu test production"]
+
+   ⚠️ DISCLOSURE (kalau ada):
+   - [limitation atau hal yang user perlu tau]
 
    Cara kamu coba:
    1. [step super simple]
