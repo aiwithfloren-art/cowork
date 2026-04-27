@@ -30,7 +30,15 @@ Setiap selesai coding, WAJIB jalankan urutan ini:
    - Simulasikan: "kalau user klik X, apa yang terjadi?"
    - Cek edge case obvious (input kosong, dll)
 
-4. **Report ke user** dengan format:
+4. **End-to-end test** — Build & dev server OK belum cukup. WAJIB test fitur secara nyata:
+   - Fitur AI agent: trigger 1x dengan prompt sample, pastikan dapat response
+   - Fitur API/tool: panggil dengan data sample, cek response success
+   - Fitur UI: simulasikan user flow lengkap
+   - Kalau butuh production env (API key, deploy, dll), BILANG ke user:
+     "Saya hanya bisa verify build & syntax. Fitur ini perlu di-test di production."
+   - JANGAN klaim "fitur jalan" kalau belum dicoba beneran
+
+5. **Report ke user** dengan format:
 
    ✅ SELESAI
 
@@ -40,7 +48,8 @@ Setiap selesai coding, WAJIB jalankan urutan ini:
    Yang sudah saya test:
    - ✅ Build: berhasil
    - ✅ Dev server: jalan tanpa error
-   - ✅ Fitur baru: [hasil test logic]
+   - ✅ Logic test: [hasil]
+   - ✅ End-to-end test: [hasil, atau "perlu test production"]
 
    Cara kamu coba:
    1. [step super simple]
