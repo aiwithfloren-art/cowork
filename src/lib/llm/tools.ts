@@ -1521,7 +1521,7 @@ export function buildTools(userId: string) {
 
     get_credential: tool({
       description:
-        "Fetch an API token or credential the user previously saved for a third-party service. Use BEFORE calling http_request against a service that needs auth. Returns the raw token string — include it in the next http_request's Authorization header. Common services: 'vercel', 'linear', 'notion', 'stripe', 'openai', 'anthropic'. Service names are case-insensitive and user-chosen — if first lookup fails, list_credentials to see what's actually available.",
+        "Check whether the user has saved a token for a third-party service. Returns presence + label only — the raw token is NEVER returned. To use the token, call http_request with auth_service: '<slug>' and the server will inject the Authorization header. Common services: 'vercel', 'linear', 'notion', 'stripe', 'openai', 'anthropic'. Case-insensitive.",
       inputSchema: z.object({
         service: z
           .string()
@@ -1533,22 +1533,25 @@ export function buildTools(userId: string) {
         const sb = supabaseAdmin();
         const { data } = await sb
           .from("connectors")
-          .select("access_token, external_account_label, metadata")
+          .select("access_token, external_account_label")
           .eq("user_id", userId)
           .eq("provider", service.toLowerCase())
           .is("org_id", null)
           .maybeSingle();
         if (!data?.access_token) {
           return {
-            error: `No token saved for '${service}'. Tell the user to open /settings/connectors → "Add API Token" → paste their ${service} token.`,
+            ok: false,
+            service: service.toLowerCase(),
+            has_token: false,
+            note: `No token saved for '${service}'. Ask the user to paste their ${service} token, then call save_credential.`,
           };
         }
         return {
           ok: true,
           service: service.toLowerCase(),
-          token: data.access_token as string,
+          has_token: true,
           label: (data.external_account_label as string | null) ?? null,
-          note: "Include this token in the next http_request. Typical header: Authorization: Bearer <token>. Never echo the token back to the user in your reply.",
+          note: `Token is present. Call http_request with auth_service: '${service.toLowerCase()}' to use it — the server injects the Authorization header.`,
         };
       },
     }),
@@ -1830,18 +1833,25 @@ export function buildTools(userId: string) {
 
     http_request: tool({
       description:
-        "Universal HTTP client for any REST/HTTPS API. Use when there's no dedicated tool for the service the user is asking about (Vercel, Linear, Notion, Stripe, Airtable, Twilio, etc). You compose the URL + method + headers yourself based on the service's API docs. For authenticated endpoints, call get_credential first to fetch the user's token, then pass it in the Authorization header. DO NOT echo the token in your reply. SSRF-guarded: localhost and private IPs blocked. Response capped at 2MB and 20s.",
+        "Universal HTTP client for any REST/HTTPS API. Use when there's no dedicated tool for the service the user is asking about (Vercel, Linear, Notion, Stripe, Airtable, Twilio, etc). You compose the URL + method + body based on the service's API docs. For authenticated endpoints, set auth_service to the saved-credential slug (e.g. 'vercel') — the server injects 'Authorization: Bearer <token>' automatically. DO NOT put the token in headers yourself; you don't have access to it. SSRF-guarded: localhost and private IPs blocked. Response capped at 2MB and 20s.",
       inputSchema: z.object({
         method: z
           .enum(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"])
           .describe("HTTP method"),
         url: z.string().describe("Full URL including scheme. Only http/https."),
+        auth_service: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Saved-credential slug (e.g. 'vercel', 'linear', 'stripe'). When set, server fetches the user's token and adds 'Authorization: Bearer <token>' header. The token is NEVER exposed to you.",
+          ),
         headers: z
           .record(z.string(), z.string())
           .nullable()
           .optional()
           .describe(
-            "Request headers. Typical: {'Authorization': 'Bearer <token>', 'Content-Type': 'application/json'}",
+            "Request headers. Typical: {'Content-Type': 'application/json'}. Do not include Authorization — use auth_service instead.",
           ),
         body: z
           .string()
@@ -1851,12 +1861,29 @@ export function buildTools(userId: string) {
             "Request body as a string. For JSON, pass JSON.stringify(...) and set Content-Type: application/json.",
           ),
       }),
-      execute: async ({ method, url, headers, body }) => {
+      execute: async ({ method, url, auth_service, headers, body }) => {
         try {
+          const finalHeaders: Record<string, string> = { ...(headers ?? {}) };
+          if (auth_service && typeof auth_service === "string") {
+            const sb = supabaseAdmin();
+            const { data } = await sb
+              .from("connectors")
+              .select("access_token")
+              .eq("user_id", userId)
+              .eq("provider", auth_service.toLowerCase())
+              .is("org_id", null)
+              .maybeSingle();
+            if (!data?.access_token) {
+              return {
+                error: `No saved token for '${auth_service}'. Tell the user to paste their ${auth_service} token (you'll then call save_credential).`,
+              };
+            }
+            finalHeaders["Authorization"] = `Bearer ${data.access_token as string}`;
+          }
           const res = await safeFetch({
             method,
             url,
-            headers: headers ?? {},
+            headers: finalHeaders,
             body: body ?? undefined,
           });
           // Trim the body for the LLM — responses bigger than ~20KB are
