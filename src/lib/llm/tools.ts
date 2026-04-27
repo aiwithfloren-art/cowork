@@ -35,6 +35,11 @@ import {
   addColumns as addSheetColumnsHelper,
   updateCell as updateSheetCellHelper,
 } from "@/lib/google/sheets";
+import {
+  getAgentConfig,
+  setConfigKey,
+  completeOnboarding,
+} from "@/lib/agent-config";
 import { shareFile, type DriveRole } from "@/lib/google/drive";
 import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
@@ -74,7 +79,8 @@ function shortType(mime: string): string {
   return "File";
 }
 
-export function buildTools(userId: string) {
+export function buildTools(userId: string, agentContext?: { name?: string }) {
+  const agentName = agentContext?.name ?? null;
   return {
     get_today_schedule: tool({
       description: "Get the user's Google Calendar events for today.",
@@ -1359,6 +1365,90 @@ export function buildTools(userId: string) {
           };
         } catch (e) {
           return { error: `Gagal add columns: ${e instanceof Error ? e.message : "unknown"}.` };
+        }
+      },
+    }),
+
+    get_my_config: tool({
+      description:
+        "Read your per-user config (per agent). Returns the user's stored settings for THIS agent (e.g. brand_tone, niche, language for Content Creator), plus an `onboarding_completed` flag. Call at the START of every conversation — if onboarding_completed is false, you MUST run the onboarding flow before any other task. Returns config={} for fresh users.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        if (!agentName) {
+          return { error: "Agent context not set on this chat — config tools unavailable." };
+        }
+        try {
+          const c = await getAgentConfig(userId, agentName);
+          return {
+            ok: true,
+            agent_name: c.agent_name,
+            config: c.config,
+            onboarding_completed: c.onboarding_completed,
+            onboarding_step: c.onboarding_step,
+          };
+        } catch (e) {
+          return { error: `Gagal baca config: ${e instanceof Error ? e.message : "unknown"}` };
+        }
+      },
+    }),
+
+    set_config_key: tool({
+      description:
+        "Save a single config key for THIS agent. Use during onboarding (after each user answer) and any time later when user wants to update settings (e.g. 'ubah brand tone jadi playful'). Set advance_onboarding_step=true ONLY during the initial onboarding flow, NOT for later updates. Value is a string — encode lists as comma-separated.",
+      inputSchema: z.object({
+        key: z
+          .string()
+          .min(1)
+          .max(60)
+          .describe("Config key. Use snake_case. E.g. 'niche', 'brand_tone', 'language', 'mode', 'frequency'."),
+        value: z
+          .string()
+          .max(2000)
+          .describe("Value as string. For lists: 'casual,friendly'. For booleans: 'true'/'false'."),
+        advance_onboarding_step: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe("True only during initial onboarding flow (advances onboarding_step counter)."),
+      }),
+      execute: async ({ key, value, advance_onboarding_step }) => {
+        if (!agentName) {
+          return { error: "Agent context not set on this chat." };
+        }
+        try {
+          const c = await setConfigKey(userId, agentName, key, value, {
+            advanceOnboardingStep: advance_onboarding_step ?? false,
+          });
+          return {
+            ok: true,
+            agent_name: c.agent_name,
+            updated_config: c.config,
+            onboarding_step: c.onboarding_step,
+          };
+        } catch (e) {
+          return { error: `Gagal save config: ${e instanceof Error ? e.message : "unknown"}` };
+        }
+      },
+    }),
+
+    complete_onboarding: tool({
+      description:
+        "Mark onboarding as complete. Call ONCE after all required onboarding questions are answered AND user confirmed the summary. After this, get_my_config will return onboarding_completed=true and you can stop running the onboarding flow.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        if (!agentName) {
+          return { error: "Agent context not set on this chat." };
+        }
+        try {
+          const c = await completeOnboarding(userId, agentName);
+          return {
+            ok: true,
+            agent_name: c.agent_name,
+            onboarding_completed: c.onboarding_completed,
+            note: "Onboarding complete. Future calls to get_my_config will skip the onboarding flow. Don't call this tool again.",
+          };
+        } catch (e) {
+          return { error: `Gagal complete: ${e instanceof Error ? e.message : "unknown"}` };
         }
       },
     }),

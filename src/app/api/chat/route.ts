@@ -215,12 +215,9 @@ export async function POST(req: Request) {
   }
 
   const lastUser = body.messages[body.messages.length - 1];
-  const allTools = await buildToolsForUser(userId);
 
   // Auto-upgrade stored tool lists to include newer tools that share the same
-  // capability as a tool the agent already has. Lets existing agents pick up
-  // new efficiency tools (e.g. github_write_files_batch) without a DB
-  // migration or user re-configuration.
+  // capability as a tool the agent already has.
   const TOOL_AUTO_UPGRADES: Array<{ if_has: string; also_allow: string }> = [
     { if_has: "github_write_file", also_allow: "github_write_files_batch" },
   ];
@@ -232,8 +229,7 @@ export async function POST(req: Request) {
     return Array.from(set);
   };
 
-  // If caller is chatting with a specific custom agent, narrow the tool
-  // set + swap in the agent's system prompt.
+  // Resolve agent FIRST so config tools know which agent's config to read.
   type AgentRecord = {
     id: string;
     name: string;
@@ -260,6 +256,11 @@ export async function POST(req: Request) {
     }
     agentRecord = data as unknown as AgentRecord;
   }
+
+  const allTools = await buildToolsForUser(
+    userId,
+    agentRecord ? { name: agentRecord.name } : undefined,
+  );
 
   // Resolve LLM AFTER agent lookup so per-agent override takes effect.
   const llm = await getLLMForAgent(userId, agentRecord);

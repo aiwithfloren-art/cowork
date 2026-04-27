@@ -13,8 +13,11 @@ import { getComposioTools } from "@/lib/composio/tools";
  * the enforcement point — the admin UI just records the policy; this is
  * where it actually prevents tools from reaching the LLM.
  */
-export async function buildToolsForUser(userId: string) {
-  const base = buildTools(userId);
+export async function buildToolsForUser(
+  userId: string,
+  agentContext?: { name?: string },
+) {
+  const base = buildTools(userId, agentContext);
 
   const sb = supabaseAdmin();
   const { data: connections } = await sb

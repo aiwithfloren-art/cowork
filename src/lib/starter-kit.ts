@@ -56,6 +56,17 @@ type StarterTemplate = {
   // Example '0 2 * * *' = daily 02:00 UTC = 09:00 WIB. Users can edit or
   // clear after install via the agent detail page.
   default_schedule?: string;
+  // Optional onboarding questions. When set, agent's prompt should
+  // direct it to call get_my_config first, run onboarding flow if not
+  // completed, and use config values for personalization. Each question
+  // is asked one-at-a-time across multiple chat turns.
+  onboarding_questions?: Array<{
+    key: string; // snake_case e.g. 'niche', 'brand_tone'
+    question: string; // human-friendly question in Bahasa
+    options?: string[]; // optional pick-list shown to user
+    example?: string; // optional example answer
+    optional?: boolean; // default false — required by default
+  }>;
 };
 
 const STARTER_TEMPLATES: StarterTemplate[] = [
