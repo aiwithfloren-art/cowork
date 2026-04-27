@@ -42,6 +42,14 @@ const TEMPLATES: Template[] = [
     featured: true,
   },
   {
+    emoji: "🎨",
+    title: "Content Creator",
+    templateName: "Content Creator",
+    description:
+      "Bikin carousel + caption + hashtag. Set sekali (niche, tone, audience), terus tinggal request 'bikin post tentang X'. Output: PNG slides siap upload.",
+    featured: true,
+  },
+  {
     emoji: "🧑‍💼",
     title: "HR Onboarding",
     templateName: "HR Onboarding",
