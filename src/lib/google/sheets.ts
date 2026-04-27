@@ -54,11 +54,82 @@ export async function appendRows(
   await sheets.spreadsheets.values.append({
     spreadsheetId,
     range: `${sheetName}!A1`,
-    valueInputOption: "USER_ENTERED",
+    valueInputOption: "RAW",
     requestBody: { values: rows },
   });
 
   return { appended: rows.length };
+}
+
+/**
+ * Append columns to an existing sheet's header row. New columns are added
+ * starting at the first empty column position. Verifies by reading back.
+ */
+export async function addColumns(
+  userId: string,
+  spreadsheetId: string,
+  newHeaders: string[],
+  sheetName = "Sheet1",
+): Promise<{ added: number; total_columns: number; final_headers: string[] }> {
+  const auth = await getGoogleClient(userId);
+  const sheets = google.sheets({ version: "v4", auth });
+
+  const get = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A1:ZZ1`,
+  });
+  const existing = (get.data.values?.[0] as string[] | undefined) ?? [];
+  const startIdx = existing.length;
+  const startCol = colLetter(startIdx + 1);
+  const endCol = colLetter(startIdx + newHeaders.length);
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${sheetName}!${startCol}1:${endCol}1`,
+    valueInputOption: "RAW",
+    requestBody: { values: [newHeaders] },
+  });
+
+  const verify = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A1:ZZ1`,
+  });
+  const finalHeaders = (verify.data.values?.[0] as string[] | undefined) ?? [];
+
+  return { added: newHeaders.length, total_columns: finalHeaders.length, final_headers: finalHeaders };
+}
+
+/**
+ * Update a single cell by row + column letter (e.g. "L", "AA").
+ */
+export async function updateCell(
+  userId: string,
+  spreadsheetId: string,
+  rowNumber: number,
+  columnLetter: string,
+  value: string,
+  sheetName = "Sheet1",
+): Promise<{ updated: 1 }> {
+  if (rowNumber < 1) throw new Error("rowNumber must be >= 1");
+  const auth = await getGoogleClient(userId);
+  const sheets = google.sheets({ version: "v4", auth });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${sheetName}!${columnLetter}${rowNumber}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[value]] },
+  });
+  return { updated: 1 };
+}
+
+function colLetter(n: number): string {
+  let s = "";
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
 }
 
 /**
@@ -76,7 +147,7 @@ export async function updateRow(
   const auth = await getGoogleClient(userId);
   const sheets = google.sheets({ version: "v4", auth });
 
-  const lastCol = String.fromCharCode(64 + Math.min(values.length, 26));
+  const lastCol = colLetter(values.length);
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range: `${sheetName}!A${rowNumber}:${lastCol}${rowNumber}`,

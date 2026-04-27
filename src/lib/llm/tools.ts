@@ -32,6 +32,8 @@ import {
   appendRows as appendSheetRows,
   updateRow as updateSheetRow,
   readRows as readSheetRows,
+  addColumns as addSheetColumnsHelper,
+  updateCell as updateSheetCellHelper,
 } from "@/lib/google/sheets";
 import { shareFile, type DriveRole } from "@/lib/google/drive";
 import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
@@ -1193,6 +1195,17 @@ export function buildTools(userId: string) {
             rows: rows ?? undefined,
           });
           const rowsWritten = (rows ?? []).length;
+          // Auto-register Lead Gen sheets so the cron reply-tracker picks them up.
+          if (typeof title === "string" && /^lead gen/i.test(title.trim())) {
+            try {
+              await supabaseAdmin().from("lead_gen_sheets").upsert(
+                { user_id: userId, spreadsheet_id: id, title },
+                { onConflict: "user_id,spreadsheet_id" },
+              );
+            } catch (e) {
+              console.warn("[create_google_sheet] lead_gen_sheets register fail", e);
+            }
+          }
           return {
             ok: true,
             spreadsheet_id: id,
@@ -1310,6 +1323,75 @@ export function buildTools(userId: string) {
           return {
             error: `Gagal baca sheet: ${e instanceof Error ? e.message : "unknown"}.`,
           };
+        }
+      },
+    }),
+
+    add_sheet_columns: tool({
+      description:
+        "Append new columns to an existing Google Sheet's header row. Use when user asks to add tracking columns (e.g. 'tambah kolom Response Status, Reply Date'). New columns are appended after the last existing column. Returns total_columns and final_headers — you MUST verify and report these REAL numbers in your reply (no claiming success without checking the return value).",
+      inputSchema: z.object({
+        spreadsheet_id: z.string().describe("Real spreadsheet ID (40+ chars)."),
+        new_headers: z
+          .array(z.string())
+          .min(1)
+          .max(20)
+          .describe("Column header names to append, left-to-right."),
+        sheet_name: z.string().nullable().optional().describe("Tab name. Default 'Sheet1'."),
+      }),
+      execute: async ({ spreadsheet_id, new_headers, sheet_name }) => {
+        if (!/^[A-Za-z0-9_-]{20,}$/.test(spreadsheet_id)) {
+          return { error: `spreadsheet_id "${spreadsheet_id}" tidak valid.` };
+        }
+        try {
+          const r = await addSheetColumnsHelper(
+            userId,
+            spreadsheet_id,
+            new_headers,
+            sheet_name ?? "Sheet1",
+          );
+          return {
+            ok: true,
+            added: r.added,
+            total_columns: r.total_columns,
+            final_headers: r.final_headers,
+            note: `Sheet now has ${r.total_columns} columns total. In your reply, you MUST cite this exact number and the actual final_headers array, not the requested header list. This proves the columns were really added.`,
+          };
+        } catch (e) {
+          return { error: `Gagal add columns: ${e instanceof Error ? e.message : "unknown"}.` };
+        }
+      },
+    }),
+
+    update_sheet_cell: tool({
+      description:
+        "Update a single cell in a Google Sheet. Use to flip Status='APPROVED'→'SENT' on a row, or fill in a Reply Date. Pass row number (1-indexed; row 1 = headers, row 2 = first data row) and column letter (A-Z, AA, etc).",
+      inputSchema: z.object({
+        spreadsheet_id: z.string().describe("Real spreadsheet ID."),
+        row_number: z.number().int().min(1).describe("1-indexed row."),
+        column_letter: z.string().describe("Column letter, e.g. 'L', 'AA'. Use read_sheet first to identify the right column."),
+        value: z.string().describe("New cell value as string."),
+        sheet_name: z.string().nullable().optional().describe("Tab name. Default 'Sheet1'."),
+      }),
+      execute: async ({ spreadsheet_id, row_number, column_letter, value, sheet_name }) => {
+        if (!/^[A-Za-z0-9_-]{20,}$/.test(spreadsheet_id)) {
+          return { error: `spreadsheet_id "${spreadsheet_id}" tidak valid.` };
+        }
+        if (!/^[A-Z]{1,3}$/.test(column_letter)) {
+          return { error: `column_letter "${column_letter}" tidak valid (must be A-Z, AA-ZZ uppercase).` };
+        }
+        try {
+          await updateSheetCellHelper(
+            userId,
+            spreadsheet_id,
+            row_number,
+            column_letter,
+            value,
+            sheet_name ?? "Sheet1",
+          );
+          return { ok: true, updated: 1, cell: `${column_letter}${row_number}` };
+        } catch (e) {
+          return { error: `Gagal update cell: ${e instanceof Error ? e.message : "unknown"}.` };
         }
       },
     }),

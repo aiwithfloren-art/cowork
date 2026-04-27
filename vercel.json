@@ -19,6 +19,10 @@
     {
       "path": "/api/cron/background-checks",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/lead-gen-reply-tracker",
+      "schedule": "*/30 * * * *"
     }
   ]
 }
