@@ -120,6 +120,27 @@ export async function POST(req: Request) {
   const tokensOut = result.usage?.outputTokens ?? 0;
   const cost = estimateCost(llm.provider, tokensIn, tokensOut);
 
+  // Extract tool call inputs + results so we can see WHAT failed.
+  type StepShape = {
+    toolCalls?: Array<{ toolName?: string; input?: unknown; args?: unknown }>;
+    toolResults?: Array<{ toolName?: string; result?: unknown; output?: unknown }>;
+    content?: Array<{ type?: string; toolName?: string; input?: unknown; output?: unknown; result?: unknown }>;
+  };
+  const tool_log: Array<{ tool: string; input?: unknown; result?: unknown }> = [];
+  for (const s of (result.steps ?? []) as StepShape[]) {
+    const calls = s.toolCalls ?? [];
+    const results = s.toolResults ?? [];
+    for (let i = 0; i < calls.length; i++) {
+      const tc = calls[i];
+      const tr = results[i] ?? {};
+      tool_log.push({
+        tool: tc?.toolName ?? "?",
+        input: tc?.input ?? tc?.args,
+        result: tr?.result ?? tr?.output,
+      });
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     user_id: userId,
@@ -130,6 +151,7 @@ export async function POST(req: Request) {
     tokens_out: tokensOut,
     estimated_cost_usd: cost,
     tools_called: toolsCalled,
+    tool_log,
     raw_text: rawText,
     final_text: validation.text,
     hallucination_caught: validation.changed,
