@@ -1,40 +1,59 @@
-import { Card } from "@/components/ui/card";
 import Link from "next/link";
 
 type Pill = {
   label: string;
   value: number | string;
   href?: string;
+  /**
+   * Two states only (per audit 2b): neutral = quiet stat, attention =
+   * something the user should look at. Old indigo/emerald accents
+   * dropped — those colors are reserved for primary CTA/brand and
+   * shouldn't decorate stats.
+   */
   tone?: "default" | "warning" | "indigo" | "emerald";
 };
 
-const TONE: Record<NonNullable<Pill["tone"]>, string> = {
-  default: "bg-white border-slate-200",
-  warning: "bg-amber-50 border-amber-200",
-  indigo: "bg-indigo-50 border-indigo-200",
-  emerald: "bg-emerald-50 border-emerald-200",
-};
+const TONE = {
+  // Neutral pill — the default. Quiet, doesn't compete with the chat.
+  default: "bg-slate-50 text-slate-600",
+  warning: "bg-amber-50 text-amber-900 ring-1 ring-amber-200",
+  // Both indigo + emerald collapse to neutral now (no more 5 colors fighting).
+  indigo: "bg-slate-50 text-slate-600",
+  emerald: "bg-slate-50 text-slate-600",
+} as const;
 
 export function DashboardInsights({ pills }: { pills: Pill[] }) {
+  // Compact horizontal strip instead of card grid — pills stop competing
+  // with the hero chat for visual attention.
+  const visible = pills.filter((p) => {
+    // Hide pills with 0 value unless they're warning-toned (those mean
+    // something even at zero, e.g. 0 events = clean day signal).
+    if (typeof p.value === "number" && p.value === 0 && p.tone !== "warning") {
+      return false;
+    }
+    return true;
+  });
+
+  if (visible.length === 0) return null;
+
   return (
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-      {pills.map((p) => {
-        const body = (
-          <Card
-            className={`flex flex-col gap-1 border p-3 ${TONE[p.tone ?? "default"]} ${p.href ? "cursor-pointer transition hover:shadow-md" : ""}`}
+    <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2">
+      {visible.map((p) => {
+        const tone = TONE[p.tone ?? "default"];
+        const inner = (
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${tone}`}
           >
-            <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-              {p.label}
-            </span>
-            <span className="text-2xl font-bold text-slate-900">{p.value}</span>
-          </Card>
+            <span className="font-semibold tabular-nums">{p.value}</span>
+            <span>{p.label}</span>
+          </span>
         );
         return p.href ? (
-          <Link key={p.label} href={p.href}>
-            {body}
+          <Link key={p.label} href={p.href} className="hover:opacity-80">
+            {inner}
           </Link>
         ) : (
-          <div key={p.label}>{body}</div>
+          <span key={p.label}>{inner}</span>
         );
       })}
     </div>

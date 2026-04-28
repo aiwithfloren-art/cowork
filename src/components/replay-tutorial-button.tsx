@@ -22,7 +22,7 @@ export function ReplayTutorialButton() {
       onClick={replay}
       disabled={loading}
       title="Replay welcome tutorial"
-      className="flex shrink-0 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50"
+      className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs text-slate-600 ring-1 ring-slate-200 transition hover:bg-violet-50 hover:text-violet-700 hover:ring-violet-300 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
     >
       <span>💡</span>
       <span>{loading ? "..." : "Tutorial"}</span>

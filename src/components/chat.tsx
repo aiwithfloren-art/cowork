@@ -105,11 +105,16 @@ export function Chat({
   initialPrompt = "",
   resumeId,
   agentSlug,
+  greetingHeadline,
+  greetingSub,
 }: {
   t: T;
   initialPrompt?: string;
   resumeId?: string;
   agentSlug?: string;
+  /** Optional greeting shown ONLY in main-Sigap empty state (audit 4b). */
+  greetingHeadline?: string;
+  greetingSub?: string;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -485,8 +490,8 @@ export function Chat({
 
   const body = (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-1 border-b border-slate-100 px-3 py-1.5">
-        <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between gap-1 px-2 py-1.5">
+        <div className="flex items-center gap-2">
           {!agentSlug && (
             <button
               type="button"
@@ -494,13 +499,20 @@ export function Chat({
               title="Recent conversations"
               aria-label="Toggle history"
               aria-expanded={historyOpen}
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-900"
             >
               <span aria-hidden>☰</span>
             </button>
           )}
-          <span className="text-sm font-semibold text-slate-700">
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
             {agentSlug ? "Agent chat" : "Sigap"}
+            {!agentSlug && (
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"
+                aria-label="Ready"
+                title="Ready"
+              />
+            )}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -511,7 +523,7 @@ export function Chat({
               disabled={loading}
               title="Start a new conversation"
               aria-label="New chat"
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
             >
               <span aria-hidden>＋</span>
               <span className="hidden sm:inline">New chat</span>
@@ -522,21 +534,21 @@ export function Chat({
             onClick={() => setFullscreen((v) => !v)}
             title={fullscreen ? "Exit fullscreen (Esc)" : "Expand to fullscreen"}
             aria-label={fullscreen ? "Exit fullscreen" : "Expand to fullscreen"}
-            className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
           >
             {fullscreen ? "✕" : "⛶"}
           </button>
         </div>
       </div>
       {historyOpen && !agentSlug && (
-        <div className="border-b border-slate-100 bg-slate-50 px-3 py-2">
+        <div className="rounded-xl bg-slate-50 px-3 py-2 mx-2 mb-2">
           <div className="mb-1.5 flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
               Recent conversations
             </span>
             <a
               href="/history"
-              className="text-[11px] text-indigo-600 hover:underline"
+              className="text-[11px] text-violet-600 hover:underline"
             >
               See all →
             </a>
@@ -546,13 +558,13 @@ export function Chat({
           ) : recentSessions.length === 0 ? (
             <p className="py-2 text-xs text-slate-500">No previous conversations.</p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-0.5">
               {recentSessions.map((s) => (
                 <li key={s.pivot_id}>
                   <button
                     type="button"
                     onClick={() => openSession(s.pivot_id)}
-                    className="block w-full truncate rounded px-2 py-1 text-left text-xs text-slate-700 hover:bg-white"
+                    className="block w-full truncate rounded-lg px-2 py-1 text-left text-xs text-slate-700 hover:bg-white"
                   >
                     {s.title || "(empty)"}{" "}
                     <span className="text-slate-400">· {s.message_count}</span>
@@ -583,21 +595,30 @@ export function Chat({
               </div>
             </div>
           ) : (
-            <div className="space-y-5 py-4">
+            <div className="mx-auto max-w-xl space-y-6 py-6">
+              {greetingHeadline && (
+                <div className="text-center">
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                    {greetingHeadline}
+                  </h1>
+                  {greetingSub && (
+                    <p className="mt-1 text-sm text-slate-500">{greetingSub}</p>
+                  )}
+                </div>
+              )}
+
               <div className="text-center">
-                <p className="text-sm font-medium text-slate-700">
-                  {t.askPrompt}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="text-sm text-slate-600">{t.askPrompt}</p>
+                <p className="mt-0.5 text-xs text-slate-400">
                   Atau pilih specialist di bawah · @mention agent juga bisa
                 </p>
               </div>
 
               <div>
-                <p className="mb-2 text-center text-[11px] font-medium uppercase tracking-wider text-slate-500">
+                <p className="mb-3 text-center text-[10px] font-medium uppercase tracking-[0.15em] text-slate-400">
                   Try a specialist
                 </p>
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   <SuggestionGroup title={t.suggestions.briefingTitle}>
                     <SuggestionChip onClick={() => send(t.suggestions.briefing1)}>
                       {t.suggestions.briefing1}
@@ -648,7 +669,7 @@ export function Chat({
             return (
               <div key={i} className="space-y-1">
                 {m.role === "assistant" && m.agent && (
-                  <p className="ml-1 text-[11px] font-medium text-indigo-700">
+                  <p className="ml-1 text-[11px] font-medium text-violet-700">
                     {m.agent.emoji} @{m.agent.slug}{" "}
                     <span className="font-normal text-slate-500">
                       · {m.agent.name}
@@ -658,9 +679,9 @@ export function Chat({
                 <div
                   className={
                     m.role === "user"
-                      ? "ml-6 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white whitespace-pre-wrap"
+                      ? "ml-6 rounded-lg bg-violet-600 px-3 py-2 text-sm text-white whitespace-pre-wrap"
                       : m.agent
-                        ? "mr-6 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-slate-900"
+                        ? "mr-6 rounded-lg border-l-2 border-violet-300 bg-slate-100 px-3 py-2 text-slate-900"
                         : "mr-6 rounded-lg bg-slate-100 px-3 py-2 text-slate-900"
                   }
                 >
@@ -672,7 +693,7 @@ export function Chat({
                     m.content || ""
                   )}
                   {isStreaming && m.content && (
-                    <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-slate-400 align-middle" />
+                    <span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-slate-500 align-middle" />
                   )}
                 </div>
               </div>
@@ -704,21 +725,21 @@ export function Chat({
             <button
               type="button"
               onClick={() => send("Cariin 3 cafe di Bandung")}
-              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
             >
               🎯 cari prospect
             </button>
             <button
               type="button"
               onClick={() => send("Bikin carousel skincare untuk kulit kering")}
-              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
             >
               🎨 bikin carousel
             </button>
             <button
               type="button"
               onClick={() => send("Buatin landing page tentang kopi specialty, deploy")}
-              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
             >
               💻 build website
             </button>
@@ -738,7 +759,7 @@ export function Chat({
                     e.preventDefault();
                     selectMention(a.slug);
                   }}
-                  className="flex w-full items-center gap-3 border-b border-slate-50 px-3 py-2 text-left text-sm hover:bg-indigo-50"
+                  className="flex w-full items-center gap-3 border-b border-slate-50 px-3 py-2 text-left text-sm hover:bg-violet-50"
                 >
                   <span className="text-lg">{a.emoji}</span>
                   <div className="min-w-0 flex-1">
@@ -780,7 +801,7 @@ export function Chat({
             rows={1}
             placeholder={listening ? "Listening…" : t.askAnything}
             disabled={loading}
-            className="flex-1 resize-none overflow-y-auto rounded-lg border border-slate-200 px-3 py-2 text-sm leading-5 focus:border-indigo-500 focus:outline-none"
+            className="flex-1 resize-none overflow-y-auto rounded-lg border border-slate-200 px-3 py-2 text-sm leading-5 focus:border-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
           />
           {speechSupported && (
             <button
@@ -800,7 +821,7 @@ export function Chat({
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+            className="rounded-lg bg-violet-600 px-4 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
           >
             {t.send}
           </button>
@@ -861,7 +882,7 @@ function SuggestionChip({
   return (
     <button
       onClick={onClick}
-      className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-700 hover:border-indigo-300 hover:bg-indigo-50"
+      className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 transition hover:border-violet-300 hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
     >
       {children}
     </button>

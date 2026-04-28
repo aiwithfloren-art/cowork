@@ -2,7 +2,6 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTodayEvents, getWeekEvents } from "@/lib/google/calendar";
 import { listTasks } from "@/lib/google/tasks";
-import { Card, CardContent } from "@/components/ui/card";
 import { formatTime } from "@/lib/utils";
 import { Chat } from "@/components/chat";
 import { TasksPanel } from "@/components/tasks-panel";
@@ -10,7 +9,6 @@ import { EmptyState } from "@/components/empty-state";
 import { getDict, getLocale } from "@/lib/i18n";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { TutorialModal } from "@/components/tutorial-modal";
-import { ReplayTutorialButton } from "@/components/replay-tutorial-button";
 import { DashboardInsights } from "@/components/dashboard-insights";
 import { TeamSnapshot, type MemberSignal } from "@/components/team-snapshot";
 import { TodayDrawer } from "@/components/today-drawer";
@@ -124,7 +122,11 @@ export default async function DashboardPage({
 
   const greetingEmoji =
     new Date().getHours() < 12 ? "☀️" : new Date().getHours() < 18 ? "🌤" : "🌙";
+  const greetingHeadline = `${greeting}, ${firstName} ${greetingEmoji}`;
 
+  // Today drawer is dead weight when both events + tasks are empty —
+  // hide entirely (per audit 11a) so the chat owns the column.
+  const todayHasContent = events.length > 0 || tasks.length > 0;
   const todaySummary =
     locale === "id"
       ? `Hari ini: ${events.length} jadwal · ${tasks.length} task`
@@ -134,18 +136,8 @@ export default async function DashboardPage({
     <div className="space-y-6">
       {showTutorial && <TutorialModal t={dict.tutorial} />}
 
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            {greeting}, {firstName} {greetingEmoji}
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">{t.greetingSub}</p>
-        </div>
-        <ReplayTutorialButton />
-      </div>
-
       {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="mx-auto max-w-3xl rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           {t.googleError}
         </div>
       )}
@@ -181,81 +173,91 @@ export default async function DashboardPage({
         ]}
       />
 
-      {/* Hero: Sigap chat takes the whole reading column.
-          On mobile chat shows first; on desktop the Today drawer (events
-          + tasks) collapses above the chat for quick reference without
-          stealing the column.
-          The whole hero block is centered with max-w-3xl so chat gets
-          ~700px reading width, matching ChatGPT/Claude proportions. */}
-      <div className="mx-auto flex max-w-3xl flex-col gap-4">
-        <div className="order-2 lg:order-1">
-          <TodayDrawer summary={todaySummary}>
-            <div className="space-y-5">
-              <section>
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    {t.todaySchedule}
-                  </h3>
-                  <span className="text-xs text-slate-500">
-                    {events.length} {pluralEvents(events.length, locale)}
-                  </span>
-                </div>
-                {events.length === 0 ? (
-                  <EmptyState icon="☕️" title={t.noEvents} />
-                ) : (
-                  <ul className="space-y-2">
-                    {events.map((e) => (
-                      <li
-                        key={e.id}
-                        className="flex gap-4 rounded-lg border border-slate-100 bg-slate-50 p-3"
-                      >
-                        <div className="flex flex-col text-xs font-mono text-slate-500">
-                          <span>{formatTime(e.start)}</span>
-                          <span>{formatTime(e.end)}</span>
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-slate-900">{e.title}</p>
-                          {e.location && (
-                            <p className="text-xs text-slate-500">{e.location}</p>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+      {/* Hero: Sigap chat is the page. The greeting + tutorial replay
+          live INSIDE the chat empty-state header now (per audit 4b) so
+          there's only one focal point on the column. Today drawer
+          collapses above the chat ONLY when there's actual content
+          (events or tasks); it disappears entirely when empty (11a).
+          Chat hero is borderless (no Card chrome, per 1b) so the
+          messages column reads as the page itself, not a widget. */}
+      <div className="mx-auto flex max-w-3xl flex-col gap-3">
+        {todayHasContent && (
+          <div className="order-2 lg:order-1">
+            <TodayDrawer summary={todaySummary}>
+              <div className="space-y-5">
+                <section>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      {t.todaySchedule}
+                    </h3>
+                    <span className="text-xs text-slate-500">
+                      {events.length} {pluralEvents(events.length, locale)}
+                    </span>
+                  </div>
+                  {events.length === 0 ? (
+                    <EmptyState icon="☕️" title={t.noEvents} />
+                  ) : (
+                    <ul className="space-y-2">
+                      {events.map((e) => (
+                        <li
+                          key={e.id}
+                          className="flex gap-4 rounded-lg border border-slate-100 bg-slate-50 p-3"
+                        >
+                          <div className="flex flex-col text-xs font-mono text-slate-500">
+                            <span>{formatTime(e.start)}</span>
+                            <span>{formatTime(e.end)}</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-slate-900">{e.title}</p>
+                            {e.location && (
+                              <p className="text-xs text-slate-500">{e.location}</p>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
 
-              <section>
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    {t.openTasks}
-                  </h3>
-                  <span className="text-xs text-slate-500">
-                    {tasks.length} {t.tasksCount}
-                  </span>
-                </div>
-                <TasksPanel
-                  initialTasks={tasks}
-                  locale={locale}
-                  labels={{
-                    edit: locale === "id" ? "Edit" : "Edit",
-                    delete: locale === "id" ? "Hapus" : "Delete",
-                    save: locale === "id" ? "Simpan" : "Save",
-                    cancel: locale === "id" ? "Batal" : "Cancel",
-                    empty: t.noTasks,
-                  }}
-                />
-              </section>
-            </div>
-          </TodayDrawer>
-        </div>
+                <section>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      {t.openTasks}
+                    </h3>
+                    <span className="text-xs text-slate-500">
+                      {tasks.length} {t.tasksCount}
+                    </span>
+                  </div>
+                  <TasksPanel
+                    initialTasks={tasks}
+                    locale={locale}
+                    labels={{
+                      edit: locale === "id" ? "Edit" : "Edit",
+                      delete: locale === "id" ? "Hapus" : "Delete",
+                      save: locale === "id" ? "Simpan" : "Save",
+                      cancel: locale === "id" ? "Batal" : "Cancel",
+                      empty: t.noTasks,
+                    }}
+                  />
+                </section>
+              </div>
+            </TodayDrawer>
+          </div>
+        )}
 
         <div className="order-1 lg:order-2">
-          <Card className="flex h-[calc(100vh-280px)] min-h-[500px] flex-col">
-            <CardContent className="flex-1 overflow-hidden p-0">
-              <Chat t={dict.chat} initialPrompt={initialPrompt} resumeId={resume} />
-            </CardContent>
-          </Card>
+          {/* Borderless hero — chat owns the column with no card chrome.
+              h-[calc(100vh-200px)] gives the chat its own breathing room.
+              The chat itself ships its own subtle inner panel. */}
+          <div className="flex h-[calc(100vh-200px)] min-h-[520px] flex-col">
+            <Chat
+              t={dict.chat}
+              initialPrompt={initialPrompt}
+              resumeId={resume}
+              greetingHeadline={greetingHeadline}
+              greetingSub={t.greetingSub}
+            />
+          </div>
         </div>
       </div>
 
