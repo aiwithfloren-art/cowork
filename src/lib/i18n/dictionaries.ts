@@ -262,16 +262,16 @@ export const dictionaries = {
       done: "Get started",
       slide1Title: "Welcome to Sigap 👋",
       slide1Body:
-        "I'm your AI Chief of Staff. I can read your Google Calendar, Tasks and Docs to help you stay focused. Everything runs via natural chat.",
-      slide2Title: "Try these prompts",
+        "I orchestrate specialist AI agents for you. Just chat normally — I auto-route to the right specialist (Lead Gen, Content Creator, Coder, etc) when needed.",
+      slide2Title: "3 specialists ready",
       slide2Body:
-        "Your first few conversations will teach me what you care about. Try asking: 'What should I focus on today?' or 'Find me a 30-min slot this week.'",
-      slide3Title: "Chat from Telegram too",
+        "🎯 Lead Gen — finds prospects, fills a Google Sheet\n🎨 Content Creator — makes IG carousels with caption + hashtag\n💻 Coder — builds landing pages and deploys to Vercel\n\nJust say 'cariin 5 cafe Bandung' or 'buatin landing page tentang X' and I'll route it.",
+      slide3Title: "Calendar + tasks too",
       slide3Body:
-        "Open Settings to link your Telegram account. Then chat with me from anywhere — no app install, no extra login.",
-      slide4Title: "Using Sigap with a team?",
+        "I also read your Google Calendar, Tasks and Docs. Ask 'apa prioritas hari ini' or 'cariin slot 30 menit minggu ini'.",
+      slide4Title: "Telegram + team",
       slide4Body:
-        "Manager Mode lets leaders stay in sync with their team without interrupting deep work. Privacy-first by design. Explore the Team page to start.",
+        "Link Telegram in Settings to chat from anywhere. For teams: Manager Mode lets leaders stay in sync with privacy controls per member.",
     },
     common: {
       loading: "Loading…",
@@ -564,10 +564,10 @@ export const dictionaries = {
       done: "Mulai",
       slide1Title: "Selamat datang di Sigap 👋",
       slide1Body:
-        "Saya AI Chief of Staff Anda. Saya bisa baca Google Calendar, Tasks, dan Docs Anda untuk bantu tetap fokus. Semua berjalan lewat chat natural.",
-      slide2Title: "Coba prompt ini",
+        "Saya orchestrate AI agent spesialis buat kamu. Chat aja normal — saya auto-route ke specialist yang tepat (Lead Gen, Content Creator, Coder) kalau butuh.",
+      slide2Title: "3 specialist siap pakai",
       slide2Body:
-        "Beberapa percakapan pertama Anda akan mengajarkan saya apa yang Anda pedulikan. Coba tanya: 'Apa prioritas saya hari ini?' atau 'Cariin slot 30 menit minggu ini.'",
+        "🎯 Lead Gen — cariin prospect, isi Google Sheet\n🎨 Content Creator — bikin carousel IG + caption + hashtag\n💻 Coder — bangun landing page + deploy ke Vercel\n\nTinggal bilang 'cariin 5 cafe Bandung' atau 'buatin landing page tentang X' — saya route otomatis.",
       slide3Title: "Chat dari Telegram juga",
       slide3Body:
         "Buka Settings untuk menghubungkan akun Telegram Anda. Lalu chat dengan saya dari mana saja — tanpa install app, tanpa login tambahan.",

@@ -163,6 +163,33 @@ export async function POST(req: Request) {
       .eq("id", tmpl.id);
   }
 
+  // 6. Pre-seed Content Creator config so user doesn't get re-asked
+  // 8 onboarding questions when they first chat with that agent. Use
+  // sensible defaults derived from the company description (or the
+  // generic Personal preset if the user picked that).
+  const isPersonal = orgName.toLowerCase() === "personal";
+  const defaultConfig = {
+    niche: isPersonal ? "general" : (description.split(/[.!?]/)[0]?.trim().slice(0, 60) || "general"),
+    brand_tone: brandTone || "casual",
+    brand_voice: "friendly",
+    target_audience: isPersonal ? "general" : "professional",
+    language: "ID",
+    proactive_mode: "reactive_only",
+  };
+  await sb
+    .from("agent_user_config")
+    .upsert(
+      {
+        user_id: uid,
+        agent_name: "Content Creator",
+        config: defaultConfig,
+        onboarding_completed: true,
+        onboarding_step: 5,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,agent_name" },
+    );
+
   return NextResponse.json({
     ok: true,
     org_id: org.id,

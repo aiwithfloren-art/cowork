@@ -90,27 +90,42 @@ export function OnboardingWizard({
       {step === 1 && (
         <section>
           <h1 className="text-3xl font-bold text-slate-900">
-            What&apos;s the name of your team?
+            Name your workspace
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            We guessed this from your email ({userEmail}). Edit if needed.
+            Just for you, or for a team? Pick either way — you can rename anytime.
           </p>
-          <label className="mt-6 block">
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setOrgName("Personal")}
+              className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm hover:border-indigo-400 hover:bg-indigo-50"
+            >
+              👤 Just me (personal)
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrgName(suggestedOrgName || "")}
+              className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm hover:border-indigo-400 hover:bg-indigo-50"
+            >
+              👥 For my team
+            </button>
+          </div>
+          <label className="mt-5 block">
             <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-600">
-              Team / company name
+              Workspace name
             </span>
             <input
               type="text"
               value={orgName}
               onChange={(e) => setOrgName(e.target.value)}
-              placeholder="Acme Inc."
+              placeholder="Personal · Acme Inc. · etc."
               className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-lg focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
               autoFocus
             />
           </label>
           <p className="mt-3 text-xs text-slate-500">
-            You can invite teammates after setup. This name appears across your
-            workspace.
+            You can invite teammates later. This is your private space until you do.
           </p>
         </section>
       )}
@@ -118,22 +133,27 @@ export function OnboardingWizard({
       {step === 2 && (
         <section>
           <h1 className="text-3xl font-bold text-slate-900">
-            Tell us what {orgName || "your team"} does
+            What&apos;s {orgName === "Personal" ? "your focus" : `${orgName || "this workspace"} about`}?
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            Your AI employees use this to stay on-brand — so a PPT or email
-            they draft sounds like you, not generic AI.
+            {orgName === "Personal"
+              ? "Tell Sigap what you do (or want to do). Just a sentence or two — your AI agents use this to stay relevant. Or write 'just exploring' and skip."
+              : "Your AI agents use this to stay on-brand — so a PPT or email they draft sounds like you, not generic AI."}
           </p>
           <label className="mt-6 block">
             <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-600">
-              1-2 sentences about the company
+              {orgName === "Personal" ? "What do you do? (1-2 sentences)" : "1-2 sentences about the company"}
             </span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
               maxLength={2000}
-              placeholder="e.g. We&apos;re a B2B logistics startup serving SMEs across Southeast Asia. Priority this quarter: launch the driver app."
+              placeholder={
+                orgName === "Personal"
+                  ? "e.g. Freelance content marketer for B2B SaaS. Lagi ngumpulin client baru."
+                  : "e.g. We're a B2B logistics startup serving SMEs across Southeast Asia. Priority this quarter: launch the driver app."
+              }
               className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
               autoFocus
             />
