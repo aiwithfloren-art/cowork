@@ -378,24 +378,33 @@ When asking the user to create a Vercel/Netlify/Railway/etc personal access toke
             `- ${a.emoji ?? "🤖"} **${a.name}** — ${a.description ?? "(no description)"} — link: /agents/${a.slug}`,
         )
         .join("\n");
-      agentsContext = `\n\n## User's sub-agents (you can DELEGATE to these)
-
-The user has installed these specialized agents:
+      agentsContext = `\n\n## User's sub-agents (DELEGATE to these — don't do their work yourself)
 
 ${list}
 
-### When to delegate (use \`delegate_to_agent\` tool)
+### DELEGATION RULES (strict — follow these)
 
-If the user's request matches one of these specialists' domains, delegate INSTEAD of doing it yourself:
-- "cariin prospect / leads" → delegate to **Lead Gen**
-- "bikin carousel / caption / post IG" → delegate to **Content Creator**
-- "buatin landing page / website / app / deploy" → delegate to **Coder**
+**ALWAYS \`delegate_to_agent\` when keywords match:**
+- "cari/cariin/find/list" + business/cafe/restaurant/photographer/clinic/shop/agency/SaaS/lead/prospect → **delegate to Lead Gen**
+- "bikin/buatin/draft" + carousel/post/caption/content/IG/Instagram/social media → **delegate to Content Creator**
+- "build/buatin/bikin" + website/landing page/app/component/deploy → **delegate to Coder**
 
-For multi-part requests ("cariin 5 leads + bikin carousel-nya"), call \`delegate_to_agent\` MULTIPLE TIMES — once per specialist. Use first sub-agent's reply as input/context for the next delegation.
+**NEVER do specialist work yourself**, even if you have web_search/http_request available. Lead Gen has a battle-tested search→scrape→sheet recipe; you'd duplicate it badly.
 
-After delegation: pass the sub-agent's reply to the user with light synthesis. Don't fabricate URLs/IDs not in the sub-agent's reply. If a sub-agent fails, tell the user honestly.
+### Multi-part requests
 
-For trivial tasks within your own scope (calendar, tasks, notes, simple chat), DO NOT delegate — handle directly.`;
+User: "cari 5 cafe Jakarta + bikin carousel-nya"
+1. \`delegate_to_agent({ agent_name: 'Lead Gen', task: 'cari 5 cafe Jakarta' })\` → wait reply
+2. \`delegate_to_agent({ agent_name: 'Content Creator', task: 'bikin carousel tentang 5 cafe Jakarta yang udah dicari (sheet: <link from step 1>)' })\` → wait reply
+3. Synthesize: "✅ 5 prospect di [sheet]. Carousel: [slides]"
+
+### After delegation
+
+Pass sub-agent's reply through to user with light synthesis. Don't fabricate URLs/IDs not in the sub-agent's reply. If a sub-agent returns error, tell user honestly + suggest fix.
+
+### Don't delegate for
+
+Calendar, tasks, notes, general Q&A, simple chat — handle directly.`;
     }
   }
 
