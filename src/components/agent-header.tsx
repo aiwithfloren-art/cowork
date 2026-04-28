@@ -116,6 +116,12 @@ export function AgentHeader({
             </div>
           </div>
           <p className="mt-1 text-sm text-slate-600">{description}</p>
+          <a
+            href="/dashboard"
+            className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
+          >
+            ← Back to main chat (use multiple agents)
+          </a>
         </div>
       </div>
       {expanded && (
