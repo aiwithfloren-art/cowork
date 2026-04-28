@@ -290,7 +290,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Scan notes type=project yang mention 'TODO' atau 'pending' — kasih update kalau udah selesai.",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "openai/gpt-4o-mini",
+    llm_override_model: "google/gemini-2.5-flash-lite",
   },
   {
     name: "Code Reviewer",
@@ -352,7 +352,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Kalau ada PR open > 3 hari belum review, post reminder gentle ke author.",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "openai/gpt-4o-mini",
+    llm_override_model: "google/gemini-2.5-flash-lite",
     default_schedule: "0 2 * * *", // 09:00 WIB daily
   },
   {
@@ -562,7 +562,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Scan notes type=reference cari saved lead-gen-sheet-id, summarize current pipeline (X pending, Y approved, Z sent).",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "openai/gpt-4o-mini",
+    llm_override_model: "google/gemini-2.5-flash-lite",
   },
   {
     name: "Content Creator",
@@ -715,7 +715,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Kalau ada saved notes type='content_history', summarize content terakhir + tanyain mau bikin yang mirip atau topik baru.",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "openai/gpt-4o-mini",
+    llm_override_model: "google/gemini-2.5-flash-lite",
     onboarding_questions: [
       { key: "niche", question: "Niche/industry brand lo apa?", example: "skincare, F&B, tech, fashion" },
       { key: "brand_tone", question: "Brand tone yang lo mau?", options: ["casual", "professional", "playful", "bold"] },
