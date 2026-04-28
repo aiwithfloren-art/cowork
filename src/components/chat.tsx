@@ -563,6 +563,31 @@ export function Chat({
         }}
         className="border-t border-slate-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white"
       >
+        {!agentSlug && messages.length > 0 && !loading && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => send("Cariin 3 cafe di Bandung")}
+              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+            >
+              🎯 cari prospect
+            </button>
+            <button
+              type="button"
+              onClick={() => send("Bikin carousel skincare untuk kulit kering")}
+              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+            >
+              🎨 bikin carousel
+            </button>
+            <button
+              type="button"
+              onClick={() => send("Buatin landing page tentang kopi specialty, deploy")}
+              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+            >
+              💻 build website
+            </button>
+          </div>
+        )}
         <div className="relative flex items-end gap-2">
           {mentionOpen && filteredMentions.length > 0 && (
             <div className="absolute bottom-full left-0 right-14 mb-2 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">

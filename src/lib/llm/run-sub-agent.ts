@@ -107,10 +107,24 @@ export async function runSubAgent(args: {
     const tokensOut = result.usage?.outputTokens ?? 0;
     const cost = estimateCost(llm.provider, tokensIn, tokensOut);
 
+    // Friendlier fallback when model returned no text. Three cases:
+    // 1. No tools called + no text → model bailed; suggest retry
+    // 2. Tools called but no synthesis → tools fired but model gave up
+    //    before summarizing; surface a hint
+    // 3. Has text → pass through
+    let reply = validated.text;
+    if (!reply || !reply.trim()) {
+      if (toolsCalled.length === 0) {
+        reply = `⚠️ ${agentRecord.name} agent gak ngerespon kali ini. Coba ulang request kamu — kalau ulang masih sama, mungkin perlu spesifikkan request-nya.`;
+      } else {
+        reply = `⚠️ ${agentRecord.name} udah jalanin step (${toolsCalled.join(", ")}) tapi gak ngirim summary final. Coba refresh chat atau ulang request.`;
+      }
+    }
+
     return {
       ok: true,
       agent_name: agentRecord.name,
-      reply: validated.text || "(sub-agent returned empty response)",
+      reply,
       tools_called: toolsCalled,
       cost_usd: cost,
     };
