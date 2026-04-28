@@ -475,7 +475,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Scan notes type=reference cari saved lead-gen-sheet-id, summarize pipeline.",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "google/gemini-2.5-flash-lite",
+    llm_override_model: "openai/gpt-4o-mini",
   },
   {
     name: "Content Creator",
