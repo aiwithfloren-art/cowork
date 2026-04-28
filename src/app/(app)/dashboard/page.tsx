@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/empty-state";
 import { getDict, getLocale } from "@/lib/i18n";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { TutorialModal } from "@/components/tutorial-modal";
+import { ReplayTutorialButton } from "@/components/replay-tutorial-button";
 import { DashboardInsights } from "@/components/dashboard-insights";
 import { TeamSnapshot, type MemberSignal } from "@/components/team-snapshot";
 
@@ -154,11 +155,14 @@ export default async function DashboardPage({
   return (
     <div className="space-y-8">
       {showTutorial && <TutorialModal t={dict.tutorial} />}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">
-          {greeting}, {firstName} ☀️
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">{t.greetingSub}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">
+            {greeting}, {firstName} ☀️
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">{t.greetingSub}</p>
+        </div>
+        <ReplayTutorialButton />
       </div>
 
       {error && (
