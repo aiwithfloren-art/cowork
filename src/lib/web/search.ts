@@ -44,6 +44,48 @@ export async function webSearch(args: {
   }
 
   const data = (await res.json()) as TavilyResponse;
+  // Pre-extract structured contact info from across all results so the
+  // LLM can reference them directly. This bypasses an LLM extraction
+  // step that gpt-4o-mini sometimes skips (e.g. ignoring the url field
+  // when an Instagram URL is sitting right there).
+  const allUrls = (data.results ?? []).map((r) => r.url ?? "").filter(Boolean);
+  const allText = (data.results ?? [])
+    .map((r) => `${r.title ?? ""} ${r.content ?? ""}`)
+    .join("\n");
+
+  const igHandles = Array.from(
+    new Set(
+      [...allUrls, allText]
+        .join(" ")
+        .matchAll(
+          /(?:https?:\/\/(?:www\.)?instagram\.com\/|@)([a-zA-Z0-9_.]{3,30})/g,
+        ),
+    )
+      .map((m) => `@${m[1].replace(/\.+$/, "")}`)
+      .filter(
+        (h) =>
+          !["@instagram.com", "@reel", "@p", "@explore", "@stories"].some(
+            (skip) => h.toLowerCase().includes(skip.replace("@", "")),
+          ),
+      ),
+  );
+
+  const emails = Array.from(
+    new Set(
+      allText.match(/[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? [],
+    ),
+  ).filter((e) => !e.includes("example.com") && !e.includes("@2x"));
+
+  const phones = Array.from(
+    new Set(
+      [
+        ...(allText.match(/\+62\s?\d{2,4}[\s-]?\d{3,4}[\s-]?\d{3,5}/g) ?? []),
+        ...(allText.match(/\b08\d{8,12}\b/g) ?? []),
+        ...(allText.match(/\(021\)\s?\d{4,8}/g) ?? []),
+      ],
+    ),
+  );
+
   return {
     query: data.query,
     answer: data.answer ?? "",
@@ -56,5 +98,12 @@ export async function webSearch(args: {
       // a sane mid-point — enough context without bloating LLM tokens.
       snippet: r.content.slice(0, 1500),
     })),
+    // Pre-extracted contact info aggregated across all results — agents
+    // can reference these directly instead of re-extracting per source.
+    extracted: {
+      instagram_handles: igHandles.slice(0, 10),
+      emails: emails.slice(0, 10),
+      phones: phones.slice(0, 10),
+    },
   };
 }

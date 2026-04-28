@@ -651,6 +651,12 @@ export function buildTools(userId: string, agentContext?: { name?: string }) {
           return {
             answer: result.answer,
             sources: result.sources,
+            // Pre-extracted contact info aggregated across all results.
+            // Use this field FIRST when extracting IG/email/phone for
+            // Lead Gen — server already did the regex, no need to
+            // re-extract from snippets. If empty, fall back to scanning
+            // sources[].url and sources[].snippet manually.
+            extracted: result.extracted,
           };
         } catch (e) {
           return {
