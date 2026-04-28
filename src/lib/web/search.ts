@@ -19,6 +19,11 @@ export async function webSearch(args: {
   query: string;
   answer: string;
   sources: Array<{ title: string; url: string; snippet: string }>;
+  extracted: {
+    instagram_handles: string[];
+    emails: string[];
+    phones: string[];
+  };
 }> {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) {
@@ -53,21 +58,22 @@ export async function webSearch(args: {
     .map((r) => `${r.title ?? ""} ${r.content ?? ""}`)
     .join("\n");
 
+  const igMatches = [...allUrls, allText]
+    .join(" ")
+    .matchAll(
+      /(?:https?:\/\/(?:www\.)?instagram\.com\/|@)([a-zA-Z0-9_.]{3,30})/g,
+    );
   const igHandles = Array.from(
     new Set(
-      [...allUrls, allText]
-        .join(" ")
-        .matchAll(
-          /(?:https?:\/\/(?:www\.)?instagram\.com\/|@)([a-zA-Z0-9_.]{3,30})/g,
+      Array.from(igMatches)
+        .map((m: RegExpMatchArray) => `@${m[1].replace(/\.+$/, "")}`)
+        .filter(
+          (h: string) =>
+            !["reel", "p", "explore", "stories"].some((skip) =>
+              h.toLowerCase().slice(1).startsWith(skip),
+            ),
         ),
-    )
-      .map((m) => `@${m[1].replace(/\.+$/, "")}`)
-      .filter(
-        (h) =>
-          !["@instagram.com", "@reel", "@p", "@explore", "@stories"].some(
-            (skip) => h.toLowerCase().includes(skip.replace("@", "")),
-          ),
-      ),
+    ),
   );
 
   const emails = Array.from(
