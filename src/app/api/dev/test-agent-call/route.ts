@@ -99,7 +99,7 @@ export async function POST(req: Request) {
     system,
     messages: [{ role: "user", content: body.message }],
     tools,
-    stopWhen: stepCountIs(8),
+    stopWhen: stepCountIs(20),
     prepareStep: async ({ messages }) => ({
       messages: stripReasoningFromMessages(messages),
     }),

@@ -290,7 +290,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Scan notes type=project yang mention 'TODO' atau 'pending' — kasih update kalau udah selesai.",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "google/gemini-2.5-flash-lite",
+    llm_override_model: "openai/gpt-4o-mini",
   },
   {
     name: "Code Reviewer",
@@ -562,7 +562,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
       "Scan notes type=reference cari saved lead-gen-sheet-id, summarize current pipeline (X pending, Y approved, Z sent).",
     ],
     llm_override_provider: "openrouter",
-    llm_override_model: "google/gemini-2.5-flash-lite",
+    llm_override_model: "openai/gpt-4o-mini",
   },
   {
     name: "Content Creator",
