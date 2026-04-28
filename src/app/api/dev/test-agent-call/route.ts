@@ -94,16 +94,35 @@ export async function POST(req: Request) {
   const system = agentRecord?.system_prompt ?? "You are a helpful assistant.";
 
   const t0 = Date.now();
-  const result = await generateText({
-    model: llm.model,
-    system,
-    messages: [{ role: "user", content: body.message }],
-    tools,
-    stopWhen: stepCountIs(20),
-    prepareStep: async ({ messages }) => ({
-      messages: stripReasoningFromMessages(messages),
-    }),
-  });
+
+  // Auto-retry on Flash Lite failure modes:
+  // - finish_reason="other" with 0 tokens (provider returned nothing)
+  // - finish_reason="stop" but step_count<2 AND no tools called (model gave up)
+  // Try up to 2 attempts. Transparent to caller.
+  const generate = () =>
+    generateText({
+      model: llm.model,
+      system,
+      messages: [{ role: "user", content: body.message }],
+      tools,
+      stopWhen: stepCountIs(20),
+      prepareStep: async ({ messages }) => ({
+        messages: stripReasoningFromMessages(messages),
+      }),
+    });
+
+  let result = await generate();
+  let attempts = 1;
+  let isUnreliableFailure = (r: typeof result) => {
+    if (r.finishReason === "other") return true;
+    const calledCount = (r.steps ?? []).flatMap((s) => s.toolCalls ?? []).length;
+    if (calledCount === 0 && (r.steps ?? []).length < 2 && !r.text) return true;
+    return false;
+  };
+  while (isUnreliableFailure(result) && attempts < 2) {
+    result = await generate();
+    attempts++;
+  }
   const elapsedMs = Date.now() - t0;
 
   const toolsCalled = (result.steps ?? [])
@@ -146,6 +165,7 @@ export async function POST(req: Request) {
     user_id: userId,
     agent_name: agentRecord?.name ?? null,
     model: llm.modelId,
+    attempts,
     elapsed_ms: elapsedMs,
     tokens_in: tokensIn,
     tokens_out: tokensOut,
