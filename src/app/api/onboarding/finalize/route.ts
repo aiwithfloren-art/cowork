@@ -104,51 +104,63 @@ export async function POST(req: Request) {
     );
   }
 
-  // 5. Activate the selected starter template as the user's first agent.
-  // Template doesn't exist pre-finalize (org just got created + seeded in
-  // step 4), so wizard passes template NAME — we resolve to id here.
-  let activatedSlug: string | null = null;
+  // 5. Auto-install the 3 high-value agents (Lead Gen, Content Creator,
+  // Coder) so user can demo multi-agent flow immediately. Wizard no
+  // longer asks user to pick — we install the workhorse trio by default.
+  // If wizard explicitly passes starter_template_name, we ALSO install
+  // that one (for back-compat).
+  const autoInstallNames = new Set([
+    "Lead Gen",
+    "Content Creator",
+    "Coder",
+  ]);
   if (body.starter_template_name) {
-    const { data: tmpl } = await sb
-      .from("org_agent_templates")
-      .select(
-        "id, name, emoji, description, system_prompt, enabled_tools, objectives",
-      )
-      .eq("name", body.starter_template_name)
-      .eq("org_id", org.id)
-      .maybeSingle();
+    autoInstallNames.add(body.starter_template_name);
+  }
 
-    if (tmpl) {
-      const agentSlug =
-        (tmpl.name as string)
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "") +
-        "-" +
-        crypto.randomBytes(2).toString("hex");
+  let activatedSlug: string | null = null;
+  const { data: tmpls } = await sb
+    .from("org_agent_templates")
+    .select(
+      "id, name, emoji, description, system_prompt, enabled_tools, objectives, llm_override_provider, llm_override_model",
+    )
+    .eq("org_id", org.id)
+    .in("name", [...autoInstallNames]);
 
-      const { data: created } = await sb
-        .from("custom_agents")
-        .insert({
-          user_id: uid,
-          slug: agentSlug,
-          name: tmpl.name,
-          emoji: tmpl.emoji,
-          description: tmpl.description,
-          system_prompt: tmpl.system_prompt,
-          enabled_tools: tmpl.enabled_tools ?? [],
-          objectives: tmpl.objectives ?? [],
-        })
-        .select("slug")
-        .single();
-      if (created) {
-        activatedSlug = created.slug as string;
-        await sb
-          .from("org_agent_templates")
-          .update({ install_count: 1 })
-          .eq("id", tmpl.id);
-      }
+  for (const tmpl of tmpls ?? []) {
+    const agentSlug =
+      (tmpl.name as string)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") +
+      "-" +
+      crypto.randomBytes(2).toString("hex");
+
+    const { data: created } = await sb
+      .from("custom_agents")
+      .insert({
+        user_id: uid,
+        slug: agentSlug,
+        name: tmpl.name,
+        emoji: tmpl.emoji,
+        description: tmpl.description,
+        system_prompt: tmpl.system_prompt,
+        enabled_tools: tmpl.enabled_tools ?? [],
+        objectives: tmpl.objectives ?? [],
+        llm_override_provider: tmpl.llm_override_provider,
+        llm_override_model: tmpl.llm_override_model,
+      })
+      .select("slug")
+      .single();
+    if (created && tmpl.name === (body.starter_template_name ?? "Lead Gen")) {
+      // Land user on this agent after onboarding (Lead Gen by default,
+      // or whatever they explicitly picked).
+      activatedSlug = created.slug as string;
     }
+    await sb
+      .from("org_agent_templates")
+      .update({ install_count: 1 })
+      .eq("id", tmpl.id);
   }
 
   return NextResponse.json({

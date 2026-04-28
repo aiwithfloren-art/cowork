@@ -66,9 +66,9 @@ export function OnboardingWizard({
 
   const canNext =
     (step === 1 && orgName.trim().length >= 2) ||
-    (step === 2 && description.trim().length >= 10) ||
+    (step === 2 && description.trim().length >= 3) ||
     step === 3 || // connect-tools step is skippable
-    (step === 4 && !!selectedStarter);
+    step === 4; // starter pick is now optional — auto-installs Lead Gen + Content Creator + Coder if skipped
 
   return (
     <div className="mx-auto max-w-2xl px-4 md:px-0">
@@ -193,11 +193,12 @@ export function OnboardingWizard({
       {step === 4 && (
         <section>
           <h1 className="text-3xl font-bold text-slate-900">
-            Pick your first AI employee
+            Optional — pick a starter agent
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            Activate one now to get productive immediately. You can activate
-            more later from the AI Employee Directory.
+            We&apos;re auto-installing the 3 essentials (Lead Gen, Content
+            Creator, Coder) so you can use them immediately. Pick one here
+            to land on its page after signup, or just click Finish.
           </p>
           <div className="mt-6 grid gap-3 md:grid-cols-2">
             {starterOptions.map((opt) => {

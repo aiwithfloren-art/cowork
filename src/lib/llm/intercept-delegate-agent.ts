@@ -63,9 +63,14 @@ export async function tryInterceptAgentDelegation(args: {
         // not installed). Return null so caller proceeds with normal flow.
         return null;
       }
+      // Prepend an "auto-routed" badge so user learns the mental model:
+      // their request was handled by a specialist agent. Builds trust +
+      // discoverability for the multi-agent flow.
+      const badge = AGENT_BADGES[agent] ?? `🤖 ${agent}`;
+      const replyWithBadge = `${badge}\n\n${result.reply}`;
       return {
         agent_name: result.agent_name,
-        reply: result.reply,
+        reply: replyWithBadge,
         tools_called: result.tools_called,
         cost_usd: result.cost_usd,
       };
@@ -74,3 +79,9 @@ export async function tryInterceptAgentDelegation(args: {
 
   return null;
 }
+
+const AGENT_BADGES: Record<string, string> = {
+  "Lead Gen": "🎯 _Auto-routed to **Lead Gen** agent_",
+  "Content Creator": "🎨 _Auto-routed to **Content Creator** agent_",
+  "Coder": "💻 _Auto-routed to **Coder** agent_",
+};
