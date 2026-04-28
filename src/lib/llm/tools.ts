@@ -2282,16 +2282,30 @@ export function buildTools(userId: string, agentContext?: { name?: string }) {
             "Request headers. Typical: {'Content-Type': 'application/json'}. Do not include Authorization — use auth_service instead.",
           ),
         body: z
-          .string()
+          .union([z.string(), z.record(z.string(), z.unknown())])
           .nullable()
           .optional()
           .describe(
-            "Request body as a string. For JSON, pass JSON.stringify(...) and set Content-Type: application/json.",
+            "Request body. Pass as a JSON object directly (preferred — server stringifies it for you, avoids escape bugs) OR as a pre-stringified string. For multi-line text content (HTML, code), prefer the object form.",
           ),
       }),
       execute: async ({ method, url, auth_service, headers, body }) => {
         try {
           const finalHeaders: Record<string, string> = { ...(headers ?? {}) };
+          // Accept body as object — stringify server-side to avoid LLM
+          // escape errors. Auto-set Content-Type if it's a JSON object and
+          // caller didn't provide one.
+          let bodyStr: string | undefined = undefined;
+          if (body !== undefined && body !== null) {
+            if (typeof body === "string") {
+              bodyStr = body;
+            } else {
+              bodyStr = JSON.stringify(body);
+              if (!finalHeaders["Content-Type"] && !finalHeaders["content-type"]) {
+                finalHeaders["Content-Type"] = "application/json";
+              }
+            }
+          }
           if (auth_service && typeof auth_service === "string") {
             const sb = supabaseAdmin();
             const { data } = await sb
@@ -2312,7 +2326,7 @@ export function buildTools(userId: string, agentContext?: { name?: string }) {
             method,
             url,
             headers: finalHeaders,
-            body: body ?? undefined,
+            body: bodyStr,
           });
           // Trim the body for the LLM — responses bigger than ~20KB are
           // rarely useful and eat context. Full body available in logs if needed.
