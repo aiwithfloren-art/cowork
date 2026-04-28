@@ -44,6 +44,7 @@ import { renderCarousel, type SlideTemplate } from "@/lib/render/png";
 import { shareFile, type DriveRole } from "@/lib/google/drive";
 import { listRecentEmails, readEmail, sendEmail } from "@/lib/google/gmail";
 import { webSearch } from "@/lib/web/search";
+import { runSubAgent } from "@/lib/llm/run-sub-agent";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkApproval, pendingApprovalResult } from "./approvals";
 import { safeFetch } from "@/lib/http/safe-fetch";
@@ -2349,6 +2350,40 @@ export function buildTools(userId: string, agentContext?: { name?: string }) {
             error: e instanceof Error ? e.message : "http_request failed",
           };
         }
+      },
+    }),
+
+    delegate_to_agent: tool({
+      description:
+        "Delegate a specific task to one of the user's installed specialized agents (e.g. 'Lead Gen', 'Content Creator', 'Coder'). Use when the user's request matches a specialized agent's domain — e.g. 'cariin prospect' → Lead Gen, 'bikin carousel' → Content Creator, 'buatin landing page' → Coder. The sub-agent runs autonomously, calls its own tools, and returns the final reply text. You then synthesize that reply for the user (or pass it through verbatim if it already has the link/sheet they need). Don't delegate trivial tasks you can answer directly. Don't delegate to an agent that doesn't exist — only the names listed in your available-agents context.",
+      inputSchema: z.object({
+        agent_name: z
+          .string()
+          .describe(
+            "Exact name of the installed agent (e.g. 'Lead Gen', 'Content Creator', 'Coder'). Case-sensitive.",
+          ),
+        task: z
+          .string()
+          .describe(
+            "The full task instruction for the sub-agent. Phrase as if user is asking it directly. Include all needed context — the sub-agent does NOT see the parent conversation history.",
+          ),
+      }),
+      execute: async ({ agent_name, task }) => {
+        const result = await runSubAgent({ userId, agentName: agent_name, task });
+        if (!result.ok) {
+          return {
+            ok: false,
+            error: result.error ?? "Sub-agent failed",
+            note: `Tell the user the delegation failed and what they can do instead. Don't claim success.`,
+          };
+        }
+        return {
+          ok: true,
+          agent_name: result.agent_name,
+          reply: result.reply,
+          tools_called: result.tools_called,
+          note: `The sub-agent returned this reply. Pass it to the user (with light synthesis if you delegated to multiple agents). Don't fabricate URLs/IDs that aren't in this reply.`,
+        };
       },
     }),
 

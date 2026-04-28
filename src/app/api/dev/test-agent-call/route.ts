@@ -91,7 +91,29 @@ export async function POST(req: Request) {
     : allTools;
 
   const llm = await getLLMForAgent(userId, agentRecord);
-  const system = agentRecord?.system_prompt ?? "You are a helpful assistant.";
+
+  // For main-Sigap testing (no agent_name), build a minimal main prompt
+  // that includes delegation context so we can exercise multi-agent flow.
+  let system: string;
+  if (agentRecord) {
+    system = agentRecord.system_prompt;
+  } else {
+    const { data: userAgents } = await sb
+      .from("custom_agents")
+      .select("name, description")
+      .eq("user_id", userId);
+    const list = (userAgents ?? [])
+      .map((a) => `- **${a.name}** — ${a.description ?? ""}`)
+      .join("\n");
+    system = `You are Sigap, the user's main AI Chief of Staff. You orchestrate work and can delegate to specialized agents when needed.
+
+## Available specialized agents (use \`delegate_to_agent\` tool)
+${list || "(none installed)"}
+
+When the user's request matches one of these specialists' domains, call \`delegate_to_agent\` with the agent name + task. Pass the sub-agent's reply to the user with light synthesis. For multi-part requests, call delegate_to_agent multiple times.
+
+Match user's language (ID/EN). Be concise.`;
+  }
 
   const t0 = Date.now();
 

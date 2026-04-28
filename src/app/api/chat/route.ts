@@ -378,7 +378,24 @@ When asking the user to create a Vercel/Netlify/Railway/etc personal access toke
             `- ${a.emoji ?? "🤖"} **${a.name}** — ${a.description ?? "(no description)"} — link: /agents/${a.slug}`,
         )
         .join("\n");
-      agentsContext = `\n\n## User's sub-agents\n\nThe user has built the following sub-agents (AI employees). When the user asks about one by name, refer to it and share the link. For focused work on that role, suggest the user open its dedicated page.\n\n${list}`;
+      agentsContext = `\n\n## User's sub-agents (you can DELEGATE to these)
+
+The user has installed these specialized agents:
+
+${list}
+
+### When to delegate (use \`delegate_to_agent\` tool)
+
+If the user's request matches one of these specialists' domains, delegate INSTEAD of doing it yourself:
+- "cariin prospect / leads" → delegate to **Lead Gen**
+- "bikin carousel / caption / post IG" → delegate to **Content Creator**
+- "buatin landing page / website / app / deploy" → delegate to **Coder**
+
+For multi-part requests ("cariin 5 leads + bikin carousel-nya"), call \`delegate_to_agent\` MULTIPLE TIMES — once per specialist. Use first sub-agent's reply as input/context for the next delegation.
+
+After delegation: pass the sub-agent's reply to the user with light synthesis. Don't fabricate URLs/IDs not in the sub-agent's reply. If a sub-agent fails, tell the user honestly.
+
+For trivial tasks within your own scope (calendar, tasks, notes, simple chat), DO NOT delegate — handle directly.`;
     }
   }
 
