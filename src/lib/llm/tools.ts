@@ -641,7 +641,7 @@ export function buildTools(userId: string, agentContext?: { name?: string }) {
 
     web_search: tool({
       description:
-        "Search the public web for current information, news, articles, facts, or research. Use this when the user asks about anything you don't have built-in knowledge of, especially recent events, current data, or topics requiring fresh sources. Returns an AI-generated answer plus source links and snippets. Combine with read_connected_file when the user wants you to enrich findings with their own documents.",
+        "Search the public web for current information, news, articles, facts, or research. Use this when the user asks about anything you don't have built-in knowledge of, especially recent events, current data, or topics requiring fresh sources. Returns an AI-generated answer plus source links and snippets. Each source has {title, url, snippet}. **IMPORTANT for contact info extraction (Lead Gen, etc):** the `url` field is often the most direct signal — e.g. for 'Universitas Gadjah Mada instagram' Tavily may return url=https://instagram.com/ugm.yogyakarta directly. Always scan url field first when extracting Instagram/Twitter/LinkedIn handles, then snippet for emails/phone. Combine with read_connected_file when the user wants you to enrich findings with their own documents.",
       inputSchema: z.object({
         query: z.string().describe("Search query in natural language"),
       }),

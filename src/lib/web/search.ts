@@ -50,7 +50,11 @@ export async function webSearch(args: {
     sources: (data.results ?? []).map((r) => ({
       title: r.title,
       url: r.url,
-      snippet: r.content.slice(0, 500),
+      // Bumped 500→1500 chars so contact info (emails, IG handles, phone
+      // numbers, addresses) that often live in body footers don't get
+      // truncated. Tavily caps result body at ~5000 anyway, so 1500 is
+      // a sane mid-point — enough context without bloating LLM tokens.
+      snippet: r.content.slice(0, 1500),
     })),
   };
 }
