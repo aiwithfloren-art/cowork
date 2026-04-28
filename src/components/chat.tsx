@@ -463,6 +463,16 @@ export function Chat({
     if (next && recentSessions.length === 0) loadRecentSessions();
   }
 
+  async function replayTutorial() {
+    try {
+      await fetch("/api/tutorial/complete", { method: "DELETE" });
+    } catch {}
+    // Hard reload so the server component re-fetches user_settings and
+    // the TutorialModal re-renders. router.refresh() doesn't reliably
+    // re-mount client-rendered modals across the layout boundary.
+    if (typeof window !== "undefined") window.location.reload();
+  }
+
   function startNewChat() {
     setMessages([]);
     setError(null);
@@ -517,17 +527,28 @@ export function Chat({
         </div>
         <div className="flex items-center gap-1">
           {!agentSlug && (
-            <button
-              type="button"
-              onClick={startNewChat}
-              disabled={loading}
-              title="Start a new conversation"
-              aria-label="New chat"
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
-            >
-              <span aria-hidden>＋</span>
-              <span className="hidden sm:inline">New chat</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={startNewChat}
+                disabled={loading}
+                title="Start a new conversation"
+                aria-label="New chat"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+              >
+                <span aria-hidden>＋</span>
+                <span className="hidden sm:inline">New chat</span>
+              </button>
+              <button
+                type="button"
+                onClick={replayTutorial}
+                title="Show tutorial"
+                aria-label="Show tutorial"
+                className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                ?
+              </button>
+            </>
           )}
           <button
             type="button"
