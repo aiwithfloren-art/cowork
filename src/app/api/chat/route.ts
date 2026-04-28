@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 import { tryInterceptDelegation } from "@/lib/llm/delegate-intercept";
+import { tryInterceptAgentDelegation } from "@/lib/llm/intercept-delegate-agent";
 import { tryInterceptMeetingRecord, tryInterceptMeetingSummary } from "@/lib/llm/meeting-intercept";
 import { tryInterceptCompanyContext } from "@/lib/llm/company-context-intercept";
 import { loadPrimaryOrgContext, renderOrgContextBlock } from "@/lib/org-context";
@@ -485,6 +486,19 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
     tryInterceptDelegation(userId, lastUser.content),
   );
   if (delegationReply) return respondIntercepted(delegationReply);
+
+  // Multi-agent intercept — keyword-route obvious specialist requests
+  // straight to the matching sub-agent (Lead Gen / Content Creator /
+  // Coder). Skips main LLM router for the simple-routing case.
+  // Only runs in main-Sigap chat (no agent_slug on the request).
+  if (!body.agent_slug) {
+    const agentDelegationResult = await runIntercept("agent-delegation", () =>
+      tryInterceptAgentDelegation({ userId, message: lastUser.content }),
+    );
+    if (agentDelegationResult) {
+      return respondIntercepted(agentDelegationResult.reply);
+    }
+  }
 
   // Just-in-time Company Context setup. Fires when the user asks for a
   // brand-sensitive deliverable (PPT, proposal, pitch, client email, etc.)

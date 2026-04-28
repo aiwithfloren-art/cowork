@@ -19,6 +19,7 @@ import { buildToolsForUser } from "@/lib/llm/build-tools";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 import { validateAssistantResponse } from "@/lib/llm/validate-response";
+import { tryInterceptAgentDelegation } from "@/lib/llm/intercept-delegate-agent";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -76,6 +77,39 @@ export async function POST(req: Request) {
       );
     }
     agentRecord = data as unknown as AgentRecord;
+  }
+
+  // For main-Sigap mode (no agent_name), try keyword-routing intercept
+  // first — saves an LLM call when intent is obvious.
+  if (!agentRecord) {
+    const intercepted = await tryInterceptAgentDelegation({ userId, message: body.message });
+    if (intercepted) {
+      return NextResponse.json({
+        ok: true,
+        user_id: userId,
+        agent_name: null,
+        model: "intercepted",
+        intercepted: true,
+        attempts: 0,
+        elapsed_ms: 0,
+        tokens_in: 0,
+        tokens_out: 0,
+        estimated_cost_usd: intercepted.cost_usd,
+        tools_called: ["delegate_to_agent (intercepted)"],
+        tool_log: [{
+          tool: "agent_delegation_intercept",
+          input: { agent: intercepted.agent_name },
+          result: { ok: true, sub_tools: intercepted.tools_called },
+        }],
+        raw_text: intercepted.reply,
+        final_text: intercepted.reply,
+        hallucination_caught: false,
+        hallucinated_urls: [],
+        validation_notes: [],
+        finish_reason: "stop",
+        step_count: 1,
+      });
+    }
   }
 
   const allTools = await buildToolsForUser(
