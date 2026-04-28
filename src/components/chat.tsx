@@ -28,6 +28,28 @@ function WorkingIndicator({ label }: { label: string }) {
   );
 }
 
+// Mirror of the server-side intercept regexes (intercept-delegate-agent.ts)
+// — used to predict which specialist agent will handle the user's request,
+// so the loading indicator can show the right label ('Lead Gen lagi cari
+// prospect' instead of generic 'Sigap lagi kerja').
+function predictAgentFromMessage(message: string): {
+  emoji: string;
+  agent: string;
+  action: string;
+} | null {
+  if (!message || message.length > 200) return null;
+  if (/\b(cari(?:in|kan)?|find|list|cariin)\b.*\b(cafe|coffee|restaurant|restoran|toko|shop|salon|barber|barbershop|clinic|klinik|gym|studio|photographer|fotografer|agency|saas|prospect|prospek|leads?|warung|kedai|kos|hotel|villa|spa|bookstore|boutique|clothing|fashion)\b/i.test(message)) {
+    return { emoji: "🎯", agent: "Lead Gen", action: "cari prospect" };
+  }
+  if (/\b(bikin(?:in|kan)?|buatin|buatkan|draft|create|make)\b.*\b(carousel|caption|post|content|konten|ig|instagram|tiktok|social media|sosmed|slide)\b/i.test(message)) {
+    return { emoji: "🎨", agent: "Content Creator", action: "bikin konten" };
+  }
+  if (/\b(bikin(?:in|kan)?|buatin|build|deploy|create|make)\b.*\b(landing\s*page|website|web|app|aplikasi|component|komponen|html|react|next\.?js|deploy|live|publish)\b/i.test(message)) {
+    return { emoji: "💻", agent: "Coder", action: "build & deploy" };
+  }
+  return null;
+}
+
 type Msg = {
   role: "user" | "assistant";
   content: string;
@@ -475,6 +497,18 @@ export function Chat({
           {messages.map((m, i) => {
             const isLast = i === messages.length - 1;
             const isStreaming = loading && isLast && m.role === "assistant";
+            // Predict which agent will run based on the user message
+            // before this assistant turn, so loading label is specific
+            // ('Lead Gen lagi cari prospect') instead of generic.
+            const prevUser = isStreaming
+              ? messages.slice(0, i).reverse().find((p) => p.role === "user")
+              : null;
+            const predicted = prevUser
+              ? predictAgentFromMessage(prevUser.content)
+              : null;
+            const workingLabel = predicted
+              ? `${predicted.emoji} ${predicted.agent} lagi ${predicted.action}`
+              : "Sigap lagi kerja";
             return (
               <div key={i} className="space-y-1">
                 {m.role === "assistant" && m.agent && (
@@ -497,7 +531,7 @@ export function Chat({
                   {m.role === "assistant" && m.content ? (
                     <Markdown>{m.content}</Markdown>
                   ) : isStreaming ? (
-                    <WorkingIndicator label="Sigap lagi kerja" />
+                    <WorkingIndicator label={workingLabel} />
                   ) : (
                     m.content || ""
                   )}
