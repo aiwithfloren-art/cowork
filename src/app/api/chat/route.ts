@@ -492,12 +492,11 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
   // Coder). Skips main LLM router for the simple-routing case.
   // Only runs in main-Sigap chat (no agent_slug on the request).
   if (!body.agent_slug) {
-    const agentDelegationResult = await runIntercept("agent-delegation", () =>
-      tryInterceptAgentDelegation({ userId, message: lastUser.content }),
-    );
-    if (agentDelegationResult) {
-      return respondIntercepted(agentDelegationResult.reply);
-    }
+    const agentDelegationReply = await runIntercept("agent-delegation", async () => {
+      const result = await tryInterceptAgentDelegation({ userId, message: lastUser.content });
+      return result?.reply ?? null;
+    });
+    if (agentDelegationReply) return respondIntercepted(agentDelegationReply);
   }
 
   // Just-in-time Company Context setup. Fires when the user asks for a
