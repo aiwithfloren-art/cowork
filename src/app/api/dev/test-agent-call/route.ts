@@ -90,7 +90,16 @@ export async function POST(req: Request) {
       )
     : allTools;
 
-  const llm = await getLLMForAgent(userId, agentRecord);
+  // For multi-agent orchestration testing: force gpt-4o-mini when no
+  // specific sub-agent is targeted (main router needs reasoning to
+  // decide when to delegate vs answer directly — Flash Lite can't).
+  const llm = await getLLMForAgent(
+    userId,
+    agentRecord ?? {
+      llm_override_provider: "openrouter",
+      llm_override_model: "openai/gpt-4o-mini",
+    },
+  );
 
   // For main-Sigap testing (no agent_name), build a minimal main prompt
   // that includes delegation context so we can exercise multi-agent flow.
