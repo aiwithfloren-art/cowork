@@ -7,6 +7,7 @@ import { checkRateLimit, logUsage } from "@/lib/ratelimit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { stripReasoningFromMessages } from "@/lib/llm/strip-reasoning";
 import { redactSecrets, extractSavedTokens } from "@/lib/security/redact-secrets";
+import { validateAssistantResponse } from "@/lib/llm/validate-response";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -512,6 +513,23 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
         },
         { status: 500 },
       );
+    }
+
+    // Anti-hallucination guard: when a small/cheap model invents storage
+    // URLs that no tool actually returned, swap them with the real ones
+    // (or replace with an honest error if no real URLs exist). Logs every
+    // catch so we can monitor hallucination rate per model.
+    const validation = validateAssistantResponse({
+      text,
+      steps: result.steps as Parameters<typeof validateAssistantResponse>[0]["steps"],
+    });
+    if (validation.changed) {
+      console.warn("[chat] hallucination guard triggered", {
+        model: llm.modelId,
+        hallucinated_count: validation.hallucinated_urls.length,
+        notes: validation.notes,
+      });
+      text = validation.text;
     }
 
     const tokensIn = result.usage?.inputTokens ?? 0;
