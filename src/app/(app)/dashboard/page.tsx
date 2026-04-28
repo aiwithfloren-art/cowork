@@ -1,9 +1,8 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getTodayEvents, getWeekEvents } from "@/lib/google/calendar";
 import { listTasks } from "@/lib/google/tasks";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatTime } from "@/lib/utils";
 import { Chat } from "@/components/chat";
 import { TasksPanel } from "@/components/tasks-panel";
@@ -14,6 +13,7 @@ import { TutorialModal } from "@/components/tutorial-modal";
 import { ReplayTutorialButton } from "@/components/replay-tutorial-button";
 import { DashboardInsights } from "@/components/dashboard-insights";
 import { TeamSnapshot, type MemberSignal } from "@/components/team-snapshot";
+import { TodayDrawer } from "@/components/today-drawer";
 
 export default async function DashboardPage({
   searchParams,
@@ -65,36 +65,6 @@ export default async function DashboardPage({
     .eq("user_id", userId)
     .eq("status", "pending");
   const pendingDigestCount = pendingDigestCountRaw ?? 0;
-
-  // Widget counts — these drive the 4-card quick-access grid at top
-  const { count: employeeCount } = await sb
-    .from("custom_agents")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
-
-  const primaryOrgId = await (async () => {
-    const { data } = await sb
-      .from("org_members")
-      .select("org_id")
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle();
-    return (data?.org_id as string | null) ?? null;
-  })();
-
-  const { count: skillCount } = primaryOrgId
-    ? await sb
-        .from("org_agent_templates")
-        .select("id", { count: "exact", head: true })
-        .eq("org_id", primaryOrgId)
-    : { count: 0 };
-
-  const { count: memberCount } = primaryOrgId
-    ? await sb
-        .from("org_members")
-        .select("user_id", { count: "exact", head: true })
-        .eq("org_id", primaryOrgId)
-    : { count: 0 };
 
   const { data: myMemberships } = await sb
     .from("org_members")
@@ -152,13 +122,22 @@ export default async function DashboardPage({
   const greeting = getGreeting(t);
   const firstName = session.user.name?.split(" ")[0] ?? "there";
 
+  const greetingEmoji =
+    new Date().getHours() < 12 ? "☀️" : new Date().getHours() < 18 ? "🌤" : "🌙";
+
+  const todaySummary =
+    locale === "id"
+      ? `Hari ini: ${events.length} jadwal · ${tasks.length} task`
+      : `Today: ${events.length} events · ${tasks.length} tasks`;
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {showTutorial && <TutorialModal t={dict.tutorial} />}
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
-            {greeting}, {firstName} ☀️
+            {greeting}, {firstName} {greetingEmoji}
           </h1>
           <p className="mt-1 text-sm text-slate-600">{t.greetingSub}</p>
         </div>
@@ -170,43 +149,6 @@ export default async function DashboardPage({
           {t.googleError}
         </div>
       )}
-
-      {/* Quick-access widget grid — OpenWork-style home. Links to the main
-          surfaces so users don't have to hunt through the nav. */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-        <WidgetCard
-          emoji="👥"
-          label="AI Employees"
-          count={employeeCount ?? 0}
-          hint="Active in your workspace"
-          href="/agents"
-          accent="indigo"
-        />
-        <WidgetCard
-          emoji="📚"
-          label="Skill Hub"
-          count={skillCount ?? 0}
-          hint="Published by your team"
-          href="/team/skills"
-          accent="emerald"
-        />
-        <WidgetCard
-          emoji="👤"
-          label="Team"
-          count={memberCount ?? 0}
-          hint="Members in workspace"
-          href="/team"
-          accent="amber"
-        />
-        <WidgetCard
-          emoji="⚙️"
-          label="Settings"
-          count={null}
-          hint={isManager ? "Admin & policy" : "Your preferences"}
-          href={isManager ? "/team/admin" : "/settings"}
-          accent="slate"
-        />
-      </div>
 
       <DashboardInsights
         pills={[
@@ -239,78 +181,89 @@ export default async function DashboardPage({
         ]}
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
-            <CardHeader className="flex items-center justify-between">
-              <CardTitle>{t.todaySchedule}</CardTitle>
-              <span className="text-xs text-slate-500">
-                {events.length} {pluralEvents(events.length, locale)}
-              </span>
-            </CardHeader>
-            <CardContent>
-              {events.length === 0 ? (
-                <EmptyState icon="☕️" title={t.noEvents} />
-              ) : (
-                <ul className="space-y-3">
-                  {events.map((e) => (
-                    <li
-                      key={e.id}
-                      className="flex gap-4 rounded-lg border border-slate-100 bg-slate-50 p-3"
-                    >
-                      <div className="flex flex-col text-xs font-mono text-slate-500">
-                        <span>{formatTime(e.start)}</span>
-                        <span>{formatTime(e.end)}</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-slate-900">{e.title}</p>
-                        {e.location && (
-                          <p className="text-xs text-slate-500">{e.location}</p>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+      {/* Hero: Sigap chat takes the whole reading column.
+          On mobile chat shows first; on desktop the Today drawer (events
+          + tasks) collapses above the chat for quick reference without
+          stealing the column.
+          The whole hero block is centered with max-w-3xl so chat gets
+          ~700px reading width, matching ChatGPT/Claude proportions. */}
+      <div className="mx-auto flex max-w-3xl flex-col gap-4">
+        <div className="order-2 lg:order-1">
+          <TodayDrawer summary={todaySummary}>
+            <div className="space-y-5">
+              <section>
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    {t.todaySchedule}
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    {events.length} {pluralEvents(events.length, locale)}
+                  </span>
+                </div>
+                {events.length === 0 ? (
+                  <EmptyState icon="☕️" title={t.noEvents} />
+                ) : (
+                  <ul className="space-y-2">
+                    {events.map((e) => (
+                      <li
+                        key={e.id}
+                        className="flex gap-4 rounded-lg border border-slate-100 bg-slate-50 p-3"
+                      >
+                        <div className="flex flex-col text-xs font-mono text-slate-500">
+                          <span>{formatTime(e.start)}</span>
+                          <span>{formatTime(e.end)}</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-slate-900">{e.title}</p>
+                          {e.location && (
+                            <p className="text-xs text-slate-500">{e.location}</p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
 
-          <Card>
-            <CardHeader className="flex items-center justify-between">
-              <CardTitle>{t.openTasks}</CardTitle>
-              <span className="text-xs text-slate-500">
-                {tasks.length} {t.tasksCount}
-              </span>
-            </CardHeader>
-            <CardContent>
-              <TasksPanel
-                initialTasks={tasks}
-                locale={locale}
-                labels={{
-                  edit: locale === "id" ? "Edit" : "Edit",
-                  delete: locale === "id" ? "Hapus" : "Delete",
-                  save: locale === "id" ? "Simpan" : "Save",
-                  cancel: locale === "id" ? "Batal" : "Cancel",
-                  empty: t.noTasks,
-                }}
-              />
-            </CardContent>
-          </Card>
-
-          {isManager && <TeamSnapshot members={teamSnapshot} locale={locale} />}
+              <section>
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    {t.openTasks}
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    {tasks.length} {t.tasksCount}
+                  </span>
+                </div>
+                <TasksPanel
+                  initialTasks={tasks}
+                  locale={locale}
+                  labels={{
+                    edit: locale === "id" ? "Edit" : "Edit",
+                    delete: locale === "id" ? "Hapus" : "Delete",
+                    save: locale === "id" ? "Simpan" : "Save",
+                    cancel: locale === "id" ? "Batal" : "Cancel",
+                    empty: t.noTasks,
+                  }}
+                />
+              </section>
+            </div>
+          </TodayDrawer>
         </div>
 
-        <div className="lg:col-span-1">
-          <Card className="flex flex-col h-[60vh] min-h-[400px] lg:h-[calc(100vh-180px)] lg:sticky lg:top-6">
-            <CardHeader>
-              <CardTitle>{t.chiefOfStaff}</CardTitle>
-            </CardHeader>
+        <div className="order-1 lg:order-2">
+          <Card className="flex h-[calc(100vh-280px)] min-h-[500px] flex-col">
             <CardContent className="flex-1 overflow-hidden p-0">
               <Chat t={dict.chat} initialPrompt={initialPrompt} resumeId={resume} />
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {isManager && (
+        <div className="mx-auto max-w-3xl">
+          <TeamSnapshot members={teamSnapshot} locale={locale} />
+        </div>
+      )}
     </div>
   );
 }
@@ -329,42 +282,4 @@ function getGreeting(t: {
 function pluralEvents(n: number, locale: string): string {
   if (locale === "id") return n === 0 ? "jadwal" : "jadwal";
   return n === 1 ? "event" : "events";
-}
-
-function WidgetCard({
-  emoji,
-  label,
-  count,
-  hint,
-  href,
-  accent,
-}: {
-  emoji: string;
-  label: string;
-  count: number | null;
-  hint: string;
-  href: string;
-  accent: "indigo" | "emerald" | "amber" | "slate";
-}) {
-  const accentMap: Record<typeof accent, string> = {
-    indigo: "border-indigo-200 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100",
-    emerald: "border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100",
-    amber: "border-amber-200 bg-amber-50 hover:border-amber-300 hover:bg-amber-100",
-    slate: "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100",
-  };
-  return (
-    <Link
-      href={href}
-      className={`flex flex-col rounded-xl border p-4 transition ${accentMap[accent]}`}
-    >
-      <span className="text-2xl">{emoji}</span>
-      <p className="mt-2 text-sm font-semibold text-slate-900">{label}</p>
-      {count !== null && (
-        <p className="mt-0.5 text-xs font-medium text-slate-700">
-          {count} {count === 1 ? "item" : "items"}
-        </p>
-      )}
-      <p className="mt-0.5 text-[11px] text-slate-500">{hint}</p>
-    </Link>
-  );
 }

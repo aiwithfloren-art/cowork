@@ -428,19 +428,141 @@ export function Chat({
     }
   }
 
+  type RecentSession = {
+    pivot_id: string;
+    title: string;
+    started_at: string;
+    message_count: number;
+  };
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  async function loadRecentSessions() {
+    if (agentSlug) return; // Sidebar drawer only on main Sigap chat
+    setHistoryLoading(true);
+    try {
+      const r = await fetch("/api/chat/session?recent=5");
+      if (r.ok) {
+        const data = (await r.json()) as { sessions: RecentSession[] };
+        setRecentSessions(data.sessions ?? []);
+      }
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  function toggleHistory() {
+    const next = !historyOpen;
+    setHistoryOpen(next);
+    if (next && recentSessions.length === 0) loadRecentSessions();
+  }
+
+  function startNewChat() {
+    setMessages([]);
+    setError(null);
+    setInput("");
+    setHistoryOpen(false);
+    // Drop the ?resume= query param so a remount doesn't re-load the
+    // previous session. router.replace keeps history clean.
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("resume");
+      url.searchParams.delete("prompt");
+      router.replace(url.pathname + (url.search ? url.search : ""));
+    }
+    inputRef.current?.focus();
+  }
+
+  function openSession(pivotId: string) {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("resume", pivotId);
+      url.searchParams.delete("prompt");
+      window.location.href = url.pathname + url.search; // full reload to re-hydrate session
+    }
+  }
+
   const body = (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-end border-b border-slate-100 px-3 py-1.5">
-        <button
-          type="button"
-          onClick={() => setFullscreen((v) => !v)}
-          title={fullscreen ? "Exit fullscreen (Esc)" : "Expand to fullscreen"}
-          aria-label={fullscreen ? "Exit fullscreen" : "Expand to fullscreen"}
-          className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-        >
-          {fullscreen ? "✕" : "⛶"}
-        </button>
+      <div className="flex items-center justify-between gap-1 border-b border-slate-100 px-3 py-1.5">
+        <div className="flex items-center gap-1">
+          {!agentSlug && (
+            <button
+              type="button"
+              onClick={toggleHistory}
+              title="Recent conversations"
+              aria-label="Toggle history"
+              aria-expanded={historyOpen}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            >
+              <span aria-hidden>☰</span>
+            </button>
+          )}
+          <span className="text-sm font-semibold text-slate-700">
+            {agentSlug ? "Agent chat" : "Sigap"}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          {!agentSlug && (
+            <button
+              type="button"
+              onClick={startNewChat}
+              disabled={loading}
+              title="Start a new conversation"
+              aria-label="New chat"
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+            >
+              <span aria-hidden>＋</span>
+              <span className="hidden sm:inline">New chat</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setFullscreen((v) => !v)}
+            title={fullscreen ? "Exit fullscreen (Esc)" : "Expand to fullscreen"}
+            aria-label={fullscreen ? "Exit fullscreen" : "Expand to fullscreen"}
+            className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          >
+            {fullscreen ? "✕" : "⛶"}
+          </button>
+        </div>
       </div>
+      {historyOpen && !agentSlug && (
+        <div className="border-b border-slate-100 bg-slate-50 px-3 py-2">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+              Recent conversations
+            </span>
+            <a
+              href="/history"
+              className="text-[11px] text-indigo-600 hover:underline"
+            >
+              See all →
+            </a>
+          </div>
+          {historyLoading ? (
+            <p className="py-2 text-xs text-slate-500">Loading…</p>
+          ) : recentSessions.length === 0 ? (
+            <p className="py-2 text-xs text-slate-500">No previous conversations.</p>
+          ) : (
+            <ul className="space-y-1">
+              {recentSessions.map((s) => (
+                <li key={s.pivot_id}>
+                  <button
+                    type="button"
+                    onClick={() => openSession(s.pivot_id)}
+                    className="block w-full truncate rounded px-2 py-1 text-left text-xs text-slate-700 hover:bg-white"
+                  >
+                    {s.title || "(empty)"}{" "}
+                    <span className="text-slate-400">· {s.message_count}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto px-5 py-3">
         {messages.length === 0 && !error && (
           agentSlug ? (
@@ -461,35 +583,49 @@ export function Chat({
               </div>
             </div>
           ) : (
-            <div className="space-y-4 py-2">
-              <p className="text-center text-sm text-slate-500">{t.askPrompt}</p>
+            <div className="space-y-5 py-4">
+              <div className="text-center">
+                <p className="text-sm font-medium text-slate-700">
+                  {t.askPrompt}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Atau pilih specialist di bawah · @mention agent juga bisa
+                </p>
+              </div>
 
-              <SuggestionGroup title={t.suggestions.briefingTitle}>
-                <SuggestionChip onClick={() => send(t.suggestions.briefing1)}>
-                  {t.suggestions.briefing1}
-                </SuggestionChip>
-                <SuggestionChip onClick={() => send(t.suggestions.briefing2)}>
-                  {t.suggestions.briefing2}
-                </SuggestionChip>
-              </SuggestionGroup>
+              <div>
+                <p className="mb-2 text-center text-[11px] font-medium uppercase tracking-wider text-slate-500">
+                  Try a specialist
+                </p>
+                <div className="space-y-2.5">
+                  <SuggestionGroup title={t.suggestions.briefingTitle}>
+                    <SuggestionChip onClick={() => send(t.suggestions.briefing1)}>
+                      {t.suggestions.briefing1}
+                    </SuggestionChip>
+                    <SuggestionChip onClick={() => send(t.suggestions.briefing2)}>
+                      {t.suggestions.briefing2}
+                    </SuggestionChip>
+                  </SuggestionGroup>
 
-              <SuggestionGroup title={t.suggestions.actionTitle}>
-                <SuggestionChip onClick={() => send(t.suggestions.action1)}>
-                  {t.suggestions.action1}
-                </SuggestionChip>
-                <SuggestionChip onClick={() => send(t.suggestions.action2)}>
-                  {t.suggestions.action2}
-                </SuggestionChip>
-              </SuggestionGroup>
+                  <SuggestionGroup title={t.suggestions.actionTitle}>
+                    <SuggestionChip onClick={() => send(t.suggestions.action1)}>
+                      {t.suggestions.action1}
+                    </SuggestionChip>
+                    <SuggestionChip onClick={() => send(t.suggestions.action2)}>
+                      {t.suggestions.action2}
+                    </SuggestionChip>
+                  </SuggestionGroup>
 
-              <SuggestionGroup title={t.suggestions.insightTitle}>
-                <SuggestionChip onClick={() => send(t.suggestions.insight1)}>
-                  {t.suggestions.insight1}
-                </SuggestionChip>
-                <SuggestionChip onClick={() => send(t.suggestions.insight2)}>
-                  {t.suggestions.insight2}
-                </SuggestionChip>
-              </SuggestionGroup>
+                  <SuggestionGroup title={t.suggestions.insightTitle}>
+                    <SuggestionChip onClick={() => send(t.suggestions.insight1)}>
+                      {t.suggestions.insight1}
+                    </SuggestionChip>
+                    <SuggestionChip onClick={() => send(t.suggestions.insight2)}>
+                      {t.suggestions.insight2}
+                    </SuggestionChip>
+                  </SuggestionGroup>
+                </div>
+              </div>
             </div>
           )
         )}
