@@ -26,7 +26,14 @@ Live demo: **[sigap.app](https://sigap.app)** · License: **MIT**
 
 These are wired up in the codebase and visible in the UI, but **not fully production-grade yet** — expect rough edges:
 
-- ⚠️ **Specialist agents** — `Lead Gen`, `Content Creator`, `Coder` templates auto-install on org creation. Tool integrations (Sheets write, Vercel deploy, image generation) work end-to-end on the hosted app, but self-hosters will need to wire up their own provider keys for each tool.
+- ⚠️ **3 specialist agents** auto-install on org creation:
+  | Agent | Purpose |
+  |---|---|
+  | 🎯 **Lead Gen** | Cari prospek + scrape kontak → Google Sheet |
+  | 🎨 **Content Creator** | Carousel + caption sesuai brand tone |
+  | 🧑‍💻 **Coder** | Build + deploy website ke Vercel |
+
+  Tool integrations (Sheets write, Vercel deploy, image generation) work end-to-end on the hosted app. Self-hosters will need to wire up their own provider keys for each tool.
 - ⚠️ **Custom agent creation via chat** — users describe a new agent in natural language (e.g. *"Bikin agent buat sortir email customer service"*) and Sigap creates it. Works today. A dedicated form-builder UI (fields for name, tools, boundaries) is not built yet.
 - ⚠️ **Composio integration** — connectors to Notion, GitHub, Stripe, Slack via OAuth. Wired but rough — connect/disconnect UX still being polished.
 - ⚠️ **Telegram / Slack notifications** — basic bot wiring exists, beta quality.
