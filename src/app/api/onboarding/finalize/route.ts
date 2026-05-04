@@ -104,12 +104,14 @@ export async function POST(req: Request) {
     );
   }
 
-  // 5. Auto-install the 3 high-value agents (Lead Gen, Content Creator,
-  // Coder) so user can demo multi-agent flow immediately. Wizard no
+  // 5. Auto-install Sigap Assistant (general-purpose default) plus the
+  // 3 specialist agents (Lead Gen, Content Creator, Coder) so user can
+  // demo multi-agent flow immediately. Wizard no
   // longer asks user to pick — we install the workhorse trio by default.
   // If wizard explicitly passes starter_template_name, we ALSO install
   // that one (for back-compat).
   const autoInstallNames = new Set([
+    "Sigap Assistant",
     "Lead Gen",
     "Content Creator",
     "Coder",
@@ -152,8 +154,8 @@ export async function POST(req: Request) {
       })
       .select("slug")
       .single();
-    if (created && tmpl.name === (body.starter_template_name ?? "Lead Gen")) {
-      // Land user on this agent after onboarding (Lead Gen by default,
+    if (created && tmpl.name === (body.starter_template_name ?? "Sigap Assistant")) {
+      // Land user on this agent after onboarding (Sigap Assistant by default,
       // or whatever they explicitly picked).
       activatedSlug = created.slug as string;
     }
