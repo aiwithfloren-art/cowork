@@ -27,13 +27,14 @@ Live demo: **[sigap.app](https://sigap.app)** · License: **MIT**
 These are wired up in the codebase and visible in the UI, but **not fully production-grade yet** — expect rough edges:
 
 - ⚠️ **Specialist agents** — `Lead Gen`, `Content Creator`, `Coder` templates auto-install on org creation. Tool integrations (Sheets write, Vercel deploy, image generation) work end-to-end on the hosted app, but self-hosters will need to wire up their own provider keys for each tool.
+- ⚠️ **Custom agent creation via chat** — users describe a new agent in natural language (e.g. *"Bikin agent buat sortir email customer service"*) and Sigap creates it. Works today. A dedicated form-builder UI (fields for name, tools, boundaries) is not built yet.
 - ⚠️ **Composio integration** — connectors to Notion, GitHub, Stripe, Slack via OAuth. Wired but rough — connect/disconnect UX still being polished.
 - ⚠️ **Telegram / Slack notifications** — basic bot wiring exists, beta quality.
 - ⚠️ **Carousel / image generation** — works with PNG output, served via Supabase Storage. Limited templates today.
 
 ## 🔭 Roadmap (not yet built)
 
-- ❌ **No-code custom agent builder UI** (today: agents defined as code in `src/lib/starter-kit.ts`)
+- ❌ **Form-based agent builder UI** (today: custom agents are created via chat; pre-built templates live in `src/lib/starter-kit.ts`)
 - ❌ **WhatsApp Business API integration**
 - ❌ **Multi-LLM routing UI** — backend supports it, no user-facing model switcher yet
 - ❌ **SSO (SAML / OAuth Workforce)**
