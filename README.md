@@ -1,16 +1,49 @@
-# Cowork
+# Sigap (Cowork)
 
-**Open-source AI Chief of Staff.** Sign in with Google, get an assistant that knows your calendar, tasks, and documents. Ask it what to focus on today. Team Mode lets managers stay in sync with their team without interrupting deep work.
+**Open-source AI workspace for teams — with built-in Manager Mode.**
 
-- 🤖 **Personal AI** — reads your Google Calendar, Tasks, Drive/Docs via tool calling
-- 🧑‍💼 **Manager Mode** — ask AI about teammates without pinging them (privacy-first, fully audited)
-- 🔌 **Model-agnostic** — default OpenRouter + GPT-4o-mini for chat, DeepSeek V3.2 for code agents; swap any model by changing one line
-- 🔐 **Privacy-first** — members opt in to share, every query logged, no surveillance
-- 💸 **Free tier** — 30 messages/day on our shared key; org admins can bring their own provider key for unlimited
+AI yang ngerjain. Bos yang bisa lihat.
+
+Sigap is an AI workspace built around **two ideas at the same time**:
+1. **AI that does work** — connected to Google Workspace tools, with specialist agents shipping for marketing, sales, and engineering tasks.
+2. **Manager Mode** — every AI action is logged, every member opts in to share, and managers see what AI is doing across the team without interrupting deep work.
+
+Live demo: **[sigap.app](https://sigap.app)** · License: **MIT**
+
+---
+
+## ✅ What's live today
+
+- 🤖 **Personal AI assistant** — reads your Google Calendar, Tasks, Drive, Docs via tool calling
+- 🧑‍💼 **Manager Mode (real moat)** — `Ask AI about teammates` without pinging them, every query logged, member opts in to share
+- 🔐 **Full audit trail** — every action records user · agent · tool · data · output, visible to every team member
+- 👥 **Team workspaces** — invite by email, per-member privacy toggle, manager dashboard
+- 🔌 **Model-agnostic backend** — OpenRouter, swap models by changing one line (UI model selector coming)
+- 💸 **BYO provider key** — bring your own OpenRouter / OpenAI / Anthropic key for unlimited usage; default shared key gives 30 messages/day
+- 🟢 **Onboarding wizard + tutorial** — sign up, connect Google, start chatting in under 5 minutes
+
+## 🚧 In active development
+
+These are wired up in the codebase and visible in the UI, but **not fully production-grade yet** — expect rough edges:
+
+- ⚠️ **Specialist agents** — `Lead Gen`, `Content Creator`, `Coder` templates auto-install on org creation. Tool integrations (Sheets write, Vercel deploy, image generation) work end-to-end on the hosted app, but self-hosters will need to wire up their own provider keys for each tool.
+- ⚠️ **Composio integration** — connectors to Notion, GitHub, Stripe, Slack via OAuth. Wired but rough — connect/disconnect UX still being polished.
+- ⚠️ **Telegram / Slack notifications** — basic bot wiring exists, beta quality.
+- ⚠️ **Carousel / image generation** — works with PNG output, served via Supabase Storage. Limited templates today.
+
+## 🔭 Roadmap (not yet built)
+
+- ❌ **No-code custom agent builder UI** (today: agents defined as code in `src/lib/starter-kit.ts`)
+- ❌ **WhatsApp Business API integration**
+- ❌ **Multi-LLM routing UI** — backend supports it, no user-facing model switcher yet
+- ❌ **SSO (SAML / OAuth Workforce)**
+- ❌ **Stripe billing flow**
+- ❌ **Self-host docs (production-grade)**
+- ❌ **Indonesian-native prompt tuning** (today: works in Bahasa, but edge cases still kaku)
 
 ## Stack
 
-Next.js 16 · Supabase (Postgres) · NextAuth · Vercel AI SDK · OpenRouter · Tailwind · TypeScript
+Next.js 16 · Supabase (Postgres + Storage + Auth) · NextAuth · Vercel AI SDK · OpenRouter · Tailwind · TypeScript
 
 ## Quick start (self-host)
 
@@ -40,7 +73,7 @@ See [`.env.local.example`](.env.local.example).
 
 | Var | Purpose |
 |---|---|
-| `OPENROUTER_API_KEY` | Shared OpenRouter key (covers gpt-4o-mini + deepseek-v3.2 via one provider) |
+| `OPENROUTER_API_KEY` | Shared OpenRouter key (covers gpt-4o-mini + deepseek-v3.2 + flash-lite via one provider) |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret key (server-only) |
@@ -50,25 +83,30 @@ See [`.env.local.example`](.env.local.example).
 | `MONTHLY_BUDGET_USD` | Kill switch (default `10`) |
 | `DAILY_MESSAGE_LIMIT` | Per-user daily cap (default `30`) |
 
+Optional (for full agent feature parity with hosted app):
+- `TAVILY_API_KEY` — web search for Lead Gen agent
+- `BRAVE_API_KEY` — fallback web search
+- `VERCEL_TOKEN` — deploy target for Coder agent
+- `COMPOSIO_API_KEY` — third-party tool connectors
+
 ## Deploy on Vercel
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Faiwithfloren-art%2Fcowork)
 
 After deploy, go to Project Settings → Environment Variables and paste in the values from `.env.local`.
 
-## Phase 1 features (live today)
+## What makes Sigap different
 
-- Sign in with Google → instant dashboard
-- Daily schedule, tasks, chat with AI (tool-calling Google APIs)
-- Private notes
-- BYO provider key (OpenRouter / OpenAI / Anthropic) for unlimited usage
-- Team workspaces, invite by email, privacy toggle
-- Manager dashboard with Ask-AI-about-member
-- Full audit log visible to every member
+| | ChatGPT Enterprise | Glean | Lindy / Genspark | **Sigap** |
+|---|---|---|---|---|
+| Smart chat | ✅ | ✅ | ✅ | ✅ |
+| Tool execution | ⚠️ Limited | ❌ | ✅ | ✅ Google Workspace today |
+| Team / Manager view | ❌ | ❌ | ❌ | ✅ |
+| Per-action audit trail | Usage stats only | ❌ | ❌ | ✅ |
+| Open-source (MIT) | ❌ | ❌ | ❌ | ✅ |
+| Self-hostable | ❌ | ❌ | ❌ | ✅ |
 
-## Phase 2 roadmap
-
-Slack · Gmail · Notion · Linear · GitHub · WhatsApp · real agent-to-agent protocol · fine-grained privacy rules · Stripe billing · SSO · Google OAuth verification.
+Manager Mode + open-source MIT are the two real moats today. Specialist agents and integrations are catching up.
 
 ## License
 
