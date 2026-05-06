@@ -4,9 +4,9 @@ import { signIn } from "@/auth";
 import { EnterpriseContactForm } from "@/components/enterprise-contact-form";
 
 export const metadata: Metadata = {
-  title: "Cowork Enterprise — AI Chief of Staff for your organization",
+  title: "Sigap Enterprise — AI agents for every role in your company",
   description:
-    "Shared AI skills, policy-governed agents, and Google Workspace-native workflows for your team. Managed cloud — no LLM keys, no infra, just turn it on.",
+    "Admin builds AI agents per role and assigns them to specific employees. Connect Canva, Notion, Slack, Google Workspace. Managed cloud — no LLM keys, no infra.",
 };
 
 // Server action — shared by every "Start free" button on the page.
@@ -23,7 +23,7 @@ export default function EnterprisePage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <span className="inline-block h-7 w-7 rounded-lg bg-gradient-to-br from-indigo-600 to-cyan-400" />
-            <span>Cowork</span>
+            <span>Sigap</span>
             <span className="ml-1 rounded-md bg-slate-900 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">
               Enterprise
             </span>
@@ -53,18 +53,19 @@ export default function EnterprisePage() {
         <div className="mx-auto max-w-6xl px-6 pt-16 pb-20 sm:pt-24">
           <div className="mx-auto max-w-3xl text-center">
             <p className="inline-block rounded-full border border-indigo-200 bg-white px-3 py-1 text-xs font-medium uppercase tracking-wider text-indigo-700">
-              Cowork Enterprise
+              Sigap Enterprise
             </p>
             <h1 className="mt-5 text-4xl font-bold tracking-tight text-slate-900 sm:text-6xl">
-              The AI Chief of Staff
+              AI agents for every role
               <br />
               <span className="bg-gradient-to-r from-indigo-600 to-cyan-500 bg-clip-text text-transparent">
-                for your whole organization
+                in your whole organization
               </span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600">
-              Shared AI skills, policy-governed agents, and Google
-              Workspace-native workflows. Managed cloud — no LLM keys to
+              Admin builds AI agents per role, assigns to specific employees,
+              tracks usage. Connect Canva, Notion, Slack, Google Workspace.
+              Managed cloud — no LLM keys to
               provision, no infra to run, just invite your team and go.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
@@ -349,8 +350,8 @@ export default function EnterprisePage() {
             />
             <Pillar
               emoji="🔌"
-              title="Google Workspace native"
-              body="Not just &quot;MCPs&quot; — deep, typed integration with Calendar, Tasks, Gmail, Drive. Scheduled digests. Meeting bot that auto-extracts action items."
+              title="Native + MCP integrations"
+              body="Native OAuth for Google Workspace, GitHub, Canva, Slack — plus MCP for Notion, Linear, and any custom MCP server. Connect once at company level, all agents inherit access."
               bullet={[
                 "Read + write across 4 Google APIs",
                 "Attendee.dev meeting transcription",
@@ -372,7 +373,7 @@ export default function EnterprisePage() {
               Turn it on, invite the team, ship
             </h2>
             <p className="mt-3 text-sm text-slate-300">
-              Cowork Enterprise runs on our managed cloud. We handle the
+              Sigap Enterprise runs on our managed cloud. We handle the
               infrastructure, model hosting, and updates — your team just
               signs in with Google and gets to work.
             </p>
@@ -444,9 +445,9 @@ export default function EnterprisePage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 text-sm text-slate-600">
               <span className="inline-block h-5 w-5 rounded-md bg-gradient-to-br from-indigo-600 to-cyan-400" />
-              <span className="font-semibold text-slate-900">Cowork</span>
+              <span className="font-semibold text-slate-900">Sigap</span>
               <span>·</span>
-              <span>AI Chief of Staff for your team</span>
+              <span>AI agents for your team</span>
             </div>
             <div className="flex items-center gap-5 text-sm text-slate-500">
               <Link href="/" className="hover:text-slate-900">

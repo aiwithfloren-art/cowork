@@ -127,49 +127,49 @@ export const dictionaries = {
       footerOss: "© Sigap · All rights reserved",
     },
     manager: {
-      hero: "Manager Mode",
+      hero: "Manager view",
       heroSub:
-        "Give managers real visibility into their teams without the micromanagement. Privacy-first by design.",
-      cta: "Create your workspace",
-      problemTitle: "The problem with traditional team visibility",
+        "Build AI agents per role, assign them to specific employees, and see what your team is working on — without status meetings.",
+      cta: "Set up your team workspace",
+      problemTitle: "Why managers struggle without this",
       problemBullets: [
-        "Status update meetings burn 3–5 hours per manager per week",
-        "Interrupting teammates for quick questions destroys deep work",
-        "Employee monitoring software is distrusted and hurts morale",
-        "New managers wait weeks to build context on their team",
+        "3–5 hours per week burned on status update meetings",
+        "Pinging teammates for context destroys their focus time",
+        "New hires take weeks to figure out which AI tool to use for what",
+        "No company-wide brand voice — every employee uses ChatGPT solo with random outputs",
       ],
-      solutionTitle: "How Sigap Manager Mode solves this",
+      solutionTitle: "How Sigap solves this",
       solutionDesc:
-        "Sigap gives managers a single dashboard with real-time visibility into their team, powered by AI that members explicitly opt-in to. No keystroke tracking. No screen recording. Just structured answers sourced from Google Calendar and Tasks, with every query visible to the team member.",
+        "Sigap gives managers a single workspace where they build AI agents tailored per role, assign to specific employees, and ask the AI for status updates. Audit transparent — every query visible to the team member.",
 
-      step1Title: "Step 1 · Create a workspace",
+      step1Title: "Step 1 · Create your team workspace",
       step1Desc:
-        "Go to the Team page and click 'Create Team'. Give it a name. You're automatically added as the owner.",
+        "Sign in with Google, create the org, invite members by email. Sigap sends invites automatically — they join in one click.",
 
-      step2Title: "Step 2 · Invite team members by email",
+      step2Title: "Step 2 · Build AI agents per role",
       step2Desc:
-        "Add emails and assign roles (Member or Manager). An invite email is sent via Resend automatically. Recipients sign in with Google and join in one click.",
+        "Just chat: \"Bikin agent buat content marketing pake Canva.\" Sigap auto-builds the agent with the right tools and instructions. No prompt engineering needed.",
 
-      step3Title: "Step 3 · Members opt-in to share",
+      step3Title: "Step 3 · Assign agents to employees",
       step3Desc:
-        "By default, members are private. They must explicitly toggle 'Share my work data with my manager'. Even then, managers only see Google Calendar event titles and Task titles — never email contents, never document bodies without explicit access.",
+        "Pick who gets which agent. Sigap auto-publishes the template + sends in-app + email notifications. Each employee logs in and finds their AI ready to use.",
 
-      step4Title: "Step 4 · Ask the AI anything",
+      step4Title: "Step 4 · Ask Sigap about your team",
       step4Desc:
-        "On a member's detail page, ask questions like 'What is Budi working on this week?' or 'Is Siti overloaded?'. The AI answers from structured data. Every query is logged to the audit_log table and visible to the team member.",
+        "\"What is Budi working on this week?\" \"What's Sarah's deadline?\" Sigap answers from their calendar, tasks, and agent activity — no need to ping anyone. Every query you make is visible to that team member.",
 
-      privacyTitle: "Privacy manifesto",
+      privacyTitle: "Trust by design",
       privacyManifesto: [
-        "Members control their own visibility. Default is private.",
+        "Members control their own visibility — default is opt-in only.",
         "Every manager query is logged and visible to the team member.",
         "We never track keystrokes, screens, or application usage.",
-        "Every action is recorded in an audit log — not for surveillance, but for accountability.",
-        "You can revoke access and delete your data anytime.",
+        "Audit log records every action — for accountability, not surveillance.",
+        "Revoke access and delete data anytime.",
       ],
 
-      pricingTitle: "Pricing (coming soon)",
+      pricingTitle: "Pricing",
       pricingDesc:
-        "Free during beta. Team tier will start at $79/org/month for up to 5 users when billing launches.",
+        "Free during beta. Pricing announced soon — sign up to be notified when team plans launch.",
 
       backHome: "← Back home",
     },
@@ -488,49 +488,49 @@ export const dictionaries = {
       footerOss: "© Sigap · All rights reserved",
     },
     manager: {
-      hero: "Manager Mode",
+      hero: "Manager view",
       heroSub:
-        "Memberi manager visibilitas nyata ke tim tanpa micromanagement. Privasi dulu, by design.",
-      cta: "Buat workspace Anda",
-      problemTitle: "Masalah dengan team visibility tradisional",
+        "Bikin AI agent per role, assign ke karyawan tertentu, dan lihat tim kamu kerjain apa — tanpa meeting status.",
+      cta: "Setup workspace tim kamu",
+      problemTitle: "Kenapa manager susah tanpa ini",
       problemBullets: [
-        "Meeting status update menghabiskan 3–5 jam per manager per minggu",
-        "Mengganggu anggota tim untuk pertanyaan kecil merusak deep work",
-        "Software monitoring karyawan tidak dipercaya dan menurunkan moral",
-        "Manager baru menunggu berminggu-minggu untuk membangun konteks",
+        "3–5 jam per minggu kebuang di meeting status update",
+        "Ping karyawan buat tanya konteks ngerusak focus time mereka",
+        "Karyawan baru butuh berminggu-minggu mikirin AI tool mana buat apa",
+        "Gak ada brand voice — tiap karyawan pake ChatGPT solo dengan output random",
       ],
-      solutionTitle: "Bagaimana Sigap Manager Mode memecahkan ini",
+      solutionTitle: "Cara Sigap nyelesain ini",
       solutionDesc:
-        "Sigap memberi manager satu dashboard dengan visibilitas real-time ke tim mereka, didukung AI yang anggota secara eksplisit opt-in. Tanpa keystroke tracking. Tanpa screen recording. Hanya jawaban terstruktur dari Google Calendar dan Tasks, dengan setiap query yang bisa dilihat oleh anggota tim.",
+        "Sigap kasih manager 1 workspace di mana mereka bisa bikin AI agent per role, assign ke karyawan tertentu, dan tanya AI buat update status. Audit transparan — setiap query kelihatan ke anggota tim.",
 
-      step1Title: "Langkah 1 · Buat workspace",
+      step1Title: "Step 1 · Bikin workspace tim",
       step1Desc:
-        "Buka halaman Team dan klik 'Create Team'. Beri nama. Anda otomatis jadi owner.",
+        "Login Google, bikin org, undang anggota via email. Sigap kirim invite otomatis — mereka join 1 klik.",
 
-      step2Title: "Langkah 2 · Undang anggota via email",
+      step2Title: "Step 2 · Bikin AI agent per role",
       step2Desc:
-        "Tambahkan email dan tentukan role (Member atau Manager). Email undangan otomatis terkirim via Resend. Penerima sign in dengan Google dan join dalam satu klik.",
+        "Tinggal chat: \"Bikin agent buat content marketing pake Canva.\" Sigap auto-bangun agent dengan tools dan instruksi yang pas. Gak perlu jago prompt.",
 
-      step3Title: "Langkah 3 · Anggota opt-in untuk share",
+      step3Title: "Step 3 · Assign agent ke karyawan",
       step3Desc:
-        "Secara default, anggota privat. Mereka harus secara eksplisit toggle 'Share data kerja saya dengan manager'. Bahkan setelah itu, manager hanya melihat judul event Google Calendar dan judul Task — tidak pernah isi email, tidak pernah isi dokumen tanpa akses eksplisit.",
+        "Pilih siapa dapet agent yang mana. Sigap auto-publish + kirim notif in-app + email. Tiap karyawan login, AI mereka udah siap.",
 
-      step4Title: "Langkah 4 · Tanya AI apa saja",
+      step4Title: "Step 4 · Tanya Sigap tentang tim",
       step4Desc:
-        "Di halaman detail anggota, tanya hal seperti 'Budi minggu ini ngerjain apa?' atau 'Siti overloaded nggak?'. AI jawab dari data terstruktur. Setiap query tercatat di audit log dan bisa dilihat anggota tim.",
+        "\"Apa yang Budi kerjain minggu ini?\" \"Deadline Sarah kapan?\" Sigap jawab dari calendar, tasks, dan aktivitas agent mereka — gak perlu ping siapa-siapa. Setiap query yang manager bikin kelihatan ke anggota tim itu.",
 
-      privacyTitle: "Manifesto privasi",
+      privacyTitle: "Trust by design",
       privacyManifesto: [
-        "Anggota mengontrol visibilitas mereka sendiri. Default privat.",
-        "Setiap query manager tercatat dan bisa dilihat anggota tim.",
-        "Kami tidak pernah track keystroke, layar, atau penggunaan aplikasi.",
-        "Setiap aksi tercatat di audit log — bukan untuk pengawasan, tapi untuk akuntabilitas.",
-        "Anda bisa revoke akses dan hapus data kapan saja.",
+        "Anggota kontrol visibilitas mereka sendiri — default opt-in.",
+        "Setiap query manager kelihatan ke anggota tim.",
+        "Kami gak pernah track keystroke, layar, atau penggunaan aplikasi.",
+        "Audit log catat tiap aksi — buat akuntabilitas, bukan surveillance.",
+        "Bisa revoke akses dan hapus data kapan aja.",
       ],
 
-      pricingTitle: "Harga (segera hadir)",
+      pricingTitle: "Harga",
       pricingDesc:
-        "Gratis selama beta. Team tier akan mulai $79/org/bulan untuk 5 user saat billing live.",
+        "Gratis selama beta. Pricing diumumkan segera — sign up untuk dapet notif waktu team plan launching.",
 
       backHome: "← Kembali",
     },
