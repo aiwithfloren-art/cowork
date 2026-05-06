@@ -51,6 +51,23 @@ export async function tryInterceptAgentDelegation(args: {
   // multiple delegations.
   if (message.length > 200) return null;
 
+  // CREATE-AGENT GUARD — if the user is asking to BUILD a new agent
+  // (not run an existing one), skip specialist routing so the main
+  // LLM gets to call create_ai_employee. Without this, messages like
+  // "buatkan aku agent baru buat ... carousel post" mis-route to the
+  // Content Creator agent (matches "buatkan ... post" in its regex)
+  // when intent is clearly to create a NEW agent, not run one.
+  if (
+    /\b(agent|ai\s*employee|asisten|specialist)\s*(baru|new|tambahan)\b/i.test(
+      message,
+    ) ||
+    /\b(bikin|bikinin|buatin|buatkan|create|make|new)\s+(\S+\s+){0,3}(ai\s*agent|agent|ai\s*employee|new\s+agent)\b/i.test(
+      message,
+    )
+  ) {
+    return null;
+  }
+
   for (const { agent, regex } of PATTERNS) {
     if (regex.test(message)) {
       const result = await runSubAgent({
