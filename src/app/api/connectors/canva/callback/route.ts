@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -58,7 +59,9 @@ export async function GET(req: Request) {
     );
   }
 
-  const redirectUri = `${url.origin}/api/connectors/canva/callback`;
+  // Must match the redirect_uri sent by /install (canonical URL, not the
+  // preview-deploy URL the user might be on).
+  const redirectUri = `${getAppUrl(req)}/api/connectors/canva/callback`;
 
   // Canva token endpoint: client credentials sent via Basic auth header.
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import crypto from "crypto";
+import { getAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
@@ -54,8 +55,12 @@ export async function GET(req: Request) {
     );
   }
 
-  const origin = new URL(req.url).origin;
-  const redirectUri = `${origin}/api/connectors/canva/callback`;
+  // Use the canonical app URL (NEXTAUTH_URL) instead of the request origin.
+  // Vercel preview deploys have URLs like cowork-abc123.vercel.app, but the
+  // Canva integration only has the production URL registered as a valid
+  // Redirect URL. Using req.url origin from a preview deploy → mismatch →
+  // Canva returns "client_id invalid" or "redirect_uri mismatch".
+  const redirectUri = `${getAppUrl(req)}/api/connectors/canva/callback`;
 
   const verifier = base64UrlEncode(crypto.randomBytes(64));
   const challenge = base64UrlEncode(

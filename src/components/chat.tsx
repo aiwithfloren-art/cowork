@@ -622,61 +622,31 @@ export function Chat({
               </div>
             </div>
           ) : (
-            <div className="mx-auto max-w-xl space-y-6 py-6">
+            <div className="mx-auto max-w-xl space-y-8 py-12">
               {(greetingHeadline || greetingFirstName) && (
                 <div className="text-center">
-                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                  <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
                     <LocalGreeting
                       fallback={greetingHeadline ?? ""}
                       firstName={greetingFirstName}
                       strings={greetingStrings}
                     />
                   </h1>
-                  {greetingSub && (
-                    <p className="mt-1 text-sm text-slate-500">{greetingSub}</p>
-                  )}
                 </div>
               )}
 
-              <div className="text-center">
-                <p className="text-sm text-slate-600">{t.askPrompt}</p>
-                <p className="mt-0.5 text-xs text-slate-400">
-                  Atau pilih specialist di bawah · @mention agent juga bisa
-                </p>
-              </div>
-
-              <div>
-                <p className="mb-3 text-center text-[10px] font-medium uppercase tracking-[0.15em] text-slate-400">
-                  Try a specialist
-                </p>
-                <div className="space-y-3">
-                  <SuggestionGroup title={t.suggestions.briefingTitle}>
-                    <SuggestionChip onClick={() => send(t.suggestions.briefing1)}>
-                      {t.suggestions.briefing1}
-                    </SuggestionChip>
-                    <SuggestionChip onClick={() => send(t.suggestions.briefing2)}>
-                      {t.suggestions.briefing2}
-                    </SuggestionChip>
-                  </SuggestionGroup>
-
-                  <SuggestionGroup title={t.suggestions.actionTitle}>
-                    <SuggestionChip onClick={() => send(t.suggestions.action1)}>
-                      {t.suggestions.action1}
-                    </SuggestionChip>
-                    <SuggestionChip onClick={() => send(t.suggestions.action2)}>
-                      {t.suggestions.action2}
-                    </SuggestionChip>
-                  </SuggestionGroup>
-
-                  <SuggestionGroup title={t.suggestions.insightTitle}>
-                    <SuggestionChip onClick={() => send(t.suggestions.insight1)}>
-                      {t.suggestions.insight1}
-                    </SuggestionChip>
-                    <SuggestionChip onClick={() => send(t.suggestions.insight2)}>
-                      {t.suggestions.insight2}
-                    </SuggestionChip>
-                  </SuggestionGroup>
-                </div>
+              {/* Compact specialist chips — 4-5 short prompts horizontal,
+                  Claude.ai-style. No category headers, no sub-paragraphs. */}
+              <div className="flex flex-wrap justify-center gap-2">
+                <SuggestionChip onClick={() => send(t.suggestions.briefing1)}>
+                  🎯 {t.suggestions.briefing1}
+                </SuggestionChip>
+                <SuggestionChip onClick={() => send(t.suggestions.action1)}>
+                  🎨 {t.suggestions.action1}
+                </SuggestionChip>
+                <SuggestionChip onClick={() => send(t.suggestions.insight1)}>
+                  💻 {t.suggestions.insight1}
+                </SuggestionChip>
               </div>
             </div>
           )
