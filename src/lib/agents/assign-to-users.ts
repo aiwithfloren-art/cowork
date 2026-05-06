@@ -146,7 +146,7 @@ export async function assignTemplateToUsers(args: {
       kind: "agent_assigned",
       title: `${actor.name ?? "Admin"} assigned an agent to you`,
       body: `${template.emoji ?? "🤖"} ${template.name}${note ? ` — Note: ${note}` : ""}`,
-      link: `/skills/${slug}`,
+      link: `/agents/${slug}`,
     });
 
     // Email (best-effort).
@@ -164,7 +164,7 @@ export async function assignTemplateToUsers(args: {
           agentName: template.name,
           agentEmoji: template.emoji ?? "🤖",
           note,
-          openUrl: `/skills/${slug}`,
+          openUrl: `/agents/${slug}`,
         });
       }
     } catch (e) {

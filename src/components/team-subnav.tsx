@@ -15,8 +15,7 @@ export function TeamSubnav({ showAdmin }: { showAdmin: boolean }) {
   const pathname = usePathname();
 
   const items = [
-    { href: "/team", label: "Members & profile", icon: "👥" },
-    { href: "/team/skills", label: "Skill Hub", icon: "📚" },
+    { href: "/team", label: "Members", icon: "👥" },
     { href: "/team/admin/assignments", label: "Assignments", icon: "📌" },
     { href: "/team/connectors", label: "Shared tools", icon: "🔌" },
     ...(showAdmin
