@@ -57,14 +57,21 @@ export async function tryInterceptAgentDelegation(args: {
   // "buatkan aku agent baru buat ... carousel post" mis-route to the
   // Content Creator agent (matches "buatkan ... post" in its regex)
   // when intent is clearly to create a NEW agent, not run one.
-  if (
-    /\b(agent|ai\s*employee|asisten|specialist)\s*(baru|new|tambahan)\b/i.test(
+  const lower = message.toLowerCase();
+  const hasAgentWord = /\b(agent|asisten|asistan|ai\s*employee|specialist)\b/i.test(
+    message,
+  );
+  const hasCreateWord =
+    /\b(bikin|bikinin|buatin|buatkan|buat|create|make|new|tambah(in|an)?|setup)\b/i.test(
       message,
-    ) ||
-    /\b(bikin|bikinin|buatin|buatkan|create|make|new)\s+(\S+\s+){0,3}(ai\s*agent|agent|ai\s*employee|new\s+agent)\b/i.test(
-      message,
-    )
-  ) {
+    );
+  const hasNewMarker = /\b(baru|new|tambahan|fresh)\b/i.test(message);
+
+  if (hasAgentWord && (hasCreateWord || hasNewMarker)) {
+    console.log(
+      "[agent-delegation] CREATE_AGENT guard fired — routing to main LLM:",
+      lower.slice(0, 80),
+    );
     return null;
   }
 
