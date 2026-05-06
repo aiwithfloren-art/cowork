@@ -214,10 +214,16 @@ export function Chat({
     )
     .slice(0, 6);
 
-  // Load prior session messages — explicit resumeId from /history, or on
-  // fresh dashboard mount, the latest session (so navigating away and back
-  // doesn't blank the conversation).
+  // Load prior session messages ONLY when there's an explicit resumeId
+  // (from sidebar / /history click). Fresh dashboard visit starts blank
+  // — per founder feedback, auto-loading the latest session every visit
+  // made the page feel cluttered and confusing. Recents list in the
+  // sidebar is the explicit affordance to resume an old chat.
+  // Inside an agent slug page we still pull the latest agent-specific
+  // session because that page IS scoped to one agent — opening it and
+  // seeing a blank chat would feel broken there.
   useEffect(() => {
+    if (!resumeId && !agentSlug) return; // dashboard fresh visit → empty
     (async () => {
       try {
         const params = new URLSearchParams();
