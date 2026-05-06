@@ -10,7 +10,11 @@ type Member = {
 };
 
 type Props = {
-  templateId: string;
+  // Either an already-published template id, or a personal agent slug
+  // (for the "publish-if-needed + assign" quick flow). Exactly one of
+  // templateId / agentSlug should be set.
+  templateId?: string;
+  agentSlug?: string;
   templateName: string;
   templateEmoji: string | null;
   members: Member[];
@@ -21,6 +25,7 @@ type Props = {
 
 export function AssignAgentModal({
   templateId,
+  agentSlug,
   templateName,
   templateEmoji,
   members,
@@ -61,8 +66,11 @@ export function AssignAgentModal({
     if (selected.size === 0) return;
     setBusy(true);
     setError(null);
+    const endpoint = templateId
+      ? `/api/agents/template/${templateId}/assign`
+      : `/api/agents/${encodeURIComponent(agentSlug!)}/quick-assign`;
     try {
-      const res = await fetch(`/api/agents/template/${templateId}/assign`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
