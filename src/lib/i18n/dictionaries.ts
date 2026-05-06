@@ -90,6 +90,40 @@ export const dictionaries = {
       integrationsSub:
         "Login once with your account — agents inherit access. No per-employee setup.",
 
+      seeTourCta: "See product tour ↓",
+      stat1: "10+ integrations",
+      stat2: "6 departments",
+      stat3: "Setup in 5 min",
+
+      tourTitle: "Here's what it looks like",
+      tourSub:
+        "From admin building an agent in chat to assigning it to specific employees — the whole flow.",
+      tourStep1Title: "Admin describes the role in chat",
+      tourStep1Desc:
+        "No prompt engineering needed. Sigap auto-builds the agent with the right tools and instructions.",
+      tourStep2Title: "Agent shows up in /agents",
+      tourStep2Desc:
+        "Single hub: team agents (org-wide), my drafts, and what's assigned to you. One click to open.",
+      tourStep3Title: "Pick employees + assign",
+      tourStep3Desc:
+        "Select who gets which agent. Sigap auto-publishes + sends in-app + email notifications.",
+
+      problemTitle: "Without Sigap vs With Sigap",
+      problemSub:
+        "Why companies are moving from \"every employee uses ChatGPT individually\" to a managed AI workspace.",
+      pCol1Title: "Without Sigap",
+      pCol1B1: "Every employee sets up their own AI",
+      pCol1B2: "No company brand voice — generic outputs",
+      pCol1B3: "Manager can't see what AI did for whom",
+      pCol1B4: "Tools (Canva, Notion, Slack) connected one-by-one",
+      pCol1B5: "New hire: 2 weeks to figure out which AI to use",
+      pCol2Title: "With Sigap",
+      pCol2B1: "Admin builds AI once, assigns to whoever needs it",
+      pCol2B2: "Brand voice memorized — every output on-brand",
+      pCol2B3: "Manager sees agents per employee + activity audit",
+      pCol2B4: "Connect tools once at the company level",
+      pCol2B5: "New hire: opens Sigap, agents pre-loaded for their role",
+
       footerOss: "© Sigap · All rights reserved",
     },
     manager: {
@@ -416,6 +450,40 @@ export const dictionaries = {
       integrationsTitle: "Connect tools yang udah dipake tim kamu",
       integrationsSub:
         "Login 1x dengan akun kamu — semua agent dapet akses. Gak perlu setup per-karyawan.",
+
+      seeTourCta: "Lihat product tour ↓",
+      stat1: "10+ integrasi",
+      stat2: "6 departemen",
+      stat3: "Setup 5 menit",
+
+      tourTitle: "Begini tampilannya",
+      tourSub:
+        "Dari admin bikin agent di chat sampe assign ke karyawan tertentu — alur lengkapnya.",
+      tourStep1Title: "Admin cerita role-nya di chat",
+      tourStep1Desc:
+        "Gak perlu jago prompt. Sigap auto-bangun agent dengan tools dan instruksi yang pas.",
+      tourStep2Title: "Agent muncul di /agents",
+      tourStep2Desc:
+        "1 hub: team agents (org-wide), my drafts, dan yang di-assign ke kamu. 1 klik buat buka.",
+      tourStep3Title: "Pilih karyawan + assign",
+      tourStep3Desc:
+        "Centang siapa dapet agent yang mana. Sigap auto-publish + kirim notif in-app + email.",
+
+      problemTitle: "Tanpa Sigap vs Dengan Sigap",
+      problemSub:
+        "Kenapa perusahaan pindah dari \"tiap karyawan pake ChatGPT sendiri-sendiri\" ke managed AI workspace.",
+      pCol1Title: "Tanpa Sigap",
+      pCol1B1: "Tiap karyawan setup AI mereka sendiri",
+      pCol1B2: "Gak ada brand voice perusahaan — output generic",
+      pCol1B3: "Manager gak liat AI ngerjain apa buat siapa",
+      pCol1B4: "Tools (Canva, Notion, Slack) di-connect satu-satu",
+      pCol1B5: "Karyawan baru: 2 minggu mikirin AI mana yang dipake",
+      pCol2Title: "Dengan Sigap",
+      pCol2B1: "Admin bikin AI sekali, assign ke yang butuh",
+      pCol2B2: "Brand voice ke-memorize — output selalu on-brand",
+      pCol2B3: "Manager liat agent per karyawan + audit aktivitas",
+      pCol2B4: "Connect tools sekali di level perusahaan",
+      pCol2B5: "Karyawan baru: buka Sigap, agent udah pre-loaded buat role-nya",
 
       footerOss: "© Sigap · All rights reserved",
     },

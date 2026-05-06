@@ -3,6 +3,11 @@ import { auth, signIn } from "@/auth";
 import { redirect } from "next/navigation";
 import { getDict, getLocale } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
+import {
+  ChatCreatingAgentMockup,
+  AgentsGridMockup,
+  AssignModalMockup,
+} from "@/components/landing-mockups";
 
 export default async function LandingPage() {
   const session = await auth();
@@ -53,27 +58,185 @@ export default async function LandingPage() {
           {t.heroSub}
         </p>
 
-        <form
-          action={async () => {
-            "use server";
-            await signIn("google", { redirectTo: "/dashboard" });
-          }}
-          className="mt-10"
-        >
-          <button
-            type="submit"
-            className="inline-flex items-center gap-3 rounded-xl bg-slate-900 px-6 py-3 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800"
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+          <form
+            action={async () => {
+              "use server";
+              await signIn("google", { redirectTo: "/dashboard" });
+            }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24">
-              <path
-                fill="#fff"
-                d="M21.8 10.2h-9.8v3.9h5.6c-.2 1.5-1.6 4.4-5.6 4.4a6.5 6.5 0 1 1 0-13c2 0 3.4.9 4.1 1.6l2.8-2.7C17.1 2.8 14.8 1.9 12 1.9A10 10 0 1 0 22 12a9.6 9.6 0 0 0-.2-1.8z"
-              />
-            </svg>
-            {t.signIn}
-          </button>
-        </form>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-3 rounded-xl bg-slate-900 px-6 py-3 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24">
+                <path
+                  fill="#fff"
+                  d="M21.8 10.2h-9.8v3.9h5.6c-.2 1.5-1.6 4.4-5.6 4.4a6.5 6.5 0 1 1 0-13c2 0 3.4.9 4.1 1.6l2.8-2.7C17.1 2.8 14.8 1.9 12 1.9A10 10 0 1 0 22 12a9.6 9.6 0 0 0-.2-1.8z"
+                />
+              </svg>
+              {t.signIn}
+            </button>
+          </form>
+          <Link
+            href="#tour"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 hover:border-slate-400"
+          >
+            {t.seeTourCta}
+          </Link>
+        </div>
         <p className="mt-4 text-xs text-slate-500">{t.freeNote}</p>
+
+        {/* Stat strip */}
+        <div className="mx-auto mt-10 flex max-w-2xl flex-wrap items-center justify-center gap-x-8 gap-y-2 text-xs text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            {t.stat1}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+            {t.stat2}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-500" />
+            {t.stat3}
+          </span>
+        </div>
+      </section>
+
+      {/* PRODUCT TOUR — visual mockups */}
+      <section id="tour" className="border-t border-slate-200 bg-slate-50">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold text-slate-900">
+              {t.tourTitle}
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">{t.tourSub}</p>
+          </div>
+
+          <div className="mt-12 space-y-16">
+            {/* Step 1 — Chat */}
+            <div className="grid items-center gap-8 md:grid-cols-2">
+              <div>
+                <span className="inline-block rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                  Step 1
+                </span>
+                <h3 className="mt-2 text-2xl font-bold text-slate-900">
+                  {t.tourStep1Title}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  {t.tourStep1Desc}
+                </p>
+              </div>
+              <ChatCreatingAgentMockup locale={locale} />
+            </div>
+
+            {/* Step 2 — Agents grid */}
+            <div className="grid items-center gap-8 md:grid-cols-2">
+              <div className="md:order-2">
+                <span className="inline-block rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                  Step 2
+                </span>
+                <h3 className="mt-2 text-2xl font-bold text-slate-900">
+                  {t.tourStep2Title}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  {t.tourStep2Desc}
+                </p>
+              </div>
+              <div className="md:order-1">
+                <AgentsGridMockup locale={locale} />
+              </div>
+            </div>
+
+            {/* Step 3 — Assign modal */}
+            <div className="grid items-center gap-8 md:grid-cols-2">
+              <div>
+                <span className="inline-block rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                  Step 3
+                </span>
+                <h3 className="mt-2 text-2xl font-bold text-slate-900">
+                  {t.tourStep3Title}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  {t.tourStep3Desc}
+                </p>
+              </div>
+              <AssignModalMockup locale={locale} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PROBLEM/SOLUTION SPLIT */}
+      <section className="border-t border-slate-200 bg-white">
+        <div className="mx-auto max-w-5xl px-6 py-20">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-slate-900">
+              {t.problemTitle}
+            </h2>
+            <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-600">
+              {t.problemSub}
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-red-100 bg-red-50/50 p-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-red-700">
+                ❌ {t.pCol1Title}
+              </p>
+              <ul className="mt-4 space-y-3 text-sm text-slate-700">
+                <li className="flex gap-3">
+                  <span className="text-red-500">•</span>
+                  <span>{t.pCol1B1}</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-red-500">•</span>
+                  <span>{t.pCol1B2}</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-red-500">•</span>
+                  <span>{t.pCol1B3}</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-red-500">•</span>
+                  <span>{t.pCol1B4}</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-red-500">•</span>
+                  <span>{t.pCol1B5}</span>
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                ✅ {t.pCol2Title}
+              </p>
+              <ul className="mt-4 space-y-3 text-sm text-slate-700">
+                <li className="flex gap-3">
+                  <span className="text-emerald-600">•</span>
+                  <span>{t.pCol2B1}</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-emerald-600">•</span>
+                  <span>{t.pCol2B2}</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-emerald-600">•</span>
+                  <span>{t.pCol2B3}</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-emerald-600">•</span>
+                  <span>{t.pCol2B4}</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-emerald-600">•</span>
+                  <span>{t.pCol2B5}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* HOW IT WORKS — 3-step (the new core narrative) */}
@@ -100,7 +263,43 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* USE CASES — broad, not marketing-niched */}
+      {/* MANAGER MODE — moved up from bottom to mid */}
+      <section className="bg-slate-900">
+        <div className="mx-auto max-w-5xl px-6 py-24">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-cyan-400">
+            Manager view
+          </p>
+          <h2 className="text-4xl font-bold tracking-tight text-white">
+            {t.managerPitchTitle}
+          </h2>
+          <p className="mt-4 text-lg text-slate-300">{t.managerPitchSub}</p>
+
+          <div className="mt-12 grid gap-6 sm:grid-cols-2">
+            <ManagerStep
+              num="1"
+              title={t.managerPitchStep1Title}
+              desc={t.managerPitchStep1Desc}
+            />
+            <ManagerStep
+              num="2"
+              title={t.managerPitchStep2Title}
+              desc={t.managerPitchStep2Desc}
+            />
+            <ManagerStep
+              num="3"
+              title={t.managerPitchStep3Title}
+              desc={t.managerPitchStep3Desc}
+            />
+            <ManagerStep
+              num="4"
+              title={t.managerPitchStep4Title}
+              desc={t.managerPitchStep4Desc}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* USE CASES */}
       <section className="border-t border-slate-200 bg-slate-50">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="text-center">
@@ -144,42 +343,6 @@ export default async function LandingPage() {
             <IntegrationLogo emoji="🤖" name="Telegram" />
             <IntegrationLogo emoji="🔗" name="Custom MCP" />
             <IntegrationLogo emoji="➕" name="& more" muted />
-          </div>
-        </div>
-      </section>
-
-      {/* MANAGER MODE — reframed */}
-      <section className="bg-slate-900">
-        <div className="mx-auto max-w-5xl px-6 py-24">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-cyan-400">
-            Manager view
-          </p>
-          <h2 className="text-4xl font-bold tracking-tight text-white">
-            {t.managerPitchTitle}
-          </h2>
-          <p className="mt-4 text-lg text-slate-300">{t.managerPitchSub}</p>
-
-          <div className="mt-12 grid gap-6 sm:grid-cols-2">
-            <ManagerStep
-              num="1"
-              title={t.managerPitchStep1Title}
-              desc={t.managerPitchStep1Desc}
-            />
-            <ManagerStep
-              num="2"
-              title={t.managerPitchStep2Title}
-              desc={t.managerPitchStep2Desc}
-            />
-            <ManagerStep
-              num="3"
-              title={t.managerPitchStep3Title}
-              desc={t.managerPitchStep3Desc}
-            />
-            <ManagerStep
-              num="4"
-              title={t.managerPitchStep4Title}
-              desc={t.managerPitchStep4Desc}
-            />
           </div>
         </div>
       </section>
