@@ -54,8 +54,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // 5-6 primary nav items — Approvals only visible to owner/manager.
   const navItems = [
     { href: "/dashboard", label: "Home" },
-    { href: "/agents", label: "AI Employees", badge: agentCount },
+    { href: "/skills", label: "Skills", badge: agentCount },
     { href: "/artifacts", label: "Artifacts", badge: artifactCount },
+    { href: "/integrations", label: "Integrations" },
     ...(showApprovals
       ? [{ href: "/approvals", label: "Approvals", badge: pendingApprovals }]
       : []),

@@ -1,121 +1,91 @@
-# Sigap (Cowork)
+# Sigap
 
-**Open-source AI workspace for teams — with built-in Manager Mode.**
+**Manager Mode for AI Agents.**
 
-AI yang ngerjain. Bos yang bisa lihat.
+*AI agents that work. Visibility for managers who can't code.*
 
-Sigap is an AI workspace built around **two ideas at the same time**:
-1. **AI that does work** — connected to Google Workspace tools, with specialist agents shipping for marketing, sales, and engineering tasks.
-2. **Manager Mode** — every AI action is logged, every member opts in to share, and managers see what AI is doing across the team without interrupting deep work.
-
-Live demo: **[sigap.app](https://sigap.app)** · License: **MIT**
+Live at **[sigap.app](https://sigap.app)** · Built for non-technical teams in Southeast Asia.
 
 ---
 
-## ✅ What's live today
+## What Sigap is
 
-- 🤖 **Personal AI assistant** — reads your Google Calendar, Tasks, Drive, Docs via tool calling
-- 🧑‍💼 **Manager Mode (real moat)** — `Ask AI about teammates` without pinging them, every query logged, member opts in to share
-- 🔐 **Full audit trail** — every action records user · agent · tool · data · output, visible to every team member
-- 👥 **Team workspaces** — invite by email, per-member privacy toggle, manager dashboard
-- 🔌 **Model-agnostic backend** — OpenRouter, swap models by changing one line (UI model selector coming)
-- 💸 **BYO provider key** — bring your own OpenRouter / OpenAI / Anthropic key for unlimited usage; default shared key gives 30 messages/day
-- 🟢 **Onboarding wizard + tutorial** — sign up, connect Google, start chatting in under 5 minutes
+A managed AI workspace where teams of 5–50 people get specialized AI agents that ship real work — and where line managers (not IT admins) get a single dashboard to see what AI is helping each team member with.
+
+**For teams:** AI agents that act, not just chat. Lead Gen, Content Creator, Coder — and you can build custom agents through plain conversation.
+
+**For managers:** Manager Mode. One dashboard showing what your team's AI did today, what data it touched, and where it's helping most. No reading chat transcripts. No IT setup.
+
+---
+
+## ✅ Live today
+
+- 🤖 **Personal AI assistant** — connected to Google Calendar, Tasks, Drive, Docs
+- 🧑‍💼 **Manager Mode** — line-manager view of team AI activity
+- 🔐 **Audit trail** — every action recorded: user · agent · tool · data · output
+- 👥 **Team workspaces** — invite by email, per-member privacy toggle
+- 🎯 **3 specialist agents:** Lead Gen, Content Creator, Coder
+- 💬 **Custom agents via chat** — describe what you want, Sigap builds it
+- 🟢 **Onboarding wizard** — sign up to first agent run in under 5 minutes
+- 🔌 **Fully managed** — no API keys to juggle, no models to pick
 
 ## 🚧 In active development
 
-These are wired up in the codebase and visible in the UI, but **not fully production-grade yet** — expect rough edges:
+- ⚠️ **Composio integration** — Notion, GitHub, Slack OAuth (UX still being polished)
+- ⚠️ **Carousel / image generation** — limited templates today
+- ⚠️ **Telegram / Slack notifications** — beta-quality bot wiring
 
-- ⚠️ **3 specialist agents** auto-install on org creation:
-  | Agent | Purpose |
-  |---|---|
-  | 🎯 **Lead Gen** | Cari prospek + scrape kontak → Google Sheet |
-  | 🎨 **Content Creator** | Carousel + caption sesuai brand tone |
-  | 🧑‍💻 **Coder** | Build + deploy website ke Vercel |
+## 🔭 Roadmap
 
-  Tool integrations (Sheets write, Vercel deploy, image generation) work end-to-end on the hosted app. Self-hosters will need to wire up their own provider keys for each tool.
-- ⚠️ **Custom agent creation via chat** — users describe a new agent in natural language (e.g. *"Bikin agent buat sortir email customer service"*) and Sigap creates it. Works today. A dedicated form-builder UI (fields for name, tools, boundaries) is not built yet.
-- ⚠️ **Composio integration** — connectors to Notion, GitHub, Stripe, Slack via OAuth. Wired but rough — connect/disconnect UX still being polished.
-- ⚠️ **Telegram / Slack notifications** — basic bot wiring exists, beta quality.
-- ⚠️ **Carousel / image generation** — works with PNG output, served via Supabase Storage. Limited templates today.
+- WhatsApp Business integration
+- Mobile app (iOS + Android)
+- Stripe self-serve billing
+- SSO (SAML / OAuth Workforce) — Enterprise tier
+- Form-based agent builder UI (alongside chat)
+- Indonesian-native prompt tuning
 
-## 🔭 Roadmap (not yet built)
+---
 
-- ❌ **Form-based agent builder UI** (today: custom agents are created via chat; pre-built templates live in `src/lib/starter-kit.ts`)
-- ❌ **WhatsApp Business API integration**
-- ❌ **Multi-LLM routing UI** — backend supports it, no user-facing model switcher yet
-- ❌ **SSO (SAML / OAuth Workforce)**
-- ❌ **Stripe billing flow**
-- ❌ **Self-host docs (production-grade)**
-- ❌ **Indonesian-native prompt tuning** (today: works in Bahasa, but edge cases still kaku)
+## Pricing
 
-## Stack
+| Tier | For | Price |
+|---|---|---|
+| **Starter** | Teams up to 5 users | $79/org/month |
+| **Team** | Teams up to 30 users (+ Manager Mode + custom agents + audit) | $99/org/month |
+| **Enterprise** | Custom (+ SSO, SLA, dedicated support, on-premise option) | Talk to sales |
 
-Next.js 16 · Supabase (Postgres + Storage + Auth) · NextAuth · Vercel AI SDK · OpenRouter · Tailwind · TypeScript
+API costs included in subscription. No metered billing surprises.
 
-## Quick start (self-host)
+---
 
-### Prerequisites
-- Node.js 20+
-- A Supabase project (free tier works)
-- A Google Cloud OAuth client with Calendar, Tasks, Drive, Docs scopes enabled
-- An OpenRouter API key (top up ≥ $10 to avoid free-tier throttling)
+## How Sigap is different
 
-### Setup
+| | Glean | ChatGPT Enterprise | Lindy | Claude Cowork | **Sigap** |
+|---|---|---|---|---|---|
+| Min seats | 100 | 150 | 1 (solo) | 1 (solo) | 1 org (5 users) |
+| Floor price | $60K/yr | $108K/yr | $49/mo per user | $20–200/mo per user | **$79/mo per org** |
+| Team / manager UX | IT admin only | None | None | None | **Yes — line manager** |
+| Bahasa Indonesia native | No | No | No | No | **Yes** |
+| Self-serve setup | No | No | Yes | Yes | **Yes** |
+| Form factor | Web SaaS | Web | Web SaaS | Desktop app | **Web (mobile-friendly)** |
+| Primary use | Search & retrieve | Chat + tasks | Email/CRM automation | Desktop file ops | **AI agent workforce + manager view** |
 
-```bash
-git clone https://github.com/aiwithfloren-art/cowork.git
-cd cowork
-npm install
-cp .env.local.example .env.local
-# Fill in the values
-psql "$DATABASE_URL" -f supabase/schema.sql
-npm run dev
-```
+The category we're building: **Manager Mode for AI agents.** Every other tool optimizes for IT admins, single users, or developers. Sigap is the first built for line managers and their non-technical teams.
 
-Open <http://localhost:3000>.
+---
 
-### Env vars
+## Get access
 
-See [`.env.local.example`](.env.local.example).
+- **Try the product:** [sigap.app](https://sigap.app)
+- **Pricing & demo:** [sigap.app/pricing](https://sigap.app/pricing)
+- **For investors / press:** [hello@sigap.app](mailto:hello@sigap.app)
 
-| Var | Purpose |
-|---|---|
-| `OPENROUTER_API_KEY` | Shared OpenRouter key (covers gpt-4o-mini + deepseek-v3.2 + flash-lite via one provider) |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret key (server-only) |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
-| `MONTHLY_BUDGET_USD` | Kill switch (default `10`) |
-| `DAILY_MESSAGE_LIMIT` | Per-user daily cap (default `30`) |
+---
 
-Optional (for full agent feature parity with hosted app):
-- `TAVILY_API_KEY` — web search for Lead Gen agent
-- `BRAVE_API_KEY` — fallback web search
-- `VERCEL_TOKEN` — deploy target for Coder agent
-- `COMPOSIO_API_KEY` — third-party tool connectors
+## Stack (for reference)
 
-## Deploy on Vercel
+Next.js 16 · Supabase · Vercel AI SDK · OpenRouter · TypeScript
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Faiwithfloren-art%2Fcowork)
+---
 
-After deploy, go to Project Settings → Environment Variables and paste in the values from `.env.local`.
-
-## What makes Sigap different
-
-| | ChatGPT Enterprise | Glean | Lindy / Genspark | **Sigap** |
-|---|---|---|---|---|
-| Smart chat | ✅ | ✅ | ✅ | ✅ |
-| Tool execution | ⚠️ Limited | ❌ | ✅ | ✅ Google Workspace today |
-| Team / Manager view | ❌ | ❌ | ❌ | ✅ |
-| Per-action audit trail | Usage stats only | ❌ | ❌ | ✅ |
-| Open-source (MIT) | ❌ | ❌ | ❌ | ✅ |
-| Self-hostable | ❌ | ❌ | ❌ | ✅ |
-
-Manager Mode + open-source MIT are the two real moats today. Specialist agents and integrations are catching up.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+© 2026 Sigap. All rights reserved.

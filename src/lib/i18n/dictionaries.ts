@@ -14,13 +14,13 @@ export const dictionaries = {
       signOut: "Sign out",
     },
     landing: {
-      badge: "Open source · Privacy-first · Model-agnostic",
+      badge: "Built for non-tech teams · Privacy-first · Manager Mode",
       heroTitle1: "Sigap — your AI Chief of Staff.",
       heroTitle2: "Built for outcomes, not interruptions.",
       heroSub:
         "Sigap reads your Google Calendar and Tasks so you can make better decisions faster — and gives managers visibility into their team without sending another status-update message. Sigap is Indonesian for 'swift, ready, responsive'.",
       signIn: "Sign in with Google",
-      freeNote: "Free during beta · 30 messages/day · BYOK for unlimited",
+      freeNote: "Free during beta · 30 messages/day · Paid plans coming soon",
 
       featuresTitle: "What Sigap does",
       featuresSub: "Everything you need to run your day and your team.",
@@ -65,7 +65,7 @@ export const dictionaries = {
         "Team members see exactly what their manager asked about them. Full transparency. Trust by design.",
       managerPitchCta: "Explore Manager Mode →",
 
-      footerOss: "Open source · MIT licensed",
+      footerOss: "© Sigap · All rights reserved",
     },
     manager: {
       hero: "Manager Mode",
@@ -104,13 +104,13 @@ export const dictionaries = {
         "Members control their own visibility. Default is private.",
         "Every manager query is logged and visible to the team member.",
         "We never track keystrokes, screens, or application usage.",
-        "Sigap is open source — verify the code yourself on GitHub.",
+        "Every action is recorded in an audit log — not for surveillance, but for accountability.",
         "You can revoke access and delete your data anytime.",
       ],
 
       pricingTitle: "Pricing (coming soon)",
       pricingDesc:
-        "Free forever for individuals. Team tier will start at $8/user/month when billing launches. Self-host is always free under MIT license.",
+        "Free during beta. Team tier will start at $79/org/month for up to 5 users when billing launches.",
 
       backHome: "← Back home",
     },
@@ -316,13 +316,13 @@ export const dictionaries = {
       signOut: "Keluar",
     },
     landing: {
-      badge: "Open source · Privasi dulu · Bebas pilih model",
+      badge: "Dibangun untuk tim non-teknis · Privasi dulu · Manager Mode",
       heroTitle1: "Sigap — AI Chief of Staff Anda.",
       heroTitle2: "Dibangun untuk hasil, bukan interupsi.",
       heroSub:
         "Sigap membaca Google Calendar dan Tasks Anda sehingga Anda bisa mengambil keputusan lebih cepat — dan memberi manager visibilitas ke tim tanpa harus mengirim pesan status-update lagi.",
       signIn: "Masuk dengan Google",
-      freeNote: "Gratis selama beta · 30 pesan/hari · BYOK untuk unlimited",
+      freeNote: "Gratis selama beta · 30 pesan/hari · Paid plan segera hadir",
 
       featuresTitle: "Apa yang Sigap bisa lakukan",
       featuresSub: "Semua yang Anda butuhkan untuk mengatur hari dan tim Anda.",
@@ -367,7 +367,7 @@ export const dictionaries = {
         "Anggota tim melihat persis apa yang ditanyakan manager tentang mereka. Transparansi penuh. Trust by design.",
       managerPitchCta: "Jelajahi Manager Mode →",
 
-      footerOss: "Open source · MIT licensed",
+      footerOss: "© Sigap · All rights reserved",
     },
     manager: {
       hero: "Manager Mode",
@@ -406,13 +406,13 @@ export const dictionaries = {
         "Anggota mengontrol visibilitas mereka sendiri. Default privat.",
         "Setiap query manager tercatat dan bisa dilihat anggota tim.",
         "Kami tidak pernah track keystroke, layar, atau penggunaan aplikasi.",
-        "Sigap open source — verifikasi kode-nya sendiri di GitHub.",
+        "Setiap aksi tercatat di audit log — bukan untuk pengawasan, tapi untuk akuntabilitas.",
         "Anda bisa revoke akses dan hapus data kapan saja.",
       ],
 
       pricingTitle: "Harga (segera hadir)",
       pricingDesc:
-        "Gratis selamanya untuk individu. Team tier akan mulai $8/user/bulan saat billing live. Self-host selalu gratis di bawah lisensi MIT.",
+        "Gratis selama beta. Team tier akan mulai $79/org/bulan untuk 5 user saat billing live.",
 
       backHome: "← Kembali",
     },

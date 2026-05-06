@@ -6,7 +6,6 @@ export default function PrivacyPage() {
 
       <h2>TL;DR</h2>
       <ul>
-        <li>Sigap is open source. Inspect the code on GitHub.</li>
         <li>We store your Google OAuth tokens encrypted in Supabase to read your Calendar and Tasks on your behalf.</li>
         <li>We do NOT sell your data. We do NOT train models on your data.</li>
         <li>Your chat history is stored so you can see it; you can delete your account to remove everything.</li>
@@ -54,7 +53,7 @@ export default function PrivacyPage() {
       </p>
 
       <h2>Contact</h2>
-      <p>Open an issue on our GitHub repo or reach out via email.</p>
+      <p>Email <a href="mailto:hello@sigap.app">hello@sigap.app</a> for any questions or data-deletion requests.</p>
     </main>
   );
 }

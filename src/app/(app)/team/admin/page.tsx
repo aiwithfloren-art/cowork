@@ -286,15 +286,15 @@ export default async function AdminPage() {
 
       <Card>
         <CardHeader className="flex items-center justify-between">
-          <CardTitle>AI Employees</CardTitle>
+          <CardTitle>Skills</CardTitle>
           <span className="text-xs text-slate-500">{employeeRows.length}</span>
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-xs text-slate-500">
-            Per-employee governance. Changes save automatically. Use{" "}
-            <strong>Visibility</strong> to gate who can see an employee,{" "}
+            Per-skill governance. Changes save automatically. Use{" "}
+            <strong>Visibility</strong> to gate who can see a skill,{" "}
             <strong>Auto-deploy</strong> to pre-install on new member join,
-            and <strong>Tools</strong> to restrict what each employee can
+            and <strong>Tools</strong> to restrict what each skill can
             call (overrides org-wide whitelist above).
           </p>
           <AdminEmployeePolicy

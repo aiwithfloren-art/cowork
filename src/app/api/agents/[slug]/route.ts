@@ -137,6 +137,25 @@ export async function DELETE(
 
   const { slug } = await params;
   const sb = supabaseAdmin();
+
+  // Block self-delete on agents assigned by an admin — only the admin
+  // who assigned it can unassign (via /api/agents/template/[id]/assign).
+  const { data: agent } = await sb
+    .from("custom_agents")
+    .select("assigned_by_admin")
+    .eq("user_id", uid)
+    .eq("slug", slug)
+    .maybeSingle();
+  if (agent?.assigned_by_admin) {
+    return NextResponse.json(
+      {
+        error:
+          "Agent ini di-assign oleh admin. Hanya admin yang bisa lepas — minta admin kamu unassign dari /team/admin/assignments.",
+      },
+      { status: 403 },
+    );
+  }
+
   const { error } = await sb
     .from("custom_agents")
     .delete()

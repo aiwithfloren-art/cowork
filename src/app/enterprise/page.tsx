@@ -127,12 +127,12 @@ export default function EnterprisePage() {
           </div>
 
           <div className="mt-12 grid gap-6 lg:grid-cols-5">
-            {/* Mock AI Employee Directory */}
+            {/* Mock Skill Library */}
             <div className="lg:col-span-3">
               <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                    Acme · AI Employee Directory
+                    Acme · Skill Library
                   </p>
                   <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
                     5 active

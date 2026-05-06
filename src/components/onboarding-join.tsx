@@ -37,7 +37,7 @@ export function OnboardingJoin({
       }
       // If auto-deployed templates exist, go to the first agent. Else dashboard.
       const deployed: string[] = data.auto_deployed ?? [];
-      router.push(deployed[0] ? `/agents/${deployed[0]}` : "/dashboard");
+      router.push(deployed[0] ? `/skills/${deployed[0]}` : "/dashboard");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
       setJoining(false);

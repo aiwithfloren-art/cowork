@@ -165,10 +165,10 @@ export default async function DashboardPage({
             : []),
           {
             label:
-              locale === "id" ? "Digest agent pending" : "Pending agent digests",
+              locale === "id" ? "Digest skill pending" : "Pending skill digests",
             value: pendingDigestCount,
             tone: pendingDigestCount > 0 ? "emerald" : "default",
-            href: pendingDigestCount > 0 ? "/agents" : undefined,
+            href: pendingDigestCount > 0 ? "/skills" : undefined,
           },
         ]}
       />

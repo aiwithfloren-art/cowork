@@ -1,5 +1,8 @@
 import { buildTools } from "./tools";
 import { buildSlackTools } from "@/lib/slack/tools";
+import { buildNotionTools } from "@/lib/notion/tools";
+import { buildLinearTools } from "@/lib/linear/tools";
+import { buildCanvaTools } from "@/lib/canva/tools";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getComposioTools } from "@/lib/composio/tools";
 
@@ -30,6 +33,18 @@ export async function buildToolsForUser(
 
   if (providers.has("slack")) {
     extras = { ...extras, ...buildSlackTools(userId) };
+  }
+
+  if (providers.has("notion")) {
+    extras = { ...extras, ...buildNotionTools(userId) };
+  }
+
+  if (providers.has("linear")) {
+    extras = { ...extras, ...buildLinearTools(userId) };
+  }
+
+  if (providers.has("canva")) {
+    extras = { ...extras, ...buildCanvaTools(userId) };
   }
 
   // Personal Composio tools (user's own Notion page, personal Gmail, etc.)

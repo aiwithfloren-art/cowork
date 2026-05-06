@@ -55,7 +55,7 @@ export function OnboardingWizard({
       }
       // Route to the activated agent chat if one was picked, else dashboard.
       const target = data.activated_slug
-        ? `/agents/${data.activated_slug}`
+        ? `/skills/${data.activated_slug}`
         : "/dashboard";
       router.push(target);
     } catch (e) {

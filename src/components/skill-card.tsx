@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AssignAgentModal } from "./assign-agent-modal";
 
 export type Skill = {
   id: string;
@@ -15,15 +16,27 @@ export type Skill = {
   installed_slug: string | null;
   visibility?: "all" | "manager_only" | "owner_only";
   auto_deploy?: boolean;
+  // Populated only for admin views (/team/skills with canManage=true)
+  assigned_count?: number;
+  assigned_user_ids?: string[];
+};
+
+export type OrgMember = {
+  user_id: string;
+  email: string;
+  name: string | null;
+  role: string;
 };
 
 export function SkillCard({
   skill,
   canManage,
+  members,
   t,
 }: {
   skill: Skill;
   canManage: boolean;
+  members?: OrgMember[];
   t: {
     publishedBy: string;
     installs: string;
@@ -40,6 +53,8 @@ export function SkillCard({
   const [busy, setBusy] = useState<"install" | "remove" | "share" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignedJustNow, setAssignedJustNow] = useState<number | null>(null);
 
   async function install() {
     setBusy("install");
@@ -197,7 +212,7 @@ export function SkillCard({
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {skill.installed_slug ? (
               <Link
-                href={`/agents/${skill.installed_slug}`}
+                href={`/skills/${skill.installed_slug}`}
                 className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
               >
                 {t.openAgent}
@@ -223,6 +238,21 @@ export function SkillCard({
                   ? "✓ Link copied"
                   : "📎 Share link"}
             </button>
+            {canManage && members && (
+              <button
+                onClick={() => setShowAssignModal(true)}
+                disabled={busy !== null}
+                className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                title="Push-assign this agent to specific employees"
+              >
+                👥 Assign to…
+                {(skill.assigned_count ?? 0) > 0 && (
+                  <span className="ml-1.5 rounded-full bg-white px-1.5 py-0.5 text-[10px]">
+                    {skill.assigned_count}
+                  </span>
+                )}
+              </button>
+            )}
             {canManage && (
               <button
                 onClick={remove}
@@ -233,8 +263,30 @@ export function SkillCard({
               </button>
             )}
           </div>
+          {assignedJustNow !== null && assignedJustNow > 0 && (
+            <p className="mt-2 rounded-md bg-emerald-50 p-2 text-xs text-emerald-700">
+              ✅ Assigned to {assignedJustNow}{" "}
+              {assignedJustNow === 1 ? "employee" : "employees"}.
+            </p>
+          )}
         </div>
       </div>
+
+      {showAssignModal && members && (
+        <AssignAgentModal
+          templateId={skill.id}
+          templateName={skill.name}
+          templateEmoji={skill.emoji}
+          members={members}
+          alreadyAssignedUserIds={skill.assigned_user_ids ?? []}
+          onClose={() => setShowAssignModal(false)}
+          onAssigned={(count) => {
+            setAssignedJustNow(count);
+            setShowAssignModal(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

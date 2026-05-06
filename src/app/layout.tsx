@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 export const metadata: Metadata = {
   title: "Sigap — AI Chief of Staff",
   description:
-    "Open-source AI Chief of Staff. Sign in with Google and get an assistant that knows your calendar and tasks. Sigap is Indonesian for 'swift, ready, responsive'.",
+    "AI Chief of Staff for non-technical teams. Sign in with Google and get an assistant that knows your calendar and tasks. Sigap is Indonesian for 'swift, ready, responsive'.",
 };
 
 export const viewport: Viewport = {

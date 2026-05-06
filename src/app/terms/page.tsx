@@ -26,14 +26,14 @@ export default function TermsPage() {
 
       <h2>No warranty</h2>
       <p>
-        Sigap is provided &quot;as is&quot; under the MIT License. No warranty of any kind. We are not liable
+        Sigap is provided &quot;as is&quot;. No warranty of any kind. We are not liable
         for any damages arising from use of the service.
       </p>
 
-      <h2>Open source</h2>
+      <h2>Intellectual property</h2>
       <p>
-        The source code is available on GitHub under the MIT license. You are free to fork and
-        self-host.
+        Sigap is proprietary software. All rights reserved. Unauthorized copying, modification, or
+        redistribution is prohibited.
       </p>
     </main>
   );

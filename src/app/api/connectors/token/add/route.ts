@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 // Block service slugs that collide with dedicated OAuth connectors — those
 // go through their own install flow, not the generic token form.
-const RESERVED = new Set(["google", "slack", "github", "notion", "composio"]);
+const RESERVED = new Set(["google", "slack", "github", "composio"]);
 
 export async function POST(req: Request) {
   const session = await auth();

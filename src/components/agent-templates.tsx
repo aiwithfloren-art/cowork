@@ -100,7 +100,7 @@ export function AgentTemplates() {
       if (!res.ok || !data.slug) {
         throw new Error(data.error || "Install failed");
       }
-      router.push(`/agents/${data.slug}`);
+      router.push(`/skills/${data.slug}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Install failed");
       setInstalling(null);

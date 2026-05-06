@@ -58,7 +58,7 @@ function buildHelpText(appUrl: string): string {
     "• `/sigap coder bikin landing page`",
     "• `/sigap reviewer cek commit kemarin`",
     "",
-    `Daftar agent lo ada di web: ${appUrl}/agents`,
+    `Daftar skill lo ada di web: ${appUrl}/skills`,
   ].join("\n");
 }
 

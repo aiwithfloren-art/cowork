@@ -169,7 +169,7 @@ export default async function ManagerPage() {
 
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 text-xs text-slate-500">
-          <span>© {new Date().getFullYear()} Sigap. Open source · MIT licensed.</span>
+          <span>© {new Date().getFullYear()} Sigap. All rights reserved.</span>
           <div className="flex gap-4">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>

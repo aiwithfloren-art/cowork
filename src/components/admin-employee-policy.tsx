@@ -64,8 +64,8 @@ export function AdminEmployeePolicy({
   if (employees.length === 0) {
     return (
       <p className="rounded-md bg-slate-50 p-4 text-sm text-slate-600">
-        No AI employees yet. Publish one from{" "}
-        <code className="rounded bg-white px-1">/agents/&lt;slug&gt;</code> or
+        No skills published yet. Publish one from{" "}
+        <code className="rounded bg-white px-1">/skills/&lt;slug&gt;</code> or
         the starter kit will seed some on org creation.
       </p>
     );

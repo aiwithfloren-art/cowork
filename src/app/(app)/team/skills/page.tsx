@@ -4,7 +4,7 @@ import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { getDict } from "@/lib/i18n";
-import { SkillCard, type Skill } from "@/components/skill-card";
+import { SkillCard, type Skill, type OrgMember } from "@/components/skill-card";
 import { TeamSubnav } from "@/components/team-subnav";
 
 export default async function SkillsPage() {
@@ -105,6 +105,58 @@ export default async function SkillsPage() {
     ]),
   );
 
+  // For admin view: fetch active assignments per template + member directory
+  // so the modal can preselect / hide already-assigned employees.
+  let assignmentMap = new Map<string, string[]>();
+  let orgMembers: OrgMember[] = [];
+  if (isManager && templates.length > 0) {
+    const tmplIds = templates.map((t) => t.id as string);
+    const { data: rows } = await sb
+      .from("agent_assignments")
+      .select("template_id, assigned_to_user_id")
+      .in("template_id", tmplIds)
+      .eq("status", "active");
+    (rows ?? []).forEach((r) => {
+      const arr =
+        assignmentMap.get(r.template_id as string) ?? [];
+      arr.push(r.assigned_to_user_id as string);
+      assignmentMap.set(r.template_id as string, arr);
+    });
+
+    const { data: memberRows } = await sb
+      .from("org_members")
+      .select("user_id, role")
+      .eq("org_id", membership.org_id);
+    const memberIds =
+      memberRows?.map((m) => m.user_id as string) ?? [];
+    const { data: userRows } = memberIds.length
+      ? await sb
+          .from("users")
+          .select("id, email, name")
+          .in("id", memberIds)
+      : { data: [] };
+    const userById = new Map(
+      (userRows ?? []).map((u) => [
+        u.id as string,
+        {
+          email: (u.email as string) ?? "",
+          name: (u.name as string | null) ?? null,
+        },
+      ]),
+    );
+    orgMembers = (memberRows ?? [])
+      .filter((m) => (m.user_id as string) !== userId)
+      .map((m) => {
+        const u = userById.get(m.user_id as string);
+        return {
+          user_id: m.user_id as string,
+          email: u?.email ?? "",
+          name: u?.name ?? null,
+          role: (m.role as string) ?? "member",
+        };
+      });
+  }
+
   const skills: Skill[] = templates.map((tmpl) => ({
     id: tmpl.id as string,
     name: tmpl.name as string,
@@ -121,6 +173,8 @@ export default async function SkillsPage() {
       | "manager_only"
       | "owner_only",
     auto_deploy: Boolean(tmpl.auto_deploy),
+    assigned_user_ids: assignmentMap.get(tmpl.id as string) ?? [],
+    assigned_count: (assignmentMap.get(tmpl.id as string) ?? []).length,
   }));
 
   const cardStrings = {
@@ -156,7 +210,7 @@ export default async function SkillsPage() {
               </p>
               {isManager && (
                 <Link
-                  href="/agents"
+                  href="/skills"
                   className="mt-4 inline-block rounded-md bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-500"
                 >
                   {t.browseMyAgents}
@@ -172,6 +226,7 @@ export default async function SkillsPage() {
               key={s.id}
               skill={s}
               canManage={isManager}
+              members={isManager ? orgMembers : undefined}
               t={cardStrings}
             />
           ))}

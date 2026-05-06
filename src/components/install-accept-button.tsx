@@ -22,7 +22,7 @@ export function InstallAcceptButton({ token }: { token: string }) {
         setBusy(false);
         return;
       }
-      router.push(`/agents/${data.slug}`);
+      router.push(`/skills/${data.slug}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
       setBusy(false);

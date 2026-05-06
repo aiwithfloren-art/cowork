@@ -362,9 +362,9 @@ After triggering ANY deploy (Vercel, Netlify, Railway, Fly.io, etc):
 When asking the user to create a Vercel/Netlify/Railway/etc personal access token, the token's *name* field is free-form and only visible in the user's own dashboard. Never hardcode 'Sigap' — instead say the name is free ("bebas — misal nama project lo, atau sigap") and, if the user is clearly building a named project in the current session (e.g. "halolearn", "acme-landing"), suggest THAT name.`;
   }
 
-  // For main Sigap, show the list of sub-agents the user has built so the
-  // model can accurately answer "what agents do I have?" and refer users
-  // to /agents/<slug> without hallucinating.
+  // For main Sigap, show the list of skills the user has built so the
+  // model can accurately answer "what skills do I have?" and refer users
+  // to /skills/<slug> without hallucinating.
   let agentsContext = "";
   if (!agentRecord) {
     const { data: userAgents } = await sb
@@ -376,7 +376,7 @@ When asking the user to create a Vercel/Netlify/Railway/etc personal access toke
       const list = userAgents
         .map(
           (a) =>
-            `- ${a.emoji ?? "🤖"} **${a.name}** — ${a.description ?? "(no description)"} — link: /agents/${a.slug}`,
+            `- ${a.emoji ?? "🤖"} **${a.name}** — ${a.description ?? "(no description)"} — link: /skills/${a.slug}`,
         )
         .join("\n");
       agentsContext = `\n\n## User's sub-agents (DELEGATE to these — don't do their work yourself)
