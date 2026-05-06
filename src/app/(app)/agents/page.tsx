@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DeleteAgentButton } from "@/components/delete-agent-button";
 import { CreateAgentButton } from "@/components/create-agent-button";
 import { TeamAgentCard } from "@/components/team-agent-card";
+import { AgentTemplates } from "@/components/agent-templates";
 import type { OrgMember } from "@/components/skill-card";
 
 export const metadata: Metadata = {
@@ -54,7 +55,13 @@ export default async function AgentsHubPage() {
   const assignedToMe = (personalAgents ?? []).filter(
     (a) => a.assigned_by_admin,
   );
-  const myDrafts = (personalAgents ?? []).filter((a) => !a.assigned_by_admin);
+  // Personal drafts that are NOT assigned-by-admin AND NOT already
+  // published as a team template (we'll filter those out below once we
+  // know which slugs are published — keeps listing dedup'd so the same
+  // agent doesn't show up in both "My drafts" and "Team agents".)
+  const myDraftsRaw = (personalAgents ?? []).filter(
+    (a) => !a.assigned_by_admin,
+  );
 
   // Pull assignment metadata (admin who assigned + note) for the
   // Assigned-to-me cards.
@@ -109,6 +116,9 @@ export default async function AgentsHubPage() {
   };
   let teamAgents: TeamAgent[] = [];
   let orgMembers: OrgMember[] = [];
+  // Slugs of personal agents already published as team templates — filtered
+  // out of My drafts to avoid showing the same agent twice.
+  let publishedSourceSlugs = new Set<string>();
   if (isAdmin && orgId) {
     const { data: tmpls } = await sb
       .from("org_agent_templates")
@@ -144,6 +154,12 @@ export default async function AgentsHubPage() {
       source_slug: (t.source_slug as string | null) ?? null,
     }));
 
+    publishedSourceSlugs = new Set(
+      (tmpls ?? [])
+        .map((t) => t.source_slug as string | null)
+        .filter((s): s is string => Boolean(s)),
+    );
+
     const { data: memberRows } = await sb
       .from("org_members")
       .select("user_id, role")
@@ -175,6 +191,10 @@ export default async function AgentsHubPage() {
         };
       });
   }
+
+  const myDrafts = myDraftsRaw.filter(
+    (a) => !publishedSourceSlugs.has(a.slug as string),
+  );
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 px-4 md:px-6">
@@ -358,6 +378,18 @@ export default async function AgentsHubPage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* SECTION 4 — Starter library (collapsed by default, useful for new orgs) */}
+      <section className="space-y-3 border-t border-slate-200 pt-8">
+        <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
+          <span>🚀 Starter library</span>
+        </p>
+        <p className="text-xs text-slate-500">
+          Pre-built agent templates buat tim yang baru mulai. Klik install
+          buat dapet sebagai personal agent.
+        </p>
+        <AgentTemplates />
       </section>
     </div>
   );

@@ -8,7 +8,6 @@ import { getDict } from "@/lib/i18n";
 import { AgentHeader } from "@/components/agent-header";
 import { AgentSchedule } from "@/components/agent-schedule";
 import { AgentDigests } from "@/components/agent-digests";
-import { PublishAgentButton } from "@/components/publish-agent-button";
 import { QuickAssignButton } from "@/components/quick-assign-button";
 
 export async function generateMetadata({
@@ -150,27 +149,13 @@ export default async function AgentDetailPage({
           ← Agents
         </Link>
         {canPublish && (
-          <div className="flex items-center gap-2">
-            <QuickAssignButton
-              agentSlug={agent.slug}
-              agentName={agent.name}
-              agentEmoji={agent.emoji ?? null}
-              members={orgMembers}
-              alreadyAssignedUserIds={alreadyAssignedIds}
-            />
-            <PublishAgentButton
-              slug={agent.slug}
-              agentName={agent.name}
-              label={dict.skills.publishBtn}
-              confirmTitle={dict.skills.publishConfirmTitle}
-              confirmBody={dict.skills.publishConfirmBody}
-              successText={dict.skills.publishSuccess}
-              updatedText={dict.skills.publishUpdated}
-              errorText={dict.skills.publishError}
-              cancelText={dict.skills.cancel}
-              publishText={dict.skills.publishAction}
-            />
-          </div>
+          <QuickAssignButton
+            agentSlug={agent.slug}
+            agentName={agent.name}
+            agentEmoji={agent.emoji ?? null}
+            members={orgMembers}
+            alreadyAssignedUserIds={alreadyAssignedIds}
+          />
         )}
       </div>
       <AgentHeader
@@ -189,11 +174,13 @@ export default async function AgentDetailPage({
       <div className="h-[520px]">
         <Chat t={dict.chat} agentSlug={agent.slug} />
       </div>
-      <AgentDigests
-        initial={
-          (digests ?? []) as Parameters<typeof AgentDigests>[0]["initial"]
-        }
-      />
+      {(digests ?? []).length > 0 && (
+        <AgentDigests
+          initial={
+            (digests ?? []) as Parameters<typeof AgentDigests>[0]["initial"]
+          }
+        />
+      )}
     </div>
   );
 }
