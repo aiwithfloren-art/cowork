@@ -12,6 +12,7 @@ import { TutorialModal } from "@/components/tutorial-modal";
 import { DashboardInsights } from "@/components/dashboard-insights";
 import { TeamSnapshot, type MemberSignal } from "@/components/team-snapshot";
 import { TodayDrawer } from "@/components/today-drawer";
+import { DashboardSidebar } from "@/components/dashboard-sidebar";
 
 export default async function DashboardPage({
   searchParams,
@@ -48,6 +49,59 @@ export default async function DashboardPage({
     [events, tasks] = await Promise.all([getTodayEvents(userId), listTasks(userId)]);
   } catch (e) {
     error = e instanceof Error ? e.message : t.googleError;
+  }
+
+  // Load recent chat sessions for the left sidebar. A "session" is a chain
+  // of user messages with no >30-min gap between consecutive entries.
+  // We only show dashboard chats (agent_id IS NULL) — agent-specific
+  // chats live on /agents/[slug] pages.
+  type SidebarSession = { pivot_id: string; title: string; ts: string };
+  let recentSessions: SidebarSession[] = [];
+  try {
+    const { data: msgRows } = await sb
+      .from("chat_messages")
+      .select("id, content, created_at")
+      .eq("user_id", userId)
+      .eq("role", "user")
+      .is("agent_id", null)
+      .order("created_at", { ascending: false })
+      .limit(80);
+    const SESSION_GAP_MS = 30 * 60 * 1000;
+    const groups: Array<{
+      pivot_id: string;
+      title: string;
+      ts: string;
+    }> = [];
+    let currentGroup: typeof groups[number] | null = null;
+    let lastTs = 0;
+    for (const m of msgRows ?? []) {
+      const t = new Date(m.created_at as string).getTime();
+      const gap = lastTs ? lastTs - t : 0; // older direction (we sorted desc)
+      if (!currentGroup || gap > SESSION_GAP_MS) {
+        if (currentGroup) groups.push(currentGroup);
+        currentGroup = {
+          pivot_id: m.id as string,
+          title:
+            ((m.content as string) ?? "")
+              .slice(0, 60)
+              .replace(/\s+/g, " ")
+              .trim() || "(empty)",
+          ts: m.created_at as string,
+        };
+      } else if (currentGroup) {
+        // Older message in same session — keep the newer pivot we already
+        // have (we want pivot = latest user message in session so resume
+        // jumps to the current end of the conversation).
+        // Title stays the first one we encountered (which is the newest
+        // message of the session — that's actually the most descriptive
+        // since user typically recap toward the end).
+      }
+      lastTs = t;
+    }
+    if (currentGroup) groups.push(currentGroup);
+    recentSessions = groups.slice(0, 12);
+  } catch (e) {
+    console.error("[dashboard] session list failed:", e);
   }
 
   const now = Date.now();
@@ -132,8 +186,26 @@ export default async function DashboardPage({
       ? `Hari ini: ${events.length} jadwal · ${tasks.length} task`
       : `Today: ${events.length} events · ${tasks.length} tasks`;
 
+  // Counts for sidebar nav badges
+  const { count: sidebarAgentCount } = await sb
+    .from("custom_agents")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  const { count: sidebarArtifactCount } = await sb
+    .from("artifacts")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .neq("status", "archived");
+
   return (
-    <div className="space-y-6">
+    <div className="-mx-4 -my-6 flex md:-mx-6 md:-my-8">
+      <DashboardSidebar
+        sessions={recentSessions}
+        agentCount={sidebarAgentCount ?? 0}
+        artifactCount={sidebarArtifactCount ?? 0}
+        locale={locale}
+      />
+      <div className="min-w-0 flex-1 space-y-6 px-4 py-6 md:px-6 md:py-8">
       {showTutorial && <TutorialModal t={dict.tutorial} />}
 
       {error && (
@@ -272,6 +344,7 @@ export default async function DashboardPage({
           <TeamSnapshot members={teamSnapshot} locale={locale} />
         </div>
       )}
+      </div>
     </div>
   );
 }
