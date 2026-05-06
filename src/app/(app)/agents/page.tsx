@@ -381,7 +381,10 @@ export default async function AgentsHubPage() {
       </section>
 
       {/* SECTION 4 — Starter library (collapsed by default, useful for new orgs) */}
-      <section className="space-y-3 border-t border-slate-200 pt-8">
+      <section
+        id="starter-library"
+        className="space-y-3 scroll-mt-24 border-t border-slate-200 pt-8"
+      >
         <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
           <span>🚀 Starter library</span>
         </p>

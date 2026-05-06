@@ -37,9 +37,17 @@ export function CreateAgentButton() {
 
   function browseTemplates() {
     setOpen(false);
-    router.push(
-      `/dashboard?seed=${encodeURIComponent("List skill yang bisa diinstall")}`,
-    );
+    // Scroll to the Starter Library section already rendered at the
+    // bottom of /agents (id="starter-library"). No navigation — same
+    // page, just smooth-scroll into view.
+    const el = document.getElementById("starter-library");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      // Fallback if user is on /agents/[slug] or any non-/agents route:
+      // navigate to /agents and the URL hash brings them right to it.
+      router.push("/agents#starter-library");
+    }
   }
 
   return (
