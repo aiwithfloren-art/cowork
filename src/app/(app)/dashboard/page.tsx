@@ -256,6 +256,12 @@ export default async function DashboardPage({
               resumeId={resume}
               greetingHeadline={greetingHeadline}
               greetingSub={t.greetingSub}
+              greetingFirstName={firstName}
+              greetingStrings={{
+                morning: t.greetingMorning,
+                afternoon: t.greetingAfternoon,
+                evening: t.greetingEvening,
+              }}
             />
           </div>
         </div>

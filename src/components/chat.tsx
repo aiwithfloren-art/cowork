@@ -107,6 +107,8 @@ export function Chat({
   agentSlug,
   greetingHeadline,
   greetingSub,
+  greetingFirstName,
+  greetingStrings,
 }: {
   t: T;
   initialPrompt?: string;
@@ -115,6 +117,10 @@ export function Chat({
   /** Optional greeting shown ONLY in main-Sigap empty state (audit 4b). */
   greetingHeadline?: string;
   greetingSub?: string;
+  // When greetingFirstName + greetingStrings are passed, greeting verb +
+  // emoji are computed from the user's LOCAL clock (not server UTC).
+  greetingFirstName?: string;
+  greetingStrings?: { morning: string; afternoon: string; evening: string };
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -617,10 +623,14 @@ export function Chat({
             </div>
           ) : (
             <div className="mx-auto max-w-xl space-y-6 py-6">
-              {greetingHeadline && (
+              {(greetingHeadline || greetingFirstName) && (
                 <div className="text-center">
                   <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                    {greetingHeadline}
+                    <LocalGreeting
+                      fallback={greetingHeadline ?? ""}
+                      firstName={greetingFirstName}
+                      strings={greetingStrings}
+                    />
                   </h1>
                   {greetingSub && (
                     <p className="mt-1 text-sm text-slate-500">{greetingSub}</p>
@@ -908,4 +918,33 @@ function SuggestionChip({
       {children}
     </button>
   );
+}
+
+/**
+ * Picks "morning"/"afternoon"/"evening" from the user's LOCAL clock.
+ * Server-side render shows the fallback (which is correct UTC), then
+ * after hydration we recompute with Date().getHours() so a Jakarta
+ * user at 21:00 local sees "Good evening" instead of UTC's 14:00.
+ */
+function LocalGreeting({
+  fallback,
+  firstName,
+  strings,
+}: {
+  fallback: string;
+  firstName?: string;
+  strings?: { morning: string; afternoon: string; evening: string };
+}) {
+  const [localText, setLocalText] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!firstName || !strings) return;
+    const h = new Date().getHours();
+    const verb =
+      h < 12 ? strings.morning : h < 18 ? strings.afternoon : strings.evening;
+    const emoji = h < 12 ? "☀️" : h < 18 ? "🌤" : "🌙";
+    setLocalText(`${verb}, ${firstName} ${emoji}`);
+  }, [firstName, strings]);
+
+  return <>{localText ?? fallback}</>;
 }
