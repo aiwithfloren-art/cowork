@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { signIn } from "next-auth/react";
 import type { ConnectorSpec } from "@/lib/connectors/registry";
 
 type ConnectorView = ConnectorSpec & {
@@ -149,10 +150,14 @@ function ConnectorCard({
       return;
     }
     if (connector.authType === "oauth_login") {
-      // Google services are connected via the main sign-in flow.
-      // If user is already signed in but lacks the scope, redirect
-      // to /api/auth/signin to re-prompt with full scope set.
-      window.location.href = "/api/auth/signin/google?callbackUrl=/integrations";
+      // Google services share one OAuth grant. After disconnect (which
+      // wipes google_tokens), NextAuth still has the JWT session — so a
+      // raw redirect to /api/auth/signin/google would either 404 or
+      // skip the OAuth round-trip without re-fetching tokens. Use the
+      // next-auth/react helper which POSTs the CSRF token + provider
+      // correctly. auth.ts has prompt=consent set, so Google will show
+      // the consent screen and issue fresh tokens.
+      void signIn("google", { callbackUrl: "/integrations" });
     }
   }
 
