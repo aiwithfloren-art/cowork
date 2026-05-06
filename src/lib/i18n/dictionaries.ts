@@ -14,56 +14,81 @@ export const dictionaries = {
       signOut: "Sign out",
     },
     landing: {
-      badge: "Built for non-tech teams · Privacy-first · Manager Mode",
-      heroTitle1: "Sigap — your AI Chief of Staff.",
-      heroTitle2: "Built for outcomes, not interruptions.",
+      badge: "Built for teams · Admin-configured · Multi-role",
+      heroTitle1: "AI agents for every role",
+      heroTitle2: "in your company.",
       heroSub:
-        "Sigap reads your Google Calendar and Tasks so you can make better decisions faster — and gives managers visibility into their team without sending another status-update message. Sigap is Indonesian for 'swift, ready, responsive'.",
+        "Admin builds AI agents tailored per role — marketing, HR, sales, support, ops. Assigns them to specific employees with one click. Everyone runs with their own AI, configured once by you.",
       signIn: "Sign in with Google",
-      freeNote: "Free during beta · 30 messages/day · Paid plans coming soon",
+      freeNote: "Free during beta · No credit card required",
 
-      featuresTitle: "What Sigap does",
-      featuresSub: "Everything you need to run your day and your team.",
+      featuresTitle: "How Sigap works",
+      featuresSub: "Three steps from zero to your team running on AI.",
 
-      f1Title: "Daily schedule intelligence",
+      f1Title: "1. Admin creates an agent",
       f1Desc:
-        "Reads your Google Calendar and gives contextual briefings. Ask what to focus on, find free slots, book events — all in chat.",
+        "Just chat: \"Bikin agent buat content marketing, pake Canva + Notion.\" Sigap auto-builds it with the right tools and instructions. No prompt engineering.",
 
-      f2Title: "Task management via chat",
+      f2Title: "2. Assign to specific employees",
       f2Desc:
-        "Add, list, and complete Google Tasks with natural language. Your single source of truth stays in Google; Sigap is the interface.",
+        "Pick who gets which agent. One click — auto-publishes + delivers in-app + email. Each employee logs in and finds their AI ready to use.",
 
-      f3Title: "Document search & read",
+      f3Title: "3. Team runs with their AI",
       f3Desc:
-        "Search and read any Google Doc by name. Summarize proposals, pull context from spec documents, never open Drive again.",
+        "Sarah opens Sigap → her Content Creator agent is loaded. Budi → his Onboarding HR agent. Each gets the right tool for their role, configured by you.",
 
-      f4Title: "Native Telegram bot",
+      f4Title: "Connect tools you already use",
       f4Desc:
-        "Chat with your Chief of Staff from Telegram. No app to install. Perfect for mobile and field work.",
+        "Canva, Notion, Slack, Google Workspace, GitHub, Linear — connect once, all agents get access. No per-user setup.",
 
-      f5Title: "Weekly executive report",
+      f5Title: "Manager view across the team",
       f5Desc:
-        "Every Friday at 5 PM, you receive an AI-generated summary of your week delivered to your inbox. Zero effort.",
+        "Ask Sigap: \"Apa yang Budi kerjain minggu ini?\" — answer pulled from his calendar, tasks, and agent activity. No interruption, no status meeting.",
 
-      f6Title: "Manager Mode with privacy",
+      f6Title: "Brand memory + audit trail",
       f6Desc:
-        "Query the AI about teammates' workloads without pinging them. Full audit transparency. The anti-surveillance alternative.",
+        "Save company context once (brand voice, policies, target audience) — every agent uses it. Every action logged for compliance.",
 
-      managerPitchTitle: "For Managers: Stay in sync without interrupting",
-      managerPitchSub: "Stop asking 'what are you working on?'. Ask the AI.",
-      managerPitchStep1Title: "Create your workspace",
+      managerPitchTitle: "For managers: see what your team works on",
+      managerPitchSub: "Skip the status meeting. Ask Sigap directly.",
+      managerPitchStep1Title: "Set up your workspace",
       managerPitchStep1Desc:
-        "Spin up a team workspace and invite members by email. The invite is sent automatically — no manual sharing.",
-      managerPitchStep2Title: "Members opt-in to share data",
+        "Create the team workspace, invite members by email. Sigap sends the invites — they sign in with Google and join in one click.",
+      managerPitchStep2Title: "Build agents per role",
       managerPitchStep2Desc:
-        "Default is private. Each member controls exactly what their manager can see. No surveillance, no keystroke tracking.",
-      managerPitchStep3Title: "Ask AI about any team member",
+        "One agent for Sarah (content), one for Budi (HR), one for Andi (sales). Configured once, with the right tools for each.",
+      managerPitchStep3Title: "Ask the AI about your team",
       managerPitchStep3Desc:
-        "\"What is Budi working on this week?\" The AI answers from their calendar and tasks, without disturbing them.",
-      managerPitchStep4Title: "Every query is audited",
+        "\"What's Sarah's deadline this week?\" \"What did Budi finish today?\" Sigap answers from their data — no need to ping anyone.",
+      managerPitchStep4Title: "Audit transparency",
       managerPitchStep4Desc:
-        "Team members see exactly what their manager asked about them. Full transparency. Trust by design.",
-      managerPitchCta: "Explore Manager Mode →",
+        "Every query a manager makes is visible to the team member. No silent surveillance. Trust by design.",
+      managerPitchCta: "See manager view →",
+
+      useCasesTitle: "Built for any team",
+      useCasesSub: "Same platform, different agents per department.",
+      uc1Title: "Marketing",
+      uc1Desc:
+        "Content Creator (drafts + Canva carousel) · Lead Gen (prospect research) · Social Media Scheduler",
+      uc2Title: "HR",
+      uc2Desc:
+        "Onboarding Buddy · Interview prep · Policy Q&A · Employee birthday reminders",
+      uc3Title: "Sales",
+      uc3Desc:
+        "Follow-up Drafter · CRM updater · Proposal generator · Pipeline summary",
+      uc4Title: "Customer Support",
+      uc4Desc:
+        "Reply Drafter (with brand voice) · FAQ responder · Ticket categorizer",
+      uc5Title: "Operations",
+      uc5Desc:
+        "Meeting note-taker · Weekly report generator · Process documenter",
+      uc6Title: "Engineering",
+      uc6Desc:
+        "Code Reviewer · PR drafter · Bug triager · Deploy watcher",
+
+      integrationsTitle: "Connect tools your team already uses",
+      integrationsSub:
+        "Login once with your account — agents inherit access. No per-employee setup.",
 
       footerOss: "© Sigap · All rights reserved",
     },
@@ -316,56 +341,81 @@ export const dictionaries = {
       signOut: "Keluar",
     },
     landing: {
-      badge: "Dibangun untuk tim non-teknis · Privasi dulu · Manager Mode",
-      heroTitle1: "Sigap — AI Chief of Staff Anda.",
-      heroTitle2: "Dibangun untuk hasil, bukan interupsi.",
+      badge: "Buat tim · Disetting admin · Multi-role",
+      heroTitle1: "AI agent buat tiap role",
+      heroTitle2: "di perusahaan kamu.",
       heroSub:
-        "Sigap membaca Google Calendar dan Tasks Anda sehingga Anda bisa mengambil keputusan lebih cepat — dan memberi manager visibilitas ke tim tanpa harus mengirim pesan status-update lagi.",
+        "Admin bikin AI agent yang ke-tailor per role — marketing, HR, sales, support, ops. Assign ke karyawan tertentu dengan 1 klik. Tiap orang punya AI sendiri, kamu yang setting sekali.",
       signIn: "Masuk dengan Google",
-      freeNote: "Gratis selama beta · 30 pesan/hari · Paid plan segera hadir",
+      freeNote: "Gratis selama beta · Tanpa kartu kredit",
 
-      featuresTitle: "Apa yang Sigap bisa lakukan",
-      featuresSub: "Semua yang Anda butuhkan untuk mengatur hari dan tim Anda.",
+      featuresTitle: "Cara Sigap kerja",
+      featuresSub: "3 langkah dari nol sampai tim kamu jalan dengan AI.",
 
-      f1Title: "Intelligence jadwal harian",
+      f1Title: "1. Admin bikin agent",
       f1Desc:
-        "Membaca Google Calendar Anda dan memberi briefing kontekstual. Tanya prioritas hari ini, cari slot kosong, buat event — semua lewat chat.",
+        "Tinggal chat: \"Bikin agent buat content marketing, pake Canva + Notion.\" Sigap auto-build dengan tools dan instruksi yang pas. Gak perlu jago prompt.",
 
-      f2Title: "Kelola tugas lewat chat",
+      f2Title: "2. Assign ke karyawan",
       f2Desc:
-        "Tambah, lihat, dan selesaikan Google Tasks dengan bahasa natural. Data tetap di Google; Sigap adalah antarmuka-nya.",
+        "Pilih siapa dapet agent yang mana. 1 klik — auto-publish + kirim notif + email. Tiap karyawan login, AI mereka udah siap.",
 
-      f3Title: "Cari & baca dokumen",
+      f3Title: "3. Tim kerja pake AI mereka",
       f3Desc:
-        "Cari dan baca Google Doc berdasarkan nama. Ringkas proposal, ambil konteks dari spec document, tanpa pernah buka Drive.",
+        "Sarah buka Sigap → agent Content Creator-nya udah ada. Budi → agent Onboarding HR. Tiap orang dapet tool yang pas buat role mereka.",
 
-      f4Title: "Bot Telegram native",
+      f4Title: "Connect tools yang udah dipake",
       f4Desc:
-        "Chat dengan Chief of Staff Anda dari Telegram. Tanpa aplikasi baru. Sempurna untuk mobile dan kerja lapangan.",
+        "Canva, Notion, Slack, Google Workspace, GitHub, Linear — connect 1x, semua agent dapet akses. Tanpa setup per-user.",
 
-      f5Title: "Laporan mingguan eksekutif",
+      f5Title: "Manager view ke seluruh tim",
       f5Desc:
-        "Setiap Jumat jam 5 sore, Anda menerima ringkasan minggu Anda yang di-generate AI, langsung ke inbox. Tanpa effort.",
+        "Tanya Sigap: \"Apa yang Budi kerjain minggu ini?\" — AI jawab dari calendar, tasks, dan aktivitas agent dia. Tanpa interupsi, tanpa meeting status.",
 
-      f6Title: "Manager Mode dengan privasi",
+      f6Title: "Brand memory + audit",
       f6Desc:
-        "Tanya AI tentang beban kerja anggota tim tanpa mengganggu mereka. Audit transparan penuh. Alternatif anti-surveillance.",
+        "Simpan konteks perusahaan (brand voice, kebijakan, target audience) sekali — semua agent pakai. Tiap aksi ke-log untuk compliance.",
 
-      managerPitchTitle: "Untuk Manager: Tetap sinkron tanpa mengganggu",
-      managerPitchSub: "Berhenti bertanya 'lagi ngerjain apa?'. Tanya AI.",
-      managerPitchStep1Title: "Buat workspace",
+      managerPitchTitle: "Buat manager: lihat tim kerjain apa",
+      managerPitchSub: "Skip meeting status. Tanya Sigap langsung.",
+      managerPitchStep1Title: "Setup workspace",
       managerPitchStep1Desc:
-        "Buat workspace tim dan undang anggota via email. Undangan otomatis terkirim — tidak ada sharing manual.",
-      managerPitchStep2Title: "Anggota opt-in untuk share data",
+        "Bikin workspace tim, undang anggota via email. Sigap kirim invite — mereka login Google, join 1 klik.",
+      managerPitchStep2Title: "Bikin agent per role",
       managerPitchStep2Desc:
-        "Default privat. Setiap anggota mengontrol apa yang manager bisa lihat. Tidak ada surveillance, tidak ada keystroke tracking.",
-      managerPitchStep3Title: "Tanya AI tentang anggota tim",
+        "1 agent buat Sarah (content), 1 buat Budi (HR), 1 buat Andi (sales). Setting sekali, dengan tool yang pas tiap role.",
+      managerPitchStep3Title: "Tanya AI tentang tim",
       managerPitchStep3Desc:
-        "\"Budi minggu ini ngerjain apa?\" AI jawab dari calendar dan tasks mereka, tanpa mengganggu.",
-      managerPitchStep4Title: "Setiap pertanyaan ter-audit",
+        "\"Deadline Sarah minggu ini apa?\" \"Budi hari ini selesain apa?\" Sigap jawab dari data mereka — gak perlu ping siapa-siapa.",
+      managerPitchStep4Title: "Audit transparan",
       managerPitchStep4Desc:
-        "Anggota tim melihat persis apa yang ditanyakan manager tentang mereka. Transparansi penuh. Trust by design.",
-      managerPitchCta: "Jelajahi Manager Mode →",
+        "Setiap query manager kelihatan ke anggota tim. Bukan surveillance diam-diam. Trust by design.",
+      managerPitchCta: "Lihat manager view →",
+
+      useCasesTitle: "Buat tim apapun",
+      useCasesSub: "Platform sama, agent beda per departemen.",
+      uc1Title: "Marketing",
+      uc1Desc:
+        "Content Creator (draft + carousel Canva) · Lead Gen (riset prospek) · Social Media Scheduler",
+      uc2Title: "HR",
+      uc2Desc:
+        "Onboarding Buddy · Persiapan interview · Tanya kebijakan · Pengingat ulang tahun karyawan",
+      uc3Title: "Sales",
+      uc3Desc:
+        "Drafter follow-up · Update CRM · Generator proposal · Ringkasan pipeline",
+      uc4Title: "Customer Support",
+      uc4Desc:
+        "Drafter balasan (sesuai brand voice) · Penjawab FAQ · Kategorisasi tiket",
+      uc5Title: "Operations",
+      uc5Desc:
+        "Notulen meeting · Generator laporan mingguan · Dokumentasi proses",
+      uc6Title: "Engineering",
+      uc6Desc:
+        "Code Reviewer · Drafter PR · Triage bug · Pemantau deploy",
+
+      integrationsTitle: "Connect tools yang udah dipake tim kamu",
+      integrationsSub:
+        "Login 1x dengan akun kamu — semua agent dapet akses. Gak perlu setup per-karyawan.",
 
       footerOss: "© Sigap · All rights reserved",
     },
