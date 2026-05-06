@@ -30,9 +30,10 @@ export function CreateAgentButton() {
 
   function chatToCreate() {
     setOpen(false);
-    router.push(
-      `/dashboard?seed=${encodeURIComponent("Bikin AI agent buat ")}`,
-    );
+    // Dedicated agent-creation page — separate from /dashboard so the
+    // user gets a focused canvas with no daily-chat distractions and a
+    // clear "I'm building an agent here" mental model.
+    router.push("/agents/new");
   }
 
   function browseTemplates() {
