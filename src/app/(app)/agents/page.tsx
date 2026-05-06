@@ -329,16 +329,16 @@ export default async function AgentsHubPage() {
       {/* SECTION 3 — My drafts / personal */}
       <section className="space-y-3">
         <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
-          <span>{isAdmin ? "🧪 My drafts" : "🤖 My personal agents"}</span>
+          <span>🤖 My personal agents</span>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
             {myDrafts.length}
           </span>
         </p>
-        {isAdmin && (
-          <p className="text-xs text-slate-500">
-            Agent personal kamu. Belum kelihatan tim sampai di-assign / publish.
-          </p>
-        )}
+        <p className="text-xs text-slate-500">
+          {isAdmin
+            ? "Agent kamu. Belum kelihatan tim sampai di-assign / publish."
+            : "Agent yang kamu bikin sendiri."}
+        </p>
         {myDrafts.length === 0 ? (
           <Card>
             <CardContent>
@@ -389,10 +389,14 @@ export default async function AgentsHubPage() {
           <span>🚀 Starter library</span>
         </p>
         <p className="text-xs text-slate-500">
-          Pre-built agent templates buat tim yang baru mulai. Klik install
-          buat dapet sebagai personal agent.
+          Pre-built agent templates buat tim yang baru mulai. Yang udah
+          ke-install gak ditampilin lagi di sini biar gak duplicate.
         </p>
-        <AgentTemplates />
+        <AgentTemplates
+          installedNames={(personalAgents ?? []).map(
+            (a) => a.name as string,
+          )}
+        />
       </section>
     </div>
   );

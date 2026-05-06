@@ -18,6 +18,14 @@ type Template = {
 // Other agents are still installable but rendered as smaller secondary cards.
 const TEMPLATES: Template[] = [
   {
+    emoji: "🚀",
+    title: "Campaign Generator",
+    templateName: "Campaign Generator",
+    description:
+      "Killer demo: 1 brief manager → 5 deliverable (brief, IG carousel, LinkedIn long-form, email newsletter, Twitter thread) auto-generated dalam 1 turn.",
+    featured: true,
+  },
+  {
     emoji: "🎯",
     title: "Lead Gen",
     templateName: "Lead Gen",
@@ -81,7 +89,14 @@ const TEMPLATES: Template[] = [
   },
 ];
 
-export function AgentTemplates() {
+export function AgentTemplates({
+  installedNames = [],
+}: {
+  // Names of agents already in the user's custom_agents — those templates
+  // will be filtered out so the user doesn't see the same agent twice
+  // (once in their main list + once in "Starter library").
+  installedNames?: string[];
+} = {}) {
   const router = useRouter();
   const [installing, setInstalling] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,15 +115,33 @@ export function AgentTemplates() {
       if (!res.ok || !data.slug) {
         throw new Error(data.error || "Install failed");
       }
-      router.push(`/skills/${data.slug}`);
+      router.push(`/agents/${data.slug}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Install failed");
       setInstalling(null);
     }
   }
 
-  const featured = TEMPLATES.filter((t) => t.featured);
-  const others = TEMPLATES.filter((t) => !t.featured);
+  // Filter out templates the user already has installed — comparing by
+  // template name (which is what install-starter stores as agent name).
+  const installedSet = new Set(installedNames);
+  const visible = TEMPLATES.filter((t) => !installedSet.has(t.templateName));
+
+  if (visible.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+        <p className="text-sm text-slate-700">
+          ✅ Semua starter template udah ke-install di akun kamu.
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          Liat di section &quot;My personal agents&quot; di atas.
+        </p>
+      </div>
+    );
+  }
+
+  const featured = visible.filter((t) => t.featured);
+  const others = visible.filter((t) => !t.featured);
 
   return (
     <div className="space-y-6">
