@@ -53,10 +53,12 @@ export function OnboardingWizard({
         setSubmitting(false);
         return;
       }
-      // Route to the activated agent chat if one was picked, else dashboard.
+      // Route to the activated agent chat if one was picked. Otherwise
+      // land on /agents (the hub) so the user immediately sees their
+      // 3 starter agents instead of an empty chat dashboard.
       const target = data.activated_slug
-        ? `/skills/${data.activated_slug}`
-        : "/dashboard";
+        ? `/agents/${data.activated_slug}`
+        : "/agents";
       router.push(target);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
@@ -183,30 +185,30 @@ export function OnboardingWizard({
             Connect your tools
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            You can connect now or skip — come back to{" "}
-            <span className="font-medium">Settings</span> anytime. Your AI
-            employees will use whatever&apos;s connected.
+            Google sudah otomatis connected. Sisanya bisa kamu connect
+            kapan aja di halaman <span className="font-medium">Integrations</span>{" "}
+            setelah onboarding.
           </p>
-          <div className="mt-6 space-y-3">
-            <ToolRow
-              emoji="🅖"
-              name="Google Workspace"
-              sub="Calendar, Tasks, Gmail, Drive — already connected via sign-in"
-              connected
-            />
-            <ToolRow
-              emoji="📘"
-              name="Notion"
-              sub="Shared knowledge base — connect later in Settings"
-              connected={false}
-            />
-            <ToolRow
-              emoji="💬"
-              name="Slack"
-              sub="Team workspace messages — connect later in Settings"
-              connected={false}
-            />
+          <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-4">
+            <ConnectorBadge emoji="📧" name="Gmail" connected />
+            <ConnectorBadge emoji="📅" name="Calendar" connected />
+            <ConnectorBadge emoji="📁" name="Drive" connected />
+            <ConnectorBadge emoji="✅" name="Tasks" connected />
+            <ConnectorBadge emoji="🎨" name="Canva" />
+            <ConnectorBadge emoji="📝" name="Notion" />
+            <ConnectorBadge emoji="💬" name="Slack" />
+            <ConnectorBadge emoji="🐙" name="GitHub" />
+            <ConnectorBadge emoji="📋" name="Linear" />
+            <ConnectorBadge emoji="🤖" name="Telegram" />
+            <ConnectorBadge emoji="🔗" name="Custom MCP" />
+            <ConnectorBadge emoji="➕" name="& more" muted />
           </div>
+          <p className="mt-4 text-xs text-slate-500">
+            Setelah onboarding, klik tombol{" "}
+            <span className="font-medium">Connect</span> di halaman
+            Integrations untuk sambungin akun masing-masing — login 1×, semua
+            agent dapet akses.
+          </p>
         </section>
       )}
 
@@ -295,33 +297,34 @@ export function OnboardingWizard({
   );
 }
 
-function ToolRow({
+function ConnectorBadge({
   emoji,
   name,
-  sub,
   connected,
+  muted,
 }: {
   emoji: string;
   name: string;
-  sub: string;
-  connected: boolean;
+  connected?: boolean;
+  muted?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
-      <span className="text-2xl">{emoji}</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-900">{name}</p>
-        <p className="text-xs text-slate-500">{sub}</p>
-      </div>
-      {connected ? (
-        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-          ✓ Connected
-        </span>
-      ) : (
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-          Skip for now
+    <div
+      className={`relative flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-white px-3 py-3 ${
+        connected
+          ? "border-emerald-200 bg-emerald-50/50"
+          : muted
+            ? "border-slate-200 opacity-50"
+            : "border-slate-200"
+      }`}
+    >
+      {connected && (
+        <span className="absolute right-1.5 top-1.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[8px] font-medium text-emerald-700">
+          ✓
         </span>
       )}
+      <span className="text-2xl">{emoji}</span>
+      <span className="text-[11px] font-medium text-slate-700">{name}</span>
     </div>
   );
 }
