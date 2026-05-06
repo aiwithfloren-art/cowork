@@ -72,36 +72,36 @@ export default async function OnboardingPage({
   // don't yet exist — seeded during finalize itself).
   const starterOptions = [
     {
-      id: "HR Onboarding",
-      name: "HR Onboarding",
-      emoji: "👥",
+      id: "Campaign Generator",
+      name: "Campaign Generator",
+      emoji: "🚀",
       description:
-        "Bantu onboarding karyawan baru: checklist, reminder, welcome email, track first-week.",
-      tools_preview: "tasks · calendar · gmail",
+        "Killer demo: 1 brief manager → 5 deliverable (brief, carousel, LinkedIn, email, Twitter thread) auto-generated.",
+      tools_preview: "carousel · gdoc · artifacts · web_search",
     },
     {
-      id: "Sales Follow-up",
-      name: "Sales Follow-up",
-      emoji: "💼",
+      id: "Content Creator",
+      name: "Content Creator",
+      emoji: "🎨",
       description:
-        "Draft follow-up email ke prospect, schedule next-touch, update catatan CRM.",
-      tools_preview: "gmail · calendar · notes",
+        "Bikin carousel + caption + hashtag yang match brand tone — set sekali, request bebas.",
+      tools_preview: "carousel · web_search · notes",
     },
     {
-      id: "Meeting Prep",
-      name: "Meeting Prep",
-      emoji: "📅",
+      id: "Lead Gen",
+      name: "Lead Gen",
+      emoji: "🎯",
       description:
-        "Siapin briefing singkat sebelum meeting: agenda, attendees, action item lalu.",
-      tools_preview: "calendar · drive · notes",
+        "Cari prospect by industry / city, fill ke Google Sheet, siap follow-up.",
+      tools_preview: "web_search · gsheet · gmail",
     },
     {
-      id: "Content Drafter",
-      name: "Content Drafter",
-      emoji: "📝",
+      id: "Coder",
+      name: "Coder",
+      emoji: "💻",
       description:
-        "Draft post social media, caption, email marketing sesuai brand tone.",
-      tools_preview: "web_search · generate_image · notes",
+        "Bikin landing page / web app, deploy ke Vercel, push ke GitHub.",
+      tools_preview: "github · deploy · gdoc",
     },
   ];
 

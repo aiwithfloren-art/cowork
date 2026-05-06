@@ -115,6 +115,7 @@ export async function POST(req: Request) {
     "Lead Gen",
     "Content Creator",
     "Coder",
+    "Campaign Generator",
   ]);
   if (body.starter_template_name) {
     autoInstallNames.add(body.starter_template_name);
