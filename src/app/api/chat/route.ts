@@ -541,17 +541,38 @@ When the user says a time without a date (e.g. "jam 22:00", "besok pagi", "tomor
     }
 
     if (!text) {
-      console.error("chat: empty text", {
+      // Empty text typically means the model finished with finishReason=
+      // 'tool-calls' but the step cap was hit before it could synthesize
+      // a final reply, OR a reasoning model returned only thinking blocks
+      // that got stripped. Instead of failing the user with a red error,
+      // ship a friendly fallback so the conversation keeps moving.
+      console.error("chat: empty text — using friendly fallback", {
         steps: result.steps?.length,
         finishReason: result.finishReason,
+        toolsCalled: toolsCalled.length,
       });
-      return NextResponse.json(
-        {
-          error:
-            "The AI didn't return a text response. Try rephrasing, or ask a simpler question.",
-        },
-        { status: 500 },
+      const greetingHints = /^\s*(hi|hai|halo|hello|hey|p|pagi|siang|sore|malam|test|coba)\b/i.test(
+        lastUser.content,
       );
+      const capabilityQuestion =
+        /(bisa apa|kamu bisa|kemampuan|apa aja|what can you|capabilities|fungsi|fitur|tool|features)/i.test(
+          lastUser.content,
+        );
+      if (greetingHints || capabilityQuestion) {
+        text =
+          "Halo! Aku **Sigap** — AI assistant kamu. Aku bisa:\n\n" +
+          "- 📅 **Kalender + tasks** — cek schedule, bikin event, manage to-do\n" +
+          "- 📧 **Email** — baca, ringkas, draft & kirim email\n" +
+          "- 📁 **Dokumen** — cari & ringkas Google Drive files\n" +
+          "- 🌐 **Web research** — cari info terkini di internet\n" +
+          "- 🎨 **Bikin konten** — carousel, gambar, copy social media\n" +
+          "- 🤖 **Bikin agent** — *\"bikin agent buat content marketing\"* dan aku bikin AI specialist khusus\n" +
+          "- 🔌 **Connect tools** — Canva, Notion, Slack, GitHub, Linear di /integrations\n\n" +
+          "Apa yang mau kamu kerjain hari ini?";
+      } else {
+        text =
+          "Hmm, aku belum bisa kasih jawaban yang pas. Bisa kasih lebih detail apa yang kamu mau? Atau coba @mention agent spesifik (mis. *@content-creator*) kalau request-nya spesialis.";
+      }
     }
 
     // Anti-hallucination guard: when a small/cheap model invents storage
