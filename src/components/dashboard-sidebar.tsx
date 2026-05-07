@@ -48,11 +48,19 @@ export function DashboardSidebar({
   };
 
   function newChat() {
-    router.push("/dashboard");
+    // Full nav so the Chat component remounts with empty state.
+    if (typeof window !== "undefined") {
+      window.location.href = "/dashboard";
+    }
   }
 
   function resume(pivotId: string) {
-    router.push(`/dashboard?resume=${pivotId}`);
+    // Full reload required — Chat keeps its messages state across
+    // client-side query-param changes, so router.push wouldn't actually
+    // load the resumed session. window.location.href forces a remount.
+    if (typeof window !== "undefined") {
+      window.location.href = `/dashboard?resume=${pivotId}`;
+    }
   }
 
   return (
